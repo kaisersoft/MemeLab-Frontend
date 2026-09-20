@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MemeLab — On-chain Market Intelligence</title>
+  <meta name="description" content="MemeLab frontend prototype — on-chain market intelligence, lifecycle and risk engine.">
+  <link rel="icon" href="./assets/memelab-logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand-block">
+        <div class="brand-row">
+          <h1>VOLT<span>DESK 2.0</span> <b>/</b> MEMELAB</h1>
+          <div class="live-pill"><i></i> ON-CHAIN LIVE</div>
+        </div>
+        <p>On-chain market intelligence · lifecycle &amp; risk engine</p>
+      </div>
+      <nav class="main-nav" aria-label="Primary">
+        <button class="nav-btn active" data-view="memelab">MemeLab</button>
+        <button class="nav-btn" data-view="watchlist">Watchlist</button>
+        <button class="nav-btn" data-view="position">Position Intelligence</button>
+        <button class="nav-btn" data-view="engine">Engine</button>
+      </nav>
+    </header>
+
+    <section class="dashboard" id="dashboard">
+      <section class="panel discovery">
+        <div class="panel-head">
+          <div>
+            <h2>New Token Discovery</h2>
+            <span>Scanning Solana pairs</span>
+          </div>
+          <span class="muted" id="scan-time">Last scan · 14 sec ago</span>
+        </div>
+
+        <div class="token-grid">
+          <button class="token-card selected" data-token="ESOL">
+            <strong>ESOL</strong><span>Solana · new pair</span>
+            <div><label>Liquidity</label><b class="positive">$428K</b></div>
+            <div><label>Momentum</label><b>87</b></div>
+          </button>
+          <button class="token-card" data-token="NOVA">
+            <strong>NOVA</strong><span>Solana · 2m old</span>
+            <div><label>Liquidity</label><b>$91K</b></div>
+            <div><label>Momentum</label><b>74</b></div>
+          </button>
+          <button class="token-card" data-token="MOONX">
+            <strong>MOONX</strong><span>Solana · 7m old</span>
+            <div><label>Liquidity</label><b>$37K</b></div>
+            <div><label>Momentum</label><b class="warning">58</b></div>
+          </button>
+        </div>
+
+        <div class="lifecycle" aria-label="Asset lifecycle">
+          <button class="life active"><b>01</b><span>Discover</span></button>
+          <button class="life active"><b>02</b><span>Screen</span></button>
+          <button class="life active"><b>03</b><span>Watch</span></button>
+          <button class="life"><b>04</b><span>Monitor</span></button>
+          <button class="life"><b>05</b><span>Position</span></button>
+          <button class="life"><b>06</b><span>Exit</span></button>
+        </div>
+      </section>
+
+      <section class="panel intelligence">
+        <div class="panel-head">
+          <div><h2>Intelligence Score</h2></div>
+          <span class="asset-tag" id="score-token">ESOL</span>
+        </div>
+        <div class="score-row"><strong id="score">87 / 100</strong><span>Composite market &amp; risk signal</span></div>
+        <div class="metrics">
+          <div class="metric"><span>Liquidity quality <b id="m-liq">92</b></span><i><em style="width:92%"></em></i></div>
+          <div class="metric"><span>Volume acceleration <b id="m-vol">88</b></span><i><em style="width:88%"></em></i></div>
+          <div class="metric"><span>Holder structure <b id="m-holder">79</b></span><i><em style="width:79%"></em></i></div>
+          <div class="metric"><span>Social momentum <b id="m-social">91</b></span><i><em style="width:91%"></em></i></div>
+          <div class="metric risk"><span>Collapse risk <b id="m-risk">34</b></span><i><em style="width:34%"></em></i></div>
+        </div>
+      </section>
+
+      <section class="panel chart-panel">
+        <div class="panel-head">
+          <div><h2>Live Market Structure</h2></div>
+          <span class="muted" id="chart-label">ESOL / SOL · 15m</span>
+        </div>
+        <div class="chart-wrap">
+          <svg viewBox="0 0 800 260" preserveAspectRatio="none" role="img" aria-label="Illustrative market structure chart">
+            <defs>
+              <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#75c8ff" stop-opacity=".16"/>
+                <stop offset="1" stop-color="#75c8ff" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path class="gridline" d="M0 58H800M0 130H800M0 202H800"/>
+            <path id="chart-area" fill="url(#area)" d="M0 214 L55 205 L100 218 L150 175 L200 190 L245 130 L300 151 L350 108 L405 136 L455 82 L510 100 L565 54 L620 92 L670 35 L725 66 L800 22 L800 240 L0 240 Z"/>
+            <path id="chart-line" d="M0 214 L55 205 L100 218 L150 175 L200 190 L245 130 L300 151 L350 108 L405 136 L455 82 L510 100 L565 54 L620 92 L670 35 L725 66 L800 22"/>
+          </svg>
+        </div>
+        <div class="risk-note"><b>Risk engine:</b> momentum remains positive, but concentration and liquidity deterioration would trigger an exit review.</div>
+      </section>
+
+      <section class="panel social">
+        <div class="panel-head">
+          <div><h2>Social Signal</h2></div>
+          <span class="muted">X / on-chain correlation</span>
+        </div>
+        <div class="signal-table">
+          <div><span>Mentions</span><b class="positive">Accelerating</b></div>
+          <div><span>Velocity</span><b class="positive">High</b></div>
+          <div><span>Unique accounts</span><b>Rising</b></div>
+          <div><span>Sentiment</span><b>Mixed</b></div>
+          <div><span>Bot concentration</span><b class="warning">Elevated</b></div>
+        </div>
+      </section>
+
+      <footer class="prototype-note">Frontend prototype · illustrative interface · not live market data. The product hypothesis is the lifecycle engine, not the chart itself.</footer>
+    </section>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>
