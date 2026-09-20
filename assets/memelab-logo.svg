@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+  <title id="title">MemeLab</title>
+  <desc id="desc">Futuristic dark space logo with a blue-violet orbit around a dark planet and the MemeLab wordmark.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="72%"><stop offset="0" stop-color="#111528"/><stop offset="1" stop-color="#03050b"/></radialGradient>
+    <radialGradient id="planet" cx="34%" cy="28%" r="78%"><stop offset="0" stop-color="#172238"/><stop offset=".5" stop-color="#080d18"/><stop offset="1" stop-color="#02040a"/></radialGradient>
+    <linearGradient id="orbit" x1="0%" y1="80%" x2="100%" y2="20%"><stop offset="0" stop-color="#8ed8ff"/><stop offset=".38" stop-color="#5ea8ff"/><stop offset=".72" stop-color="#9a5cff"/><stop offset="1" stop-color="#b35cff"/></linearGradient>
+    <linearGradient id="lab" x1="0%" y1="50%" x2="100%" y2="50%"><stop offset="0" stop-color="#55c9ff"/><stop offset=".55" stop-color="#647dff"/><stop offset="1" stop-color="#b44cff"/></linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#4f7dff" stop-opacity=".8"/><stop offset=".45" stop-color="#7c42ff" stop-opacity=".28"/><stop offset="1" stop-color="#7c42ff" stop-opacity="0"/></radialGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="18"/></filter><filter id="soft"><feGaussianBlur stdDeviation="5"/></filter>
+  </defs>
+  <rect width="1200" height="1200" fill="url(#bg)"/>
+  <ellipse cx="410" cy="650" rx="230" ry="150" fill="url(#glow)" filter="url(#blur)"/>
+  <circle cx="600" cy="500" r="265" fill="url(#planet)" stroke="#26334d" stroke-width="2"/>
+  <ellipse cx="600" cy="500" rx="268" ry="265" fill="none" stroke="#5d76a4" stroke-opacity=".22" stroke-width="3"/>
+  <ellipse cx="600" cy="500" rx="475" ry="145" transform="rotate(-25 600 500)" fill="none" stroke="#27395f" stroke-opacity=".35" stroke-width="11"/>
+  <ellipse cx="600" cy="500" rx="475" ry="145" transform="rotate(-25 600 500)" fill="none" stroke="url(#orbit)" stroke-width="5"/>
+  <ellipse cx="600" cy="500" rx="475" ry="145" transform="rotate(-25 600 500)" fill="none" stroke="#9edcff" stroke-opacity=".35" stroke-width="10" filter="url(#soft)"/>
+  <circle cx="1000" cy="270" r="8" fill="#dff6ff"/><circle cx="1000" cy="270" r="25" fill="#5fa8ff" opacity=".28" filter="url(#blur)"/>
+  <circle cx="420" cy="660" r="18" fill="#d8f7ff"/><circle cx="420" cy="660" r="70" fill="#4f7dff" opacity=".2" filter="url(#blur)"/>
+  <text x="600" y="900" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="126" font-weight="700" letter-spacing="-5"><tspan fill="#f7fbff">Meme</tspan><tspan fill="url(#lab)">Lab</tspan></text>
+  <text x="600" y="952" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="500" letter-spacing="8" fill="#72cfff">DISCOVER · ANALYZE · TRADE · THE NEXT</text>
+</svg>
