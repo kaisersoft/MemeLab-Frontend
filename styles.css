@@ -1,0 +1,45 @@
+/* MemeLab frontend styles */
+:root{
+  --bg:#05090d;--panel:#0b151d;--panel2:#0f1c25;--line:#223542;
+  --text:#e6edf4;--muted:#8293a2;--blue:#83c7e8;--blue2:#4e86a8;
+  --green:#69d8ad;--gold:#e6b24e;--red:#ef8f7f;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -10%,#14202c 0,#071018 34%,var(--bg) 72%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button{font:inherit;color:inherit}
+body{padding:24px}
+.app-shell{max-width:1500px;margin:auto;background:rgba(8,18,25,.95);border:1px solid #263945;border-radius:28px;box-shadow:0 30px 90px rgba(0,0,0,.45);overflow:hidden}
+.topbar{padding:28px 34px 20px;border-bottom:1px solid var(--line)}
+.brand-row{display:flex;align-items:center;justify-content:space-between;gap:20px}
+h1{font-size:28px;letter-spacing:.4px;margin:0;font-weight:800}
+h1 span{color:#8b9aa7;font-weight:500}
+h1 b{color:#657583;font-weight:400}
+.brand-block p{margin:12px 0 0;color:#8193a2;font-size:18px}
+.live-pill{border:1px solid #246b4f;background:#09261d;color:#71d9b0;border-radius:999px;padding:10px 16px;font-size:14px;white-space:nowrap}
+.live-pill i{display:inline-block;width:10px;height:10px;background:#6dd8af;border-radius:50%;margin-right:8px;box-shadow:0 0 12px rgba(109,216,175,.5)}
+.main-nav{display:flex;gap:10px;margin-top:28px;flex-wrap:wrap}
+.nav-btn{border:1px solid #273b49;background:#0e1a23;border-radius:12px;padding:12px 18px;color:#9aacba;cursor:pointer;transition:.18s}
+.nav-btn:hover,.nav-btn.active{background:#182b38;color:#e5edf3;border-color:#496273}
+.dashboard{padding:28px;display:grid;grid-template-columns:1.65fr 1fr;gap:22px}
+.panel{background:linear-gradient(145deg,#0d1922,#0a141c);border:1px solid #263a48;border-radius:20px;padding:22px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px}
+h2{font-size:20px;margin:0 0 5px}
+.panel-head span{color:var(--muted)}
+.muted{font-size:14px;white-space:nowrap}
+.discovery{min-height:420px}.token-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.token-card{border:1px solid #223847;background:#0d1b25;border-radius:16px;padding:18px;text-align:left;cursor:pointer;transition:.18s}
+.token-card:hover,.token-card.selected{border-color:#688da1;background:#142531}
+.token-card strong{display:block;font-size:21px}.token-card>span{display:block;color:#7f919f;font-size:14px;margin:8px 0 22px}
+.token-card div{display:flex;justify-content:space-between;margin-top:12px}.token-card label{color:#d3dde4}.positive{color:var(--green)!important}.warning{color:var(--gold)!important}
+.lifecycle{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:18px}
+.life{border:1px solid #273c4a;background:#0d1922;border-radius:13px;padding:13px 8px;cursor:pointer}
+.life.active{background:#112531;border-color:#55798c}.life b,.life span{display:block}.life span{color:#92a2ad;font-size:14px;margin-top:7px}
+.intelligence{min-height:420px}.asset-tag{background:#142a35!important;color:#9caebb!important;border-radius:7px;padding:8px 10px;font-size:18px}
+.score-row strong{display:block;font-size:38px;margin-top:20px}.score-row span{display:block;color:#8294a2;margin-top:8px}
+.metrics{margin-top:25px}.metric{margin:18px 0}.metric span{display:flex;justify-content:space-between;color:#d4dde3}.metric i{display:block;height:8px;background:#20313d;border-radius:8px;margin-top:10px;overflow:hidden}.metric em{display:block;height:100%;background:#8db3c7;border-radius:8px}.metric.risk em{background:#bf796e}
+.chart-panel{min-height:430px}.chart-wrap{height:260px;border-radius:14px;background:#0a151d;padding:8px 0}.chart-wrap svg{width:100%;height:100%}.gridline{stroke:#20323f;stroke-width:1}.chart-wrap path:not(.gridline):not(#chart-area){fill:none;stroke:#9bc0d0;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.risk-note{margin-top:12px;background:#151d22;border-left:4px solid var(--gold);padding:14px 16px;color:#bdc8cf;line-height:1.45}
+.signal-table>div{display:grid;grid-template-columns:1fr 1fr;padding:15px 10px;border-bottom:1px solid #1e303b}.signal-table>div:last-child{border-bottom:0}.signal-table b{font-weight:500}
+.prototype-note{grid-column:1/-1;color:#667885;font-size:13px;padding:0 2px 4px}
+@media(max-width:900px){body{padding:0}.app-shell{border-radius:0}.dashboard{grid-template-columns:1fr;padding:16px}.token-grid{grid-template-columns:1fr}.lifecycle{grid-template-columns:repeat(3,1fr)}.brand-row{align-items:flex-start}.live-pill{font-size:12px}.topbar{padding:22px 20px}.brand-block p{font-size:15px}.chart-panel,.social,.discovery,.intelligence{min-height:auto}}
+@media(max-width:560px){h1{font-size:20px}.dashboard{gap:14px}.panel{padding:17px;border-radius:16px}.lifecycle{grid-template-columns:repeat(2,1fr)}.brand-row{display:block}.live-pill{display:inline-block;margin-top:16px}}
