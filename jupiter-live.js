@@ -1,14 +1,12 @@
-/* MemeLab Jupiter mainnet bridge — frontend-only integration layer.
-   The Jupiter API key remains server-side. Browser calls MemeLab's backend proxy. */
+/* MemeLab Jupiter mainnet feed presentation.
+   Jupiter API access stays server-side; the browser consumes MemeLab's proxy. */
 (() => {
   const apiBase = window.MEMELAB_API_URL || "http://127.0.0.1:8765/api";
   let tokens = [];
   let selectedMint = null;
-
   const $ = (s) => document.querySelector(s);
-  const pct = (v) => Math.round(Math.max(0, Math.min(1, Number(v) || 0)) * 100);
-  const score = (v) => Math.round(Number(v) || 0);
   const shortMint = (m) => !m ? "—" : m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5);
+  const score = (v) => Number.isFinite(Number(v)) ? Math.round(Number(v)) : null;
   const usd = (v) => {
     const n = Number(v);
     if (!Number.isFinite(n)) return "—";
@@ -18,15 +16,12 @@
     if (Math.abs(n) >= 1) return "$"+n.toFixed(2);
     return "$"+n.toExponential(2);
   };
-  const lifecycle = (t) => {
-    const s=t?.stats24h||{};
-    return t?.firstPool && Number(s.volume||0)>0 && Number(t.liquidity||0)>0 && Number(s.numTraders||0)>=10 ? "EMERGING" : "DISCOVERED";
+  const stats24h = (t) => t?.stats24h || {};
+  const organic = (t) => {
+    const v=t?.organicScore;
+    return v === null || v === undefined || v === "" ? "—" : (score(v) ?? "—")+"/100";
   };
-  const activity = (t) => {
-    const s=t?.stats24h||{}, v=Number(s.volume||0), l=Number(t?.liquidity||0);
-    const trades=Number(s.numBuys||0)+Number(s.numSells||0);
-    return Math.min(1,(l>0?Math.min(1,v/l):0)*.65+Math.min(1,trades/500)*.35);
-  };
+  const lifecycle = () => "DISCOVERED";
 
   function render() {
     const grid=$(".token-grid");
@@ -34,25 +29,37 @@
     grid.innerHTML=tokens.slice(0,3).map((t,i) => {
       const selected=t.mint===selectedMint || (!selectedMint && i===0);
       const solscan="https://solscan.io/token/"+encodeURIComponent(t.mint);
+      const s=stats24h(t);
       return '<article class="token-card '+(selected?"selected":"")+'" data-token="'+t.mint+'">'+
         '<strong>'+(t.symbol||shortMint(t.mint))+'</strong>'+
         '<span>'+(t.name||"Solana token")+'</span>'+
         '<small class="token-chain">Solana Mainnet · '+lifecycle(t)+'</small>'+
-        '<div><label>Liquidity</label><b class="'+(Number(t.liquidity||0)>=10000?"positive":"warning")+'">'+usd(t.liquidity)+'</b></div>'+
-        '<div><label>24h Volume</label><b>'+usd(t.stats24h?.volume)+'</b></div>'+
-        '<div><label>Jupiter Organic</label><b>'+score(t.organicScore)+'/100</b></div>'+
+        '<div><label>Liquidity</label><b>'+usd(t.liquidity)+'</b></div>'+
+        '<div><label>24h Volume</label><b>'+usd(s.volume)+'</b></div>'+
+        '<div><label>Jupiter Organic</label><b>'+organic(t)+'</b></div>'+
         '<a class="token-mint" href="'+solscan+'" target="_blank" rel="noopener noreferrer" title="'+t.mint+'">Mint '+shortMint(t.mint)+' ↗</a>'+
         '</article>';
     }).join("");
-    grid.querySelectorAll(".token-card").forEach(card=>card.addEventListener("click",()=>{selectedMint=card.dataset.token;render();}));
-    const label=$("#market-universe-label"); if(label){label.textContent="Jupiter · Recent";label.title="Solana Mainnet discovery feed via MemeLab backend";}
+
+    grid.querySelectorAll(".token-card").forEach(card => {
+      card.addEventListener("click", () => { selectedMint=card.dataset.token; render(); });
+    });
+
+    const label=$("#market-universe-label");
+    if(label){label.textContent="Jupiter · Recent";label.title="30 current records from Jupiter Tokens V2 recent feed on Solana Mainnet.";}
     const total=$("#market-total-tokens"); if(total) total.textContent=tokens.length.toLocaleString();
-    const active=$("#market-active-tokens"); if(active) active.textContent=tokens.filter(t=>activity(t)>0).length.toLocaleString();
-    const candidates=$("#market-candidates"); if(candidates) candidates.textContent=tokens.filter(t=>lifecycle(t)==="EMERGING").length.toLocaleString();
-    const act=$("#market-activity"); if(act) act.textContent=pct(tokens.length?tokens.reduce((a,t)=>a+activity(t),0)/tokens.length:0);
-    const sub=document.querySelector(".discovery .panel-head > div > span"); if(sub) sub.textContent="Solana Mainnet · Jupiter Recent";
-    const scan=$("#scan-time"); if(scan) scan.textContent="Jupiter Recent · "+tokens.length+" tokens · "+new Date().toLocaleTimeString();
-    const note=$(".risk-note"); if(note) note.innerHTML="<b>Universe:</b> live Jupiter Recent feed on Solana Mainnet · "+tokens.length+" records. Jupiter Organic Score is an external signal, not MemeLab intelligence.";
+    const active=$("#market-active-tokens"); if(active) active.textContent=tokens.filter(t => {
+      const s=stats24h(t);
+      return Number(s.numBuys||0)+Number(s.numSells||0) > 0;
+    }).length.toLocaleString();
+    const candidates=$("#market-candidates"); if(candidates) candidates.textContent="—";
+    const activity=$("#market-activity"); if(activity) activity.textContent="—";
+    const sub=document.querySelector(".discovery .panel-head > div > span");
+    if(sub) sub.textContent="Solana Mainnet · Jupiter Recent";
+    const scan=$("#scan-time");
+    if(scan) scan.textContent="Jupiter Recent · "+tokens.length+" records · "+new Date().toLocaleTimeString();
+    const note=$(".risk-note");
+    if(note) note.innerHTML="<b>Universe:</b> Jupiter Recent is a source feed, not yet the MemeLab candidate engine. Lifecycle is currently DISCOVERED until MemeLab has sufficient independent history.";
   }
 
   async function load() {
@@ -68,7 +75,7 @@
     }
   }
 
-  window.MEMELAB_JUPITER = { refresh: load };
+  window.MEMELAB_JUPITER={refresh:load};
   load();
   setInterval(load,5000);
 })();
