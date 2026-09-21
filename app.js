@@ -49,9 +49,9 @@ function setMetric(id,value) {
 }
 
 function renderChart(token) {
-  const line=$("#chart-line"), area=$("#chart-area"), zero=$("#chart-zero");
+  const line=$("#chart-line"), area=$("#chart-area");
   if(!line||!area||!token)return;
-  renderChartHistory(token,{points:marketHistory});
+  renderMarketChart(marketHistory, token, {live:true, windowLabel:"1h"});
 }
 
 function renderChartHistory(token,data){
@@ -132,6 +132,7 @@ function renderSelectedToken(token) {
 }
 async function selectMarketToken(mint){
   externalSelectedMint=mint;
+  marketHistory=[];
   const token=(Array.isArray(window.MEMELAB_JUPITER_TOKENS)?window.MEMELAB_JUPITER_TOKENS.find(t=>t.mint===mint):null)
     || (Array.isArray(snapshot?.tokens)?snapshot.tokens:[]).find(t=>t.mint===mint);
   if(token) renderSelectedToken(token);
