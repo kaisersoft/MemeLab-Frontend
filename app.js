@@ -7,6 +7,7 @@ let snapshot = null;
 let selectedMint = null;
 let externalSelectedMint = null;
 let marketHistoryRequest = 0;
+let marketHistory = [];
 
 function shortMint(m) { if (!m) return "—"; return m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5); }
 function pct(v) { return Math.round(Math.max(0,Math.min(1,Number(v)||0))*100); }
@@ -41,14 +42,14 @@ function setMetric(id,value) {
 function renderChart(token) {
   const line=$("#chart-line"), area=$("#chart-area"), zero=$("#chart-zero");
   if(!line||!area||!token)return;
-  const values=Array.isArray(token?.market_history)?token.market_history:[];
-  renderChartHistory(token,{points:values});
+  renderChartHistory(token,{points:marketHistory});
 }
 
 function renderChartHistory(token,data){
   const line=$("#chart-line"), area=$("#chart-area"), zero=$("#chart-zero");
   if(!line||!area)return;
   const pointsData=Array.isArray(data?.points)?data.points:[];
+  marketHistory=pointsData;
   const values=pointsData.map(p=>Number(p?.net_flow)).filter(Number.isFinite);
   const netEl=$("#chart-net-flow"), windowEl=$("#chart-window"), dataEl=$("#chart-data");
   const last=values.length?values[values.length-1]:null;
