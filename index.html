@@ -33,26 +33,10 @@
             <h2>New Token Discovery</h2>
             <span>Scanning Solana pairs</span>
           </div>
-          <span class="muted" id="scan-time">Last scan · 14 sec ago</span>
+          <span class="muted" id="scan-time">Waiting for live events</span>
         </div>
 
-        <div class="token-grid">
-          <button class="token-card selected" data-token="ESOL">
-            <strong>ESOL</strong><span>Solana · new pair</span>
-            <div><label>Liquidity</label><b class="positive">$428K</b></div>
-            <div><label>Momentum</label><b>87</b></div>
-          </button>
-          <button class="token-card" data-token="NOVA">
-            <strong>NOVA</strong><span>Solana · 2m old</span>
-            <div><label>Liquidity</label><b>$91K</b></div>
-            <div><label>Momentum</label><b>74</b></div>
-          </button>
-          <button class="token-card" data-token="MOONX">
-            <strong>MOONX</strong><span>Solana · 7m old</span>
-            <div><label>Liquidity</label><b>$37K</b></div>
-            <div><label>Momentum</label><b class="warning">58</b></div>
-          </button>
-        </div>
+        <div class="token-grid"></div>
 
         <div class="lifecycle" aria-label="Asset lifecycle">
           <button class="life active"><b>01</b><span>Discover</span></button>
@@ -71,11 +55,11 @@
         </div>
         <div class="score-row"><strong id="score">87 / 100</strong><span>Composite market &amp; risk signal</span></div>
         <div class="metrics">
-          <div class="metric"><span>Liquidity signal <b id="m-liq">—</b></span><i><em style="width:92%"></em></i></div>
-          <div class="metric"><span>Activity <b id="m-vol">—</b></span><i><em style="width:88%"></em></i></div>
-          <div class="metric"><span>Actor growth <b id="m-holder">—</b></span><i><em style="width:79%"></em></i></div>
-          <div class="metric"><span>Confidence <b id="m-social">—</b></span><i><em style="width:91%"></em></i></div>
-          <div class="metric risk"><span>Risk engine <b id="m-risk">—</b></span><i><em style="width:34%"></em></i></div>
+          <div class="metric"><span>Liquidity signal <b id="m-liq">—</b></span><i><em></em></i></div>
+          <div class="metric"><span>Activity <b id="m-vol">—</b></span><i><em></em></i></div>
+          <div class="metric"><span>Actor growth <b id="m-holder">—</b></span><i><em></em></i></div>
+          <div class="metric"><span>Confidence <b id="m-social">—</b></span><i><em></em></i></div>
+          <div class="metric risk"><span>Risk engine <b id="m-risk">—</b></span><i><em></em></i></div>
         </div>
       </section>
 
@@ -85,7 +69,7 @@
           <span class="muted" id="chart-label">ESOL / SOL · 15m</span>
         </div>
         <div class="chart-wrap">
-          <svg viewBox="0 0 800 260" preserveAspectRatio="none" role="img" aria-label="Illustrative market structure chart">
+          <svg viewBox="0 0 800 260" preserveAspectRatio="none" role="img" aria-label="Live market structure chart">
             <defs>
               <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stop-color="#75c8ff" stop-opacity=".16"/>
@@ -93,8 +77,8 @@
               </linearGradient>
             </defs>
             <path class="gridline" d="M0 58H800M0 130H800M0 202H800"/>
-            <path id="chart-area" fill="url(#area)" d="M0 214 L55 205 L100 218 L150 175 L200 190 L245 130 L300 151 L350 108 L405 136 L455 82 L510 100 L565 54 L620 92 L670 35 L725 66 L800 22 L800 240 L0 240 Z"/>
-            <path id="chart-line" d="M0 214 L55 205 L100 218 L150 175 L200 190 L245 130 L300 151 L350 108 L405 136 L455 82 L510 100 L565 54 L620 92 L670 35 L725 66 L800 22"/>
+            <path id="chart-area" fill="url(#area)" d="M0 240 L0 220 L800 220 L800 240 Z"/>
+            <path id="chart-line" d="M0 220 L800 220"/>
           </svg>
         </div>
         <div class="risk-note"><b>Market context:</b> waiting for live Solana data.</div>
