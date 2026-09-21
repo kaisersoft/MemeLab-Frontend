@@ -84,6 +84,33 @@
         </div>
 
         <div class="source-status" id="source-status">Source · waiting</div>
+        <div class="diagnostics-panel" id="discovery-diagnostics">
+          <div class="diagnostics-head"><strong>Discovery Diagnostics</strong><span>system telemetry</span></div>
+          <div class="diagnostics-grid">
+            <div><span>Discovery scope</span><b id="dbg-scope">—</b></div>
+            <div><span>Jupiter Recent</span><b id="dbg-recent">—</b></div>
+            <div><span>Scope records</span><b id="dbg-scope-records">—</b></div>
+            <div><span>MemeLab Universe</span><b id="dbg-universe">—</b></div>
+            <div><span>EMERGING</span><b id="dbg-emerging">—</b></div>
+            <div><span>ACTIVE</span><b id="dbg-active">—</b></div>
+            <div><span>Permanent Watchlist</span><b id="dbg-watchlist">—</b></div>
+            <div><span>Watchlist scan</span><b id="dbg-watch-scan">—</b></div>
+          </div>
+          <div class="diagnostics-top3"><span>Current Top 3 EMERGING</span><b id="dbg-top3">—</b></div>
+        </div>
+      </section>
+
+      <section class="panel watchlist-panel" id="watchlist-panel" hidden>
+        <div class="panel-head">
+          <div><h2>Watchlist</h2><span>System-managed · all tokens ever ranked Top 3 in EMERGING</span></div>
+          <span class="asset-tag" id="watchlist-count">0</span>
+        </div>
+        <div class="watchlist-table-wrap">
+          <table class="watchlist-table">
+            <thead><tr><th>Token</th><th>Lifecycle</th><th>Top 3 since</th><th>Top 3 hits</th><th>Observations</th><th>Trades</th><th>10/12</th><th>Next status</th></tr></thead>
+            <tbody id="watchlist-body"></tbody>
+          </table>
+        </div>
       </section>
 
       <section class="panel intelligence">
@@ -146,7 +173,7 @@
     </section>
   </main>
   <script src="./build-info.js?v=20260921-2035"></script>
-  <script src="./app.js?v=20260921-2200"></script>
-  <script src="./jupiter-live.js?v=20260921-2200"></script>
+  <script src="./app.js?v=20260921-2300"></script>
+  <script src="./jupiter-live.js?v=20260921-2300"></script>
 </body>
 </html>
