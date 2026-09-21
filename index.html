@@ -13,10 +13,19 @@
     <header class="topbar">
       <div class="brand-block">
         <div class="brand-row">
-          <h1>VOLT<span>DESK 2.0</span> <b>/</b> MEMELAB</h1>
+          <div class="brand-identity">
+            <img class="brand-logo" src="./assets/memelab-logo.svg" alt="MemeLab logo">
+            <div class="brand-copy">
+              <div class="title-line">
+                <h1>VOLT<span>DESK 2.0</span> <b>/</b> MEMELAB</h1>
+                <span class="build-badge" id="build-badge">V0.01 · Build — · —</span>
+              </div>
+              <p>On-chain market intelligence · lifecycle &amp; risk engine</p>
+            </div>
+          </div>
           <div class="live-pill"><i></i> ON-CHAIN LIVE</div>
         </div>
-        <p>On-chain market intelligence · lifecycle &amp; risk engine</p>
+        <div class="build-meta" id="build-meta">Build information loading…</div>
       </div>
       <nav class="main-nav" aria-label="Primary">
         <button class="nav-btn active" data-view="memelab">MemeLab</button>
@@ -102,11 +111,13 @@
           <div><span>Integration</span><b>Later phase</b></div>
           <div><span>On-chain data</span><b>Available</b></div>
           <div><span>Social intelligence</span><b>Not evaluated</b></div>
-        </div>      </section>
+        </div>
+      </section>
 
       <footer class="prototype-note">MemeLab · live Solana intelligence · risk and social intelligence follow in later development blocks.</footer>
     </section>
   </main>
+  <script src="./build-info.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
