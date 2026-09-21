@@ -87,8 +87,10 @@ function renderSnapshot(data) {
   // Discovery is owned exclusively by jupiter-live.js. The snapshot must never render token cards.
   renderMarketContext(data?.market);
   if(!tokens.length)return;
-  if(!selectedMint||!tokens.some(t=>t.mint===selectedMint))selectedMint=tokens[0].mint;
-  renderSelectedToken(tokens.find(t=>t.mint===selectedMint)||tokens[0]);
+  if(!(window.MEMELAB_JUPITER && window.MEMELAB_JUPITER.active)){
+    if(!selectedMint||!tokens.some(t=>t.mint===selectedMint))selectedMint=tokens[0].mint;
+    renderSelectedToken(tokens.find(t=>t.mint===selectedMint)||tokens[0]);
+  }
   const social=document.querySelector(".social");
   if(social){
     const sub=social.querySelector(".panel-head .muted");if(sub)sub.textContent="Not connected · separate development block";
