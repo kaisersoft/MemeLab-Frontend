@@ -16,7 +16,7 @@ function lifecycleLabel(v) {
 function formatTime(ts) { if(!ts)return "—"; const d=new Date(Number(ts)*1000); return Number.isNaN(d.getTime())?"—":d.toLocaleTimeString(); }
 
 
-function renderBuildInfo() {
+function renderBuildInfo(backendBuild) {
   const info=window.MEMELAB_BUILD||{};
   const version=info.version||"V0.01";
   const build=info.build||"—";
@@ -27,8 +27,8 @@ function renderBuildInfo() {
     : "—";
   const badge=$("#build-badge");
   const meta=$("#build-meta");
-  if(badge)badge.textContent=version+" · Build "+build+" · "+stamp;
-  if(meta)meta.textContent="Frontend build · "+version+" · Build "+build+" · "+stamp;
+  if(badge)badge.textContent="Frontend · "+version+" · Build "+build+" · "+stamp;
+  if(meta){ const backend=backendBuild||{}; const bDate=backend.built_at?new Date(backend.built_at):null; const bStamp=bDate&&!Number.isNaN(bDate.getTime())?bDate.toLocaleString("de-DE",{dateStyle:"short",timeStyle:"medium"}):"—"; meta.textContent="Frontend · "+version+" · Build "+build+" · "+stamp+"   |   Backend · "+(backend.version||"—")+" · Build "+(backend.build||"—")+" · "+bStamp; }
 }
 
 function setMetric(id,value) {
@@ -115,6 +115,7 @@ function renderMarketContext(market) {
 
 function renderSnapshot(data) {
   snapshot=data;
+  renderBuildInfo(data?.runtime?.build);
   const tokens=Array.isArray(data?.tokens)?data.tokens:[];
   renderDiscovery(tokens); renderMarketContext(data?.market);
   if(!tokens.length)return;
