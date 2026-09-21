@@ -91,7 +91,9 @@ function updateConnectionStatus(runtime) {
   live.classList.add("status-" + state);
   live.innerHTML = "<i></i> " + label;
   live.title = title;
-}\n\nfunction renderMarketContext(market) {
+}
+
+function renderMarketContext(market) {
   const regime=market?.regime||"—";
   const subtitle=document.querySelector(".discovery .panel-head > div > span"); if(subtitle)subtitle.textContent="Solana · "+regime;
   const scan=$("#scan-time"); if(scan)scan.textContent=snapshot?.runtime?.last_event_at?"Last event · "+formatTime(snapshot.runtime.last_event_at):"Waiting for live events";
