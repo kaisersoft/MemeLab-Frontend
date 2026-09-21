@@ -19,7 +19,6 @@ function formatTime(ts) { if(!ts)return "—"; const d=new Date(Number(ts)*1000)
 function renderBuildInfo(backendBuild) {
   const info=window.MEMELAB_BUILD||{};
   const version=info.version||"V0.01";
-  const build=info.build||"—";
   const raw=info.builtAt;
   const date=raw?new Date(raw):null;
   const stamp=date&&!Number.isNaN(date.getTime())
@@ -27,8 +26,8 @@ function renderBuildInfo(backendBuild) {
     : "—";
   const badge=$("#build-badge");
   const meta=$("#build-meta");
-  if(badge)badge.textContent="Frontend · "+version+" · Build "+build+" · "+stamp;
-  if(meta){ const backend=backendBuild||{}; const bDate=backend.built_at?new Date(backend.built_at):null; const bStamp=bDate&&!Number.isNaN(bDate.getTime())?bDate.toLocaleString("de-DE",{dateStyle:"short",timeStyle:"medium"}):"—"; meta.textContent="Frontend · "+version+" · Build "+build+" · "+stamp+"   |   Backend · "+(backend.version||"—")+" · Build "+(backend.build||"—")+" · "+bStamp; }
+  if(badge)badge.textContent="Frontend · "+version+" · "+stamp;
+  if(meta){ const backend=backendBuild||{}; const bDate=backend.built_at?new Date(backend.built_at):null; const bStamp=bDate&&!Number.isNaN(bDate.getTime())?bDate.toLocaleString("de-DE",{dateStyle:"short",timeStyle:"medium"}):"—"; meta.textContent="Frontend · "+version+" · "+stamp+"   |   Backend · "+(backend.version||"—")+" · "+bStamp; }
 }
 
 function setMetric(id,value) {
