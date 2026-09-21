@@ -131,7 +131,19 @@
       <section class="panel chart-panel" id="market-structure-panel">
         <div class="panel-head">
           <div><h2>Live Market Structure</h2></div>
-          <span class="muted" id="chart-label">— / SOL · live</span>
+          <span class="muted" id="chart-label">— / SOL · 1h history</span>
+        </div>
+        <div class="chart-window-controls" aria-label="Market structure history window">
+          <button class="chart-window-btn" type="button" data-window="1m" aria-pressed="false">1m</button>
+          <button class="chart-window-btn" type="button" data-window="5m" aria-pressed="false">5m</button>
+          <button class="chart-window-btn" type="button" data-window="15m" aria-pressed="false">15m</button>
+          <button class="chart-window-btn" type="button" data-window="30m" aria-pressed="false">30m</button>
+          <button class="chart-window-btn active" type="button" data-window="1h" aria-pressed="true">1h</button>
+          <button class="chart-window-btn" type="button" data-window="4h" aria-pressed="false">4h</button>
+          <button class="chart-window-btn" type="button" data-window="8h" aria-pressed="false">8h</button>
+          <button class="chart-window-btn" type="button" data-window="24h" aria-pressed="false">24h</button>
+          <button class="chart-window-btn" type="button" data-window="1w" aria-pressed="false">1W</button>
+          <button class="chart-window-btn" type="button" data-window="1mth" aria-pressed="false">1M</button>
         </div>
         <div class="chart-wrap">
           <svg viewBox="0 0 800 260" preserveAspectRatio="none" role="img" aria-label="Live market structure chart">
@@ -173,7 +185,7 @@
     </section>
   </main>
   <script src="./build-info.js?v=20260921-2035"></script>
-  <script src="./app.js?v=20260921-2300"></script>
+  <script src="./app.js?v=20260921-2350"></script>
   <script src="./jupiter-live.js?v=20260921-2300"></script>
 </body>
 </html>
