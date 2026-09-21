@@ -192,11 +192,20 @@ function renderMarketContext(market) {
   const monitoredEl=$("#meme-lab-monitored");
   const monitored=Number(window.MEMELAB_JUPITER_TOKENS?.length || 0);
   if(monitoredEl) monitoredEl.textContent=monitored?monitored.toLocaleString("de-DE"):"—";
+  const ratioFill=$("#market-ratio-fill");
+  const ratioPercent=$("#market-ratio-percent");
+  const share=effectiveCount>0 && monitored>0 ? monitored/effectiveCount*100 : 0;
+  if(ratioFill){
+    const visibleDegrees=Math.max(2,Math.min(360,share*3.6));
+    ratioFill.style.background="conic-gradient(from -90deg,#63c69f 0deg "+visibleDegrees.toFixed(2)+"deg,#15232c "+visibleDegrees.toFixed(2)+"deg 360deg)";
+    ratioFill.title=share.toFixed(3)+"% of total meme universe";
+  }
+  if(ratioPercent) ratioPercent.textContent=share<0.01 ? "<0.01%" : share.toFixed(2)+"%";
   if(updatedEl){
     updatedEl.textContent=universe.updated_at
       ? "Solscan · "+formatTime(universe.updated_at)
       : "Solscan · initial benchmark";
-    updatedEl.title=universe.stale && universe.error ? universe.error : "Weekly Solscan market-size snapshot";
+    updatedEl.title=universe.stale && universe.error ? universe.error : "Monthly Solscan market-size snapshot";
   }
 }
 function formatCompactCount(value){
