@@ -199,11 +199,43 @@ function formatCompactCount(value){
   if(n>=1e3) return (n/1e3).toFixed(1)+"K";
   return Math.round(n).toLocaleString("de-DE");
 }
+function renderLifecycleOverview(tokens){
+  const stages=[
+    {key:"DISCOVERED",label:"Discovered",cls:"discovered"},
+    {key:"EMERGING",label:"Emerging",cls:"emerging"},
+    {key:"ACTIVE",label:"Active",cls:"active"},
+    {key:"MATURE",label:"Mature",cls:"mature"}
+  ];
+  const counts=Object.fromEntries(stages.map(s=>[s.key,0]));
+  (Array.isArray(tokens)?tokens:[]).forEach(token=>{
+    const key=String(token?.lifecycle||"").toUpperCase();
+    if(Object.prototype.hasOwnProperty.call(counts,key)) counts[key]+=1;
+  });
+  const total=stages.reduce((sum,s)=>sum+counts[s.key],0);
+  const totalEl=$("#lifecycle-total");
+  const stack=$("#lifecycle-stack");
+  const legend=$("#lifecycle-legend");
+  if(totalEl) totalEl.textContent=total.toLocaleString("de-DE")+" monitored";
+  if(stack){
+    stack.innerHTML=stages.map(s=>{
+      const count=counts[s.key], pct=total?count/total*100:0;
+      return '<span class="lifecycle-segment '+s.cls+'" style="width:'+pct.toFixed(3)+'%" title="'+s.label+': '+count.toLocaleString("de-DE")+'"></span>';
+    }).join("");
+    stack.setAttribute("aria-label",stages.map(s=>s.label+" "+counts[s.key]).join(", "));
+  }
+  if(legend){
+    legend.innerHTML=stages.map(s=>{
+      const count=counts[s.key], pct=total?count/total*100:0;
+      return '<span><i class="lifecycle-dot '+s.cls+'"></i><b>'+s.label+'</b><em>'+count.toLocaleString("de-DE")+' · '+pct.toFixed(1)+'%</em></span>';
+    }).join("");
+  }
+}
 
 function renderSnapshot(data) {
   snapshot=data;
   renderBuildInfo(data?.runtime?.build);
   const tokens=Array.isArray(data?.tokens)?data.tokens:[];
+  renderLifecycleOverview(window.MEMELAB_JUPITER_TOKENS || tokens);
   // Discovery is owned exclusively by jupiter-live.js. The snapshot must never render token cards.
   renderMarketContext(data?.market);
   if(!tokens.length)return;
