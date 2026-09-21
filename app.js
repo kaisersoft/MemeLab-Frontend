@@ -12,6 +12,22 @@ function lifecycleLabel(v) {
 }
 function formatTime(ts) { if(!ts)return "—"; const d=new Date(Number(ts)*1000); return Number.isNaN(d.getTime())?"—":d.toLocaleTimeString(); }
 
+
+function renderBuildInfo() {
+  const info=window.MEMELAB_BUILD||{};
+  const version=info.version||"V0.01";
+  const build=info.build||"—";
+  const raw=info.builtAt;
+  const date=raw?new Date(raw):null;
+  const stamp=date&&!Number.isNaN(date.getTime())
+    ? date.toLocaleString("de-DE",{dateStyle:"short",timeStyle:"medium"})
+    : "—";
+  const badge=$("#build-badge");
+  const meta=$("#build-meta");
+  if(badge)badge.textContent=version+" · Build "+build+" · "+stamp;
+  if(meta)meta.textContent="Frontend build · "+version+" · Build "+build+" · "+stamp;
+}
+
 function setMetric(id,value) {
   const el=$("#"+id); if(!el)return;
   const v=pct(value); el.textContent=v;
@@ -114,5 +130,6 @@ async function api(path,options={}){const response=await fetch(API_BASE+path,{ca
 async function refresh(){try{renderSnapshot(await api("/snapshot"));}catch(error){console.error("MemeLab snapshot failed:",error);const live=$(".live-pill");if(live){live.classList.remove("status-green","status-orange");live.classList.add("status-red");live.innerHTML="<i></i> API OFFLINE";live.title=error.message||"MemeLab API is not reachable.";}}}
 async function startEngine(){try{await api("/start",{method:"POST"});await refresh();}catch(error){console.error("MemeLab API start failed:",error);const live=$(".live-pill");if(live)live.innerHTML="<i></i> API OFFLINE";}}
 document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",()=>{document.querySelectorAll(".nav-btn").forEach(x=>x.classList.remove("active"));btn.classList.add("active");}));
+renderBuildInfo();
 startEngine();
 setInterval(refresh,1000);
