@@ -217,6 +217,7 @@
       if(!r.ok) throw new Error(r.status+" "+r.statusText);
       const data=await r.json();
       tokens=Array.isArray(data.tokens)?data.tokens:[];
+      window.MEMELAB_JUPITER_TOKENS=tokens;
       ingestCount=Number(data.ingest_count)||0;
       render();
     } catch(e) {
