@@ -3,6 +3,7 @@
 (() => {
   const apiBase = window.MEMELAB_API_URL || "http://127.0.0.1:8765/api";
   let tokens = [];
+  let ingestCount = 0;
   let selectedMint = null;
   let lifecycleFilter = "DISCOVERED";
   const LIFECYCLE_STAGES = ["DISCOVERED","EMERGING","ACTIVE","MATURE","DECLINING","INACTIVE","ARCHIVED"];
@@ -57,7 +58,7 @@
     const sub=document.querySelector(".discovery .panel-head > div > span");
     if(sub) sub.textContent="Lifecycle status model";
     const scan=$("#scan-time");
-    if(scan) scan.textContent="Persistent universe · "+tokens.length+" monitored records · "+new Date().toLocaleTimeString();
+    if(scan) scan.textContent="Live status · "+tokens.length+" monitored records · "+new Date().toLocaleTimeString();
     const intelligence=$("#score"); if(intelligence) intelligence.textContent="— / 100";
     const selected=tokens.find(t=>t.mint===selectedMint)||tokens[0];
     const scoreToken=$("#score-token"); if(scoreToken) scoreToken.textContent=selected?.symbol || "—";
@@ -78,7 +79,7 @@
     });
 
     const source=$("#source-status");
-    if(source) source.textContent="Source · Jupiter Tokens V2 · Recent ingest · Solana Mainnet · "+tokens.length+" monitored · updated "+new Date().toLocaleTimeString();
+    if(source) source.textContent="Jupiter Recent ingest · "+ingestCount+" current source records · "+tokens.length+" monitored in MemeLab";
     const note=$(".risk-note");
     if(note) note.innerHTML="<b>Status:</b> "+lifecycleFilter+" selected · counts reflect the persistent MemeLab universe. Jupiter Recent is the current ingestion window; lifecycle evidence is calculated from stored MemeLab history.";
   }
@@ -89,6 +90,7 @@
       if(!r.ok) throw new Error(r.status+" "+r.statusText);
       const data=await r.json();
       tokens=Array.isArray(data.tokens)?data.tokens:[];
+      ingestCount=Number(data.ingest_count)||0;
       render();
     } catch(e) {
       console.error("MemeLab Jupiter feed:",e);
