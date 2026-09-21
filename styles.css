@@ -95,3 +95,5 @@ h2{font-size:20px;margin:0 0 5px}
 .universe-table .next.ready{color:#69d8ad}
 .universe-table .next.none{color:#7a8c97}\n.universe-table th:nth-child(1),.universe-table td:nth-child(1){width:8%}.universe-table th:nth-child(2),.universe-table td:nth-child(2){width:13%}.universe-table th:nth-child(3),.universe-table td:nth-child(3){width:10%}.universe-table th:nth-child(4),.universe-table td:nth-child(4){width:10%}.universe-table th:nth-child(5),.universe-table td:nth-child(5){width:9%}.universe-table th:nth-child(6),.universe-table td:nth-child(6){width:10%}.universe-table th:nth-child(7),.universe-table td:nth-child(7){width:11%}.universe-table th:nth-child(8),.universe-table td:nth-child(8){width:7%}.universe-table th:nth-child(9),.universe-table td:nth-child(9){width:8%}.universe-table th:nth-child(10),.universe-table td:nth-child(10){width:7%}.universe-table th:nth-child(11),.universe-table td:nth-child(11){width:7%}
 @media(max-width:900px){.universe-toolbar{align-items:flex-start;flex-direction:column}.universe-toolbar>span{text-align:left}}
+
+.chart-bar-buy{fill:#7fb7d1;opacity:.18}.chart-bar-sell{fill:#e5a36b;opacity:.22}
