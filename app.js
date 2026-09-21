@@ -90,26 +90,12 @@ function updateConnectionStatus(runtime) {
 }
 
 function renderMarketContext(market) {
-  const regime=market?.regime||"—";
-  const subtitle=document.querySelector(".discovery .panel-head > div > span"); if(subtitle)subtitle.textContent="Solana · "+regime;
-  const scan=$("#scan-time"); if(scan)scan.textContent=snapshot?.runtime?.last_event_at?"Last event · "+formatTime(snapshot.runtime.last_event_at):"Waiting for live events";
-  updateConnectionStatus(snapshot?.runtime);
-  const total=$("#market-total-tokens"), active=$("#market-active-tokens"), candidates=$("#market-candidates"), activityEl=$("#market-activity");
-  const rt=snapshot?.runtime||{}, censusComplete=rt.census_complete===true, censusRunning=rt.census_running===true, censusTotal=censusComplete?Number(rt.census_tokens):NaN, censusProvider=rt.census_provider||"rpc";
-  const universeLabel=$("#market-universe-label");
-  if(universeLabel){
-    universeLabel.textContent=censusComplete?(censusProvider==="helius-das"?"Token universe · indexed":"Token universe · census"):(censusRunning?"Token universe · indexing":"Token universe · unavailable");
-    universeLabel.title=rt.census_error||(
-      censusComplete
-        ? (censusProvider==="helius-das" ? ("Indexed by Helius DAS · slot "+(rt.census_indexed_slot??"—")) : ("Legacy: "+Number(rt.census_legacy||0)+" · Token-2022: "+Number(rt.census_token2022||0)))
-        : "Full token-universe census is not available from the current RPC."
-    );
-  }
-  if(total)total.textContent=Number.isFinite(censusTotal)?censusTotal.toLocaleString():"—";
-  if(active)active.textContent=Number.isFinite(Number(market?.observed_tokens))?Number(market.observed_tokens).toLocaleString():"—";
-  if(candidates)candidates.textContent=Array.isArray(snapshot?.tokens)?Math.min(snapshot.tokens.length,3):"—";
-  if(activityEl)activityEl.textContent=pct(market?.activity);
-  const note=$(".risk-note"); if(note)note.innerHTML="<b>Market context:</b> "+regime+" · buy pressure "+pct(market?.buy_pressure)+" · activity "+pct(market?.activity)+" · actor growth "+pct(market?.actor_growth)+" · liquidity "+pct(market?.liquidity)+" · observed "+(market?.observed_tokens??0)+" / live universe "+(market?.total_tokens??0)+" · active "+(market?.active_tokens??0)+". Risk engine not connected in this phase.";
+  const rt=snapshot?.runtime||{};
+  // Discovery / Universe DOM is owned exclusively by jupiter-live.js.
+  // Do not write to its labels, counters, scan timestamp, subtitle or note here.
+  updateConnectionStatus(rt);
+  const selected=$("#score-token");
+  if(selected && !selected.textContent) selected.textContent="—";
 }
 
 function renderSnapshot(data) {
