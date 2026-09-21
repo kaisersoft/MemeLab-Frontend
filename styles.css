@@ -57,6 +57,14 @@ h2{font-size:20px;margin:0 0 5px}
 .live-pill.status-red{border-color:#7d3c35;background:#291311;color:#ef8f7f}
 .live-pill.status-red i{background:#ef8f7f;box-shadow:0 0 12px rgba(239,143,127,.5)}
 
+.market-ratio-card{flex-direction:row!important;align-items:center;gap:11px!important}
+.market-ratio{position:relative;flex:0 0 58px;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:#15232c}
+.market-ratio::before{content:"";position:absolute;inset:7px;border-radius:50%;background:#091720}
+.market-ratio-fill{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from -90deg,#63c69f 0deg 4deg,#15232c 4deg 360deg)}
+.market-ratio strong{position:relative;z-index:1;font:600 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#dce9ee}
+.market-ratio-copy{min-width:0;display:flex;flex-direction:column;gap:3px}
+.market-ratio-copy span{font-size:12px;color:#8499a8}
+.market-ratio-copy b{font-size:10px;color:#607784;font-weight:500}
 .market-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:18px 0 16px}
 .market-overview>div{padding:12px 14px;border:1px solid #213846;border-radius:10px;background:#091720;display:flex;flex-direction:column;gap:5px}
 .market-overview span{font-size:12px;color:#8499a8}
