@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:8765/api";
+const API_BASE = window.MEMELAB_API_URL || "http://127.0.0.1:8765/api";
 
 const $ = (selector) => document.querySelector(selector);
 let snapshot = null;
