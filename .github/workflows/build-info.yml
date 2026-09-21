@@ -1,0 +1,34 @@
+name: Build Info
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build-info:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Generate build-info.js
+        run: |
+          cat > build-info.js <<EOF
+          window.MEMELAB_BUILD = {
+            version: "V0.01",
+            build: "${GITHUB_RUN_NUMBER}",
+            commit: "${GITHUB_SHA:0:8}",
+            builtAt: "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          };
+          EOF
+      - name: Commit build metadata
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add build-info.js
+          git diff --cached --quiet || git commit -m "Update frontend build info [skip ci]"
+          git push
