@@ -70,7 +70,7 @@ h2{font-size:20px;margin:0 0 5px}
 
 .brand-identity{display:flex;align-items:center;gap:16px;min-width:0}
 .brand-logo{width:125px;height:125px;object-fit:cover;border-radius:14px;border:1px solid #263d4d;box-shadow:0 8px 24px rgba(0,0,0,.25)}
-.brand-copy{min-width:0}
+.brand-copy{min-width:0;flex:1;text-align:right}
 .title-line{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .build-badge{display:inline-flex;align-items:center;border:1px solid #2a4555;background:#0b1821;color:#8fa8b8;border-radius:8px;padding:5px 9px;font:500 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.2px;white-space:nowrap}
 .build-meta{margin:9px 0 0 70px;color:#5f7482;font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
