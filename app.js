@@ -8,10 +8,12 @@ let selectedMint = null;
 let externalSelectedMint = null;
 let marketHistoryRequest = 0;
 let marketHistory = [];
+let marketWindow = "1h";
+let apiReachable = false;
 
 function shortMint(m) { if (!m) return "—"; return m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5); }
 function pct(v) { return Math.round(Math.max(0,Math.min(1,Number(v)||0))*100); }
-function score(v) { return Math.round(Number(v)||0); }
+function score(v) { return v==null || v==="" || !Number.isFinite(Number(v)) ? null : Math.round(Number(v)); }
 function usd(v) {
   const n=Number(v);
   if(!Number.isFinite(n)) return "—";
@@ -44,6 +46,12 @@ function renderBuildInfo(backendBuild) {
 
 function setMetric(id,value) {
   const el=$("#"+id); if(!el)return;
+  const known=value!=null && value!=="" && Number.isFinite(Number(value));
+  if(!known){
+    el.textContent="—";
+    const bar=el.parentElement?.nextElementSibling?.querySelector("em"); if(bar)bar.style.width="0%";
+    return;
+  }
   const v=pct(value); el.textContent=v;
   const bar=el.parentElement?.nextElementSibling?.querySelector("em"); if(bar)bar.style.width=v+"%";
 }
@@ -51,7 +59,7 @@ function setMetric(id,value) {
 function renderChart(token) {
   const line=$("#chart-line"), area=$("#chart-area");
   if(!line||!area||!token)return;
-  renderMarketChart(marketHistory, token, {live:true, windowLabel:"1h"});
+  renderMarketChart(marketHistory, token, {live:true, windowLabel:marketWindow});
 }
 
 function renderChartHistory(token,data){
@@ -59,12 +67,12 @@ function renderChartHistory(token,data){
   if(!line||!area)return;
   const pointsData=Array.isArray(data?.points)?data.points:[];
   marketHistory=pointsData;
-  renderMarketChart(pointsData, token, {live:false, windowLabel:data?.window});
+  renderMarketChart(pointsData, token, {live:false, windowLabel:data?.window||marketWindow});
 }
 
 function updateMarketLiveToken(token){
   if(!token || token.mint!==externalSelectedMint)return;
-  renderMarketChart(marketHistory, token, {live:true, windowLabel:"1h"});
+  renderMarketChart(marketHistory, token, {live:true, windowLabel:marketWindow});
 }
 
 function renderMarketChart(history, token, options={}){
@@ -123,8 +131,9 @@ function renderLifecycle(token) {
 function renderSelectedToken(token) {
   if(!token)return;
   $("#score-token").textContent=token.symbol || shortMint(token.mint);
-  $("#score").textContent=score(token.intelligence)+" / 100";
-  $("#chart-label").textContent=(token.symbol || shortMint(token.mint))+" / SOL · live";
+  const intelligenceScore=score(token.intelligence);
+  $("#score").textContent=intelligenceScore==null?"— / 100":intelligenceScore+" / 100";
+  $("#chart-label").textContent=(token.symbol || shortMint(token.mint))+" / SOL · "+marketWindow+" history";
   setMetric("m-liq",token.liquidity); setMetric("m-vol",token.activity); setMetric("m-holder",token.actor_growth); setMetric("m-social",token.confidence);
   const risk=$("#m-risk"); if(risk){risk.textContent="—";const bar=risk.parentElement?.nextElementSibling?.querySelector("em");if(bar)bar.style.width="0%";}
   const note=$("#market-context-note"); if(note) note.textContent="Net Flow · Buy/Sell pressure · live snapshot data";
@@ -138,7 +147,7 @@ async function selectMarketToken(mint){
   if(token) renderSelectedToken(token);
   const request=++marketHistoryRequest;
   try{
-    const response=await fetch(API_BASE+"/jupiter/history?mint="+encodeURIComponent(mint),{cache:"no-store",headers:{Accept:"application/json"}});
+    const response=await fetch(API_BASE+"/jupiter/history?mint="+encodeURIComponent(mint)+"&window="+encodeURIComponent(marketWindow),{cache:"no-store",headers:{Accept:"application/json"}});
     if(!response.ok) throw new Error(response.status+" "+response.statusText);
     const data=await response.json();
     if(request!==marketHistoryRequest) return;
@@ -151,15 +160,26 @@ async function selectMarketToken(mint){
 }
 window.MEMELAB_MARKET={selectToken:selectMarketToken,updateLive:updateMarketLiveToken,active:true};
 
+function setMarketWindow(nextWindow){
+  if(marketWindow===nextWindow)return;
+  marketWindow=nextWindow;
+  document.querySelectorAll(".chart-window-btn").forEach(btn=>{
+    const active=btn.dataset.window===marketWindow;
+    btn.classList.toggle("active",active);
+    btn.setAttribute("aria-pressed",active?"true":"false");
+  });
+  if(externalSelectedMint) selectMarketToken(externalSelectedMint);
+}
+
 function updateConnectionStatus(runtime) {
   const live=$(".live-pill"); if(!live)return;
-  const health=runtime?.health||{}, apiOk=health.api!==false, engineOk=health.engine===true, websocketOk=health.websocket===true, eventsReceived=Number(health.events_received??runtime?.events_received??0);
-  let state="red", label="API OFFLINE", title=runtime?.last_error||"MemeLab API is not reachable.";
+  const health=runtime?.health||{}, apiOk=apiReachable, engineOk=health.engine===true, websocketOk=health.websocket===true, eventsReceived=Number(health.events_received??runtime?.events_received??0);
+  let state="red", label="API OFFLINE", title="MemeLab API is not reachable.";
   if(apiOk&&engineOk&&websocketOk&&eventsReceived>0&&!runtime?.last_error){state="green";label="ON-CHAIN LIVE";title="API connected · engine running · Solana websocket connected · chain events received";}
   else if(apiOk&&engineOk&&runtime?.census_running&&!runtime?.last_error){state="orange";label="ON-CHAIN SCANNING";title="API connected · engine running · token universe census in progress";}
   else if(apiOk&&engineOk&&websocketOk&&!runtime?.last_error){state="orange";label="ON-CHAIN WAITING";title="API connected · engine running · Solana websocket connected · waiting for first chain event";}
-  else if(apiOk&&engineOk&&!runtime?.last_error){state="orange";label="ENGINE CONNECTED";title="API connected · MemeLab engine running · live Solana event stream is not currently active";}
-  else if(apiOk&&!runtime?.last_error){state="orange";label="API CONNECTED";title="MemeLab API connected · Jupiter discovery can continue independently of the live Solana engine";}
+  else if(apiOk&&engineOk){state="orange";label="ENGINE CONNECTED";title=runtime?.last_error?"API connected · MemeLab engine is not currently healthy: "+runtime.last_error:"API connected · MemeLab engine running · live Solana event stream is not currently active";}
+  else if(apiOk){state="orange";label="API CONNECTED";title=runtime?.last_error?"MemeLab API connected · live engine reports: "+runtime.last_error:"MemeLab API connected · Jupiter discovery can continue independently of the live Solana engine";}
   live.classList.remove("status-green","status-orange","status-red"); live.classList.add("status-"+state); live.innerHTML="<i></i> "+label; live.title=title;
 }
 
@@ -196,8 +216,8 @@ function renderSnapshot(data) {
 }
 
 async function api(path,options={}){const response=await fetch(API_BASE+path,{cache:"no-store",...options,headers:{"Accept":"application/json",...(options.headers||{})}});if(!response.ok)throw new Error(response.status+" "+response.statusText);return response.json();}
-async function refresh(){try{renderSnapshot(await api("/snapshot"));}catch(error){console.error("MemeLab snapshot failed:",error);const live=$(".live-pill");if(live){live.classList.remove("status-green","status-orange");live.classList.add("status-red");live.innerHTML="<i></i> API OFFLINE";live.title=error.message||"MemeLab API is not reachable.";}}}
-async function startEngine(){try{await api("/start",{method:"POST"});await refresh();}catch(error){console.error("MemeLab API start failed:",error);const live=$(".live-pill");if(live)live.innerHTML="<i></i> API OFFLINE";}}
+async function refresh(){try{apiReachable=true;renderSnapshot(await api("/snapshot"));}catch(error){apiReachable=false;console.error("MemeLab snapshot failed:",error);const live=$(".live-pill");if(live){live.classList.remove("status-green","status-orange");live.classList.add("status-red");live.innerHTML="<i></i> API OFFLINE";live.title=error.message||"MemeLab API is not reachable.";}}}
+async function startEngine(){try{apiReachable=true;await api("/start",{method:"POST"});await refresh();}catch(error){apiReachable=false;console.error("MemeLab API start failed:",error);const live=$(".live-pill");if(live)live.innerHTML="<i></i> API OFFLINE";}}
 document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",()=>{document.querySelectorAll(".nav-btn").forEach(x=>x.classList.remove("active"));btn.classList.add("active");}));
 renderBuildInfo();
 startEngine();
