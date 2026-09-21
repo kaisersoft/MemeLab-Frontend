@@ -81,6 +81,10 @@ function updateConnectionStatus(runtime) {
     state = "green";
     label = "ON-CHAIN LIVE";
     title = "API connected · engine running · Solana websocket connected · chain events received";
+  } else if (apiOk && engineOk && runtime?.census_running && !runtime?.last_error) {
+    state = "orange";
+    label = "ON-CHAIN SCANNING";
+    title = "API connected · token universe census in progress";
   } else if (apiOk && engineOk && websocketOk && !runtime?.last_error) {
     state = "orange";
     label = "ON-CHAIN WAITING";
@@ -103,10 +107,10 @@ function renderMarketContext(market) {
   const candidates=document.querySelector("#market-candidates");
   const activityEl=document.querySelector("#market-activity");
   if(total)total.textContent=Number.isFinite(Number(market?.total_tokens))?Number(market.total_tokens).toLocaleString():"—";
-  if(active)active.textContent=Number.isFinite(Number(market?.active_tokens))?Number(market.active_tokens).toLocaleString():"—";
+  if(active)active.textContent=Number.isFinite(Number(market?.observed_tokens))?Number(market.observed_tokens).toLocaleString():"—";
   if(candidates)candidates.textContent=Array.isArray(snapshot?.tokens)?Math.min(snapshot.tokens.length,3):"—";
   if(activityEl)activityEl.textContent=pct(market?.activity);
-  const note=$(".risk-note"); if(note)note.innerHTML="<b>Market context:</b> "+regime+" · buy pressure "+pct(market?.buy_pressure)+" · activity "+pct(market?.activity)+" · actor growth "+pct(market?.actor_growth)+" · liquidity "+pct(market?.liquidity)+" · active tokens "+(market?.active_tokens??0)+"/"+(market?.total_tokens??0)+". Risk engine not connected in this phase.";
+  const note=$(".risk-note"); if(note)note.innerHTML="<b>Market context:</b> "+regime+" · buy pressure "+pct(market?.buy_pressure)+" · activity "+pct(market?.activity)+" · actor growth "+pct(market?.actor_growth)+" · liquidity "+pct(market?.liquidity)+" · observed "+(market?.observed_tokens??0)+" / universe "+(market?.total_tokens??0)+" · active "+(market?.active_tokens??0)+". Risk engine not connected in this phase.";
 }
 
 function renderSnapshot(data) {
