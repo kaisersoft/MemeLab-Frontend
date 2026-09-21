@@ -248,6 +248,7 @@
     }
     const stage=document.querySelectorAll(".life");
     const lifecycleCounts = Object.fromEntries(LIFECYCLE_STAGES.map(stage => [stage, tokens.filter(t => lifecycle(t) === stage).length]));
+    if(window.renderLifecycleOverview) window.renderLifecycleOverview(tokens);
     stage.forEach((el,i)=>{
       const stageName=LIFECYCLE_STAGES[i];
       el.classList.toggle("active", lifecycleFilter===stageName);
