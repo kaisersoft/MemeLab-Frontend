@@ -5,7 +5,7 @@
   let tokens = [];
   let selectedMint = null;
   let lifecycleFilter = "DISCOVERED";
-  const LIFECYCLE_STAGES = ["DISCOVERED","EMERGING","ACTIVE","MATURE"];
+  const LIFECYCLE_STAGES = ["DISCOVERED","EMERGING","ACTIVE","MATURE","DECLINING","INACTIVE","ARCHIVED"];
   const $ = (s) => document.querySelector(s);
   const shortMint = (m) => !m ? "—" : m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5);
   const score = (v) => Number.isFinite(Number(v)) ? Math.round(Number(v)) : null;
