@@ -116,7 +116,7 @@ function renderSnapshot(data) {
   snapshot=data;
   renderBuildInfo(data?.runtime?.build);
   const tokens=Array.isArray(data?.tokens)?data.tokens:[];
-  if (!(window.MEMELAB_JUPITER && window.MEMELAB_JUPITER.active)) renderDiscovery(tokens);
+  // Discovery is owned exclusively by jupiter-live.js. The snapshot must never render token cards.
   renderMarketContext(data?.market);
   if(!tokens.length)return;
   if(!selectedMint||!tokens.some(t=>t.mint===selectedMint))selectedMint=tokens[0].mint;
