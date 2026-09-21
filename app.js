@@ -54,8 +54,8 @@ function renderDiscovery(tokens) {
     const selected=t.mint===selectedMint||(!selectedMint&&i===0);
     const solscan="https://solscan.io/token/"+encodeURIComponent(t.mint)+"?cluster=devnet";
     return '<article class="token-card '+(selected?"selected":"")+'" data-token="'+t.mint+'">'+
-      '<strong>'+(t.symbol||"Metadata pending")+'</strong>'+
-      '<span>'+(t.name||"Token metadata not available")+'</span>'+
+      '<strong>'+(t.symbol||shortMint(t.mint))+'</strong>'+
+      '<span>'+(t.name||"Solana token")+'</span>'+
       '<small class="token-chain">Solana · '+lifecycleLabel(t.lifecycle)+'</small>'+
       '<div><label>Liquidity signal</label><b class="'+(pct(t.liquidity)>=50?"positive":"warning")+'">'+pct(t.liquidity)+'</b></div>'+
       '<div><label>Intelligence</label><b>'+score(t.intelligence)+'</b></div>'+
