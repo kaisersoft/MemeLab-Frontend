@@ -33,11 +33,12 @@
       return '<article class="token-card '+(selected?"selected":"")+'" data-token="'+t.mint+'">'+
         '<strong>'+(t.symbol||shortMint(t.mint))+'</strong>'+
         '<span>'+(t.name||"Solana token")+'</span>'+
-        '<small class="token-chain">Solana Mainnet · '+lifecycle(t)+'</small>'+
+        '<small class="token-chain">Solana Mainnet · '+lifecycle(t)+' · '+(t.discovery_status||"NOT_EVALUATED")+'</small>'+
         '<div><label>Liquidity</label><b>'+usd(t.liquidity)+'</b></div>'+
         '<div><label>24h Volume</label><b>'+usd(s.volume)+'</b></div>'+
         '<div><label>24h Trades</label><b>'+((Number(s.num_buys||0)+Number(s.num_sells||0))||"—")+'</b></div>'+
         '<div><label>24h Traders</label><b>'+(s.num_traders ?? "—")+'</b></div>'+
+        '<div><label>History</label><b>'+(t.history?.observations||0)+' obs.</b></div>'+
         '<div><label>Jupiter Organic</label><b>'+organic(t)+'</b></div>'+
         '<a class="token-mint" href="'+solscan+'" target="_blank" rel="noopener noreferrer" title="'+t.mint+'">Mint '+shortMint(t.mint)+' ↗</a>'+
         '</article>';
