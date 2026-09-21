@@ -156,8 +156,10 @@ function updateConnectionStatus(runtime) {
   const health=runtime?.health||{}, apiOk=health.api!==false, engineOk=health.engine===true, websocketOk=health.websocket===true, eventsReceived=Number(health.events_received??runtime?.events_received??0);
   let state="red", label="API OFFLINE", title=runtime?.last_error||"MemeLab API is not reachable.";
   if(apiOk&&engineOk&&websocketOk&&eventsReceived>0&&!runtime?.last_error){state="green";label="ON-CHAIN LIVE";title="API connected · engine running · Solana websocket connected · chain events received";}
-  else if(apiOk&&engineOk&&runtime?.census_running&&!runtime?.last_error){state="orange";label="ON-CHAIN SCANNING";title="API connected · token universe census in progress";}
+  else if(apiOk&&engineOk&&runtime?.census_running&&!runtime?.last_error){state="orange";label="ON-CHAIN SCANNING";title="API connected · engine running · token universe census in progress";}
   else if(apiOk&&engineOk&&websocketOk&&!runtime?.last_error){state="orange";label="ON-CHAIN WAITING";title="API connected · engine running · Solana websocket connected · waiting for first chain event";}
+  else if(apiOk&&engineOk&&!runtime?.last_error){state="orange";label="ENGINE CONNECTED";title="API connected · MemeLab engine running · live Solana event stream is not currently active";}
+  else if(apiOk&&!runtime?.last_error){state="orange";label="API CONNECTED";title="MemeLab API connected · Jupiter discovery can continue independently of the live Solana engine";}
   live.classList.remove("status-green","status-orange","status-red"); live.classList.add("status-"+state); live.innerHTML="<i></i> "+label; live.title=title;
 }
 
