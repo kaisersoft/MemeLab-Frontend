@@ -78,25 +78,16 @@ function updateMarketLiveToken(token){
 function renderMarketChart(history, token, options={}){
   const line=$("#chart-line"), area=$("#chart-area"), zero=$("#chart-zero"), bars=$("#chart-bars");
   if(!line||!area)return;
-  const liveStats=token?.stats_24h||{};
-  const liveBuy=Number(liveStats.buy_volume);
-  const liveSell=Number(liveStats.sell_volume);
-  const liveNet=(Number.isFinite(liveBuy)?liveBuy:0)-(Number.isFinite(liveSell)?liveSell:0);
-  const livePoint=options.live && token ? {
-    observed_at: Date.now()/1000,
-    net_flow: liveNet,
-    buy_volume: Number.isFinite(liveBuy)?liveBuy:0,
-    sell_volume: Number.isFinite(liveSell)?liveSell:0,
-    live:true
-  } : null;
+  // Latest Net Flow must come from the selected history window. Do not inject
+  // the token's rolling 24h flow into a 1m/5m/1h/etc. history series.
   const pointsData=[...(Array.isArray(history)?history:[])];
-  if(livePoint) pointsData.push(livePoint);
   const values=pointsData.map(p=>Number(p?.net_flow)).filter(Number.isFinite);
   const netEl=$("#chart-net-flow"), windowEl=$("#chart-window"), dataEl=$("#chart-data");
-  const last=values.length?values[values.length-1]:null;
+  const lastPoint=pointsData.length?pointsData[pointsData.length-1]:null;
+  const last=lastPoint && Number.isFinite(Number(lastPoint?.net_flow))?Number(lastPoint.net_flow):null;
   if(netEl) netEl.textContent=last==null?"—":(last>0?"+":"")+usd(last);
   if(windowEl) windowEl.textContent=values.length?(options.windowLabel||values.length+" observations"):"—";
-  if(dataEl) dataEl.textContent=values.length?(livePoint?"live + SQLite":"SQLite history"):"waiting";
+  if(dataEl) dataEl.textContent=values.length?"SQLite history":"waiting";
   if(!values.length){
     line.setAttribute("d","M0 130 L800 130");
     area.setAttribute("d","M0 130 L800 130 L800 240 L0 240 Z");
