@@ -1,3 +1,6 @@
+/* BUILD REMINDER: Every frontend change must produce a new build-info.js.
+   Product version changes are intentional; build number and build timestamp are automatic.
+   Do not ship UI changes without a fresh build marker. */
 const API_BASE = window.MEMELAB_API_URL || "http://127.0.0.1:8765/api";
 const $ = (s) => document.querySelector(s);
 let snapshot = null;
@@ -93,13 +96,13 @@ function renderMarketContext(market) {
   const scan=$("#scan-time"); if(scan)scan.textContent=snapshot?.runtime?.last_event_at?"Last event · "+formatTime(snapshot.runtime.last_event_at):"Waiting for live events";
   updateConnectionStatus(snapshot?.runtime);
   const total=$("#market-total-tokens"), active=$("#market-active-tokens"), candidates=$("#market-candidates"), activityEl=$("#market-activity");
-  const rt=snapshot?.runtime||{}, censusComplete=rt.census_complete===true, censusRunning=rt.census_running===true, censusTotal=censusComplete?Number(rt.census_tokens):NaN;
+  const rt=snapshot?.runtime||{}, censusComplete=rt.census_complete===true, censusRunning=rt.census_running===true, censusTotal=censusComplete?Number(rt.census_tokens):NaN, censusProvider=rt.census_provider||"rpc";
   const universeLabel=$("#market-universe-label");
   if(universeLabel){
-    universeLabel.textContent=censusComplete?"Token universe · census":(censusRunning?"Token universe · scanning":"Token universe · unavailable");
+    universeLabel.textContent=censusComplete?(censusProvider==="helius-das"?"Token universe · indexed":"Token universe · census"):(censusRunning?"Token universe · indexing":"Token universe · unavailable");
     universeLabel.title=rt.census_error||(
       censusComplete
-        ? ("Legacy: "+Number(rt.census_legacy||0)+" · Token-2022: "+Number(rt.census_token2022||0))
+        ? (censusProvider==="helius-das" ? ("Indexed by Helius DAS · slot "+(rt.census_indexed_slot??"—")) : ("Legacy: "+Number(rt.census_legacy||0)+" · Token-2022: "+Number(rt.census_token2022||0)))
         : "Full token-universe census is not available from the current RPC."
     );
   }
