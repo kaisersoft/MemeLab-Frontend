@@ -106,7 +106,8 @@ function renderMarketContext(market) {
   const active=document.querySelector("#market-active-tokens");
   const candidates=document.querySelector("#market-candidates");
   const activityEl=document.querySelector("#market-activity");
-  if(total)total.textContent=Number.isFinite(Number(market?.total_tokens))?Number(market.total_tokens).toLocaleString():"—";
+  const censusTotal=snapshot?.runtime?.census_complete?Number(snapshot.runtime.census_tokens):Number(market?.total_tokens);
+  if(total)total.textContent=Number.isFinite(censusTotal)?censusTotal.toLocaleString():"—";
   if(active)active.textContent=Number.isFinite(Number(market?.observed_tokens))?Number(market.observed_tokens).toLocaleString():"—";
   if(candidates)candidates.textContent=Array.isArray(snapshot?.tokens)?Math.min(snapshot.tokens.length,3):"—";
   if(activityEl)activityEl.textContent=pct(market?.activity);
