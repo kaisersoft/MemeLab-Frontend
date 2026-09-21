@@ -169,8 +169,13 @@
     }).join("") : '<div class="token-empty"><strong>No tokens in this lifecycle stage</strong><span>The persistent MemeLab universe currently has no records matching <b>'+lifecycleFilter+'</b>.</span></div>';
 
     grid.querySelectorAll(".token-card").forEach(card => {
-      card.addEventListener("click", () => { selectedMint=card.dataset.token; render(); });
+      card.addEventListener("click", () => {
+        selectedMint=card.dataset.token;
+        render();
+        if(window.MEMELAB_MARKET?.selectToken) window.MEMELAB_MARKET.selectToken(selectedMint);
+      });
     });
+    if(selectedMint && window.MEMELAB_MARKET?.selectToken) window.MEMELAB_MARKET.selectToken(selectedMint);
 
     const sub=document.querySelector(".discovery .panel-head > div > span");
     if(sub) sub.textContent="Lifecycle status model";
