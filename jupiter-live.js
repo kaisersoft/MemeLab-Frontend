@@ -26,17 +26,132 @@
   };
   const lifecycle = (t) => t?.lifecycle || "DISCOVERED";
 
+  let universeOpen = false;
+  let sortKey = "candidate";
+  let sortDir = "desc";
+
+  const nextStage = (stage) => ({
+    DISCOVERED: "EMERGING",
+    EMERGING: "ACTIVE",
+    ACTIVE: "MATURE",
+  }[stage] || null);
+
+  const evidenceScore = (t) => {
+    const e=t?.lifecycle_evidence||{};
+    return ["identity","market_structure","trading_activity","multiple_participants","history_emerging","trading_persistence","history_active","history_mature","data_quality"]
+      .reduce((n,k)=>n+(e[k]?1:0),0);
+  };
+
+  const candidateScore = (t) => {
+    const stage=lifecycle(t);
+    const next=nextStage(stage);
+    if(!next) return -1;
+    const readiness=t?.lifecycle_readiness||{};
+    const ready=readiness[next] ? 1 : 0;
+    const eScore=evidenceScore(t);
+    const s=stats24h(t);
+    const traders=Number(s.num_traders||0);
+    const trades=Number(s.num_buys||0)+Number(s.num_sells||0);
+    const history=Number(t?.history?.observations||0);
+    const liquidity=Number(t?.liquidity||0);
+    return ready*100000000 + eScore*1000000 + history*1000 + Math.min(traders,999) + Math.min(trades,999)/1000 + Math.log10(Math.max(liquidity,1))/10000;
+  };
+
+  const phaseLabel = (t) => {
+    const next=nextStage(lifecycle(t));
+    if(!next) return "—";
+    return t?.lifecycle_readiness?.[next] ? next+" · READY" : next;
+  };
+
+  const compareValues = (a,b,key) => {
+    const value = (t) => {
+      const s=stats24h(t);
+      if(key==="symbol") return String(t.symbol||"").toLowerCase();
+      if(key==="name") return String(t.name||"").toLowerCase();
+      if(key==="lifecycle") return lifecycle(t);
+      if(key==="discovery_status") return String(t.discovery_status||"");
+      if(key==="history") return Number(t.history?.observations||0);
+      if(key==="liquidity") return Number(t.liquidity||0);
+      if(key==="volume") return Number(s.volume||0);
+      if(key==="trades") return Number(s.num_buys||0)+Number(s.num_sells||0);
+      if(key==="traders") return Number(s.num_traders||0);
+      if(key==="organic") return Number(t.organic_score||0);
+      if(key==="next_phase") return String(phaseLabel(t));
+      if(key==="candidate") return candidateScore(t);
+      return 0;
+    };
+    const av=value(a), bv=value(b);
+    if(typeof av==="string" || typeof bv==="string") return String(av).localeCompare(String(bv));
+    return av-bv;
+  };
+
+  function renderUniverseTable(filteredTokens) {
+    const wrap=$("#universe-table-wrap");
+    const body=$("#universe-table-body");
+    const toggle=$("#universe-toggle");
+    const count=$("#universe-count");
+    if(!wrap||!body||!toggle) return;
+
+    count.textContent=filteredTokens.length;
+    toggle.textContent=universeOpen ? "Hide all " : "View all ";
+    const countSpan=document.createElement("span");
+    countSpan.id="universe-count";
+    countSpan.textContent=String(filteredTokens.length);
+    toggle.appendChild(countSpan);
+    wrap.hidden=!universeOpen;
+    if(!universeOpen) return;
+
+    const sorted=[...filteredTokens].sort((a,b)=>{
+      const result=compareValues(a,b,sortKey);
+      return result===0 ? compareValues(a,b,"candidate")*-1 : result;
+    });
+    if(sortDir==="desc") sorted.reverse();
+
+    body.innerHTML=sorted.map(t=>{
+      const s=stats24h(t);
+      const next=nextStage(lifecycle(t));
+      const ready=next && t?.lifecycle_readiness?.[next];
+      const solscan="https://solscan.io/token/"+encodeURIComponent(t.mint);
+      return '<tr data-token="'+t.mint+'">'+
+        '<td><a class="token-mint" href="'+solscan+'" target="_blank" rel="noopener noreferrer">'+(t.symbol||shortMint(t.mint))+'</a></td>'+
+        '<td>'+(t.name||"—")+'</td>'+
+        '<td class="stage">'+lifecycle(t)+'</td>'+
+        '<td>'+(t.discovery_status||"—")+'</td>'+
+        '<td>'+((t.history?.observations||0)+" obs.")+'</td>'+
+        '<td>'+usd(t.liquidity)+'</td>'+
+        '<td>'+usd(s.volume)+'</td>'+
+        '<td>'+((Number(s.num_buys||0)+Number(s.num_sells||0))||"—")+'</td>'+
+        '<td>'+(s.num_traders ?? "—")+'</td>'+
+        '<td>'+organic(t)+'</td>'+
+        '<td class="next '+(ready?"ready":"")+(next?"":" none")+'">'+(phaseLabel(t))+'</td>'+
+      '</tr>';
+    }).join("");
+
+    body.querySelectorAll("tr").forEach(row=>{
+      row.addEventListener("click",(event)=>{
+        if(event.target.closest("a")) return;
+        selectedMint=row.dataset.token;
+        render();
+      });
+    });
+  }
+
   function render() {
     const grid=$(".token-grid");
     if (!grid) return;
     const filteredTokens = tokens.filter(t => lifecycle(t) === lifecycleFilter);
     const selectedInFilter = filteredTokens.some(t => t.mint === selectedMint);
     if (!selectedInFilter) selectedMint = filteredTokens[0]?.mint || null;
-    const visibleTokens = filteredTokens.slice(0,3);
+
+    const ranked=[...filteredTokens].sort((a,b)=>candidateScore(b)-candidateScore(a));
+    const visibleTokens = ranked.slice(0,3);
+    const next=nextStage(lifecycleFilter);
+
     grid.innerHTML = visibleTokens.length ? visibleTokens.map((t,i) => {
       const selected=t.mint===selectedMint || (!selectedMint && i===0);
       const solscan="https://solscan.io/token/"+encodeURIComponent(t.mint);
       const s=stats24h(t);
+      const phase=phaseLabel(t);
       return '<article class="token-card '+(selected?"selected":"")+'" data-token="'+t.mint+'">'+
         '<strong>'+(t.symbol||shortMint(t.mint))+'</strong>'+
         '<span>'+(t.name||"Solana token")+'</span>'+
@@ -46,6 +161,7 @@
         '<div><label>24h Trades</label><b>'+((Number(s.num_buys||0)+Number(s.num_sells||0))||"—")+'</b></div>'+
         '<div><label>24h Traders</label><b>'+(s.num_traders ?? "—")+'</b></div>'+
         '<div><label>History</label><b>'+(t.history?.observations||0)+' obs.</b></div>'+
+        '<div><label>Next phase</label><b class="'+(t?.lifecycle_readiness?.[next]?"positive":"")+'">'+phase+'</b></div>'+
         '<div><label>Jupiter Organic</label><b>'+organic(t)+'</b></div>'+
         '<a class="token-mint" href="'+solscan+'" target="_blank" rel="noopener noreferrer" title="'+t.mint+'">Mint '+shortMint(t.mint)+' ↗</a>'+
         '</article>';
@@ -80,10 +196,20 @@
 
     const source=$("#source-status");
     if(source) source.textContent="Jupiter Recent ingest · "+ingestCount+" current source records · "+tokens.length+" monitored in MemeLab";
-    const note=$(".risk-note");
-    if(note) note.innerHTML="<b>Status:</b> "+lifecycleFilter+" selected · counts reflect the persistent MemeLab universe. Jupiter Recent is the current ingestion window; lifecycle evidence is calculated from stored MemeLab history.";
+    const toggle=$("#universe-toggle");
+    if(toggle) toggle.onclick=()=>{ universeOpen=!universeOpen; render(); };
+    const preview=$("#preview-label");
+    if(preview) preview.textContent=next ? "Top candidates for next lifecycle phase · "+next : "Current lifecycle stage · no further primary phase";
+    document.querySelectorAll(".universe-table th button").forEach(button=>{
+      button.onclick=()=>{
+        const key=button.dataset.sort;
+        if(sortKey===key) sortDir=sortDir==="asc"?"desc":"asc";
+        else { sortKey=key; sortDir=key==="symbol"||key==="name"||key==="lifecycle"||key==="discovery_status"||key==="next_phase"?"asc":"desc"; }
+        render();
+      };
+    });
+    renderUniverseTable(filteredTokens);
   }
-
   async function load() {
     try {
       const r=await fetch(apiBase+"/jupiter/universe",{cache:"no-store",headers:{Accept:"application/json"}});
