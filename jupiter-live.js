@@ -54,15 +54,6 @@
       card.addEventListener("click", () => { selectedMint=card.dataset.token; render(); });
     });
 
-    const label=$("#market-universe-label");
-    if(label){label.textContent="Current universe";label.title="Current MemeLab universe returned by the connected source.";}
-    const total=$("#market-total-tokens"); if(total) total.textContent=tokens.length.toLocaleString();
-    const active=$("#market-active-tokens"); if(active) active.textContent=tokens.filter(t => {
-      const s=stats24h(t);
-      return Number(s.num_buys||0)+Number(s.num_sells||0) > 0;
-    }).length.toLocaleString();
-    const candidates=$("#market-candidates"); if(candidates) candidates.textContent="—";
-    const activity=$("#market-activity"); if(activity) activity.textContent="—";
     const sub=document.querySelector(".discovery .panel-head > div > span");
     if(sub) sub.textContent="Lifecycle status model";
     const scan=$("#scan-time");
