@@ -48,7 +48,7 @@
         '<div><label>Jupiter Organic</label><b>'+organic(t)+'</b></div>'+
         '<a class="token-mint" href="'+solscan+'" target="_blank" rel="noopener noreferrer" title="'+t.mint+'">Mint '+shortMint(t.mint)+' ↗</a>'+
         '</article>';
-    }).join("") : '<div class="token-empty"><strong>No tokens in this lifecycle stage</strong><span>The live Jupiter universe currently has no records matching <b>'+lifecycleFilter+'</b>.</span></div>';
+    }).join("") : '<div class="token-empty"><strong>No tokens in this lifecycle stage</strong><span>The persistent MemeLab universe currently has no records matching <b>'+lifecycleFilter+'</b>.</span></div>';
 
     grid.querySelectorAll(".token-card").forEach(card => {
       card.addEventListener("click", () => { selectedMint=card.dataset.token; render(); });
@@ -57,7 +57,7 @@
     const sub=document.querySelector(".discovery .panel-head > div > span");
     if(sub) sub.textContent="Lifecycle status model";
     const scan=$("#scan-time");
-    if(scan) scan.textContent="Live status · "+tokens.length+" records · "+new Date().toLocaleTimeString();
+    if(scan) scan.textContent="Persistent universe · "+tokens.length+" monitored records · "+new Date().toLocaleTimeString();
     const intelligence=$("#score"); if(intelligence) intelligence.textContent="— / 100";
     const selected=tokens.find(t=>t.mint===selectedMint)||tokens[0];
     const scoreToken=$("#score-token"); if(scoreToken) scoreToken.textContent=selected?.symbol || "—";
@@ -78,9 +78,9 @@
     });
 
     const source=$("#source-status");
-    if(source) source.textContent="Source · Jupiter Tokens V2 · Recent · Solana Mainnet · "+tokens.length+" records · updated "+new Date().toLocaleTimeString();
+    if(source) source.textContent="Source · Jupiter Tokens V2 · Recent ingest · Solana Mainnet · "+tokens.length+" monitored · updated "+new Date().toLocaleTimeString();
     const note=$(".risk-note");
-    if(note) note.innerHTML="<b>Status:</b> "+lifecycleFilter+" selected · counts reflect the current live universe. Lifecycle evidence is calculated from MemeLab history.";
+    if(note) note.innerHTML="<b>Status:</b> "+lifecycleFilter+" selected · counts reflect the persistent MemeLab universe. Jupiter Recent is the current ingestion window; lifecycle evidence is calculated from stored MemeLab history.";
   }
 
   async function load() {
