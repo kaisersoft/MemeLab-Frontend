@@ -34,15 +34,17 @@ function renderDiscovery(tokens) {
   if(!tokens.length){grid.innerHTML='<div class="muted">Waiting for live Solana events…</div>';return;}
   grid.innerHTML=tokens.slice(0,3).map((t,i)=>{
     const selected=t.mint===selectedMint||(!selectedMint&&i===0);
-    return '<button class="token-card '+(selected?"selected":"")+'" data-token="'+t.mint+'">'+
+    const solscan="https://solscan.io/token/"+encodeURIComponent(t.mint)+"?cluster=devnet";
+    return '<article class="token-card '+(selected?"selected":"")+'" data-token="'+t.mint+'">'+
       '<strong>'+(t.symbol||"Metadata pending")+'</strong>'+
       '<span>'+(t.name||"Token metadata not available")+'</span>'+
       '<small class="token-chain">Solana · '+lifecycleLabel(t.lifecycle)+'</small>'+
       '<div><label>Liquidity signal</label><b class="'+(pct(t.liquidity)>=50?"positive":"warning")+'">'+pct(t.liquidity)+'</b></div>'+
       '<div><label>Intelligence</label><b>'+score(t.intelligence)+'</b></div>'+
-      '<small class="token-mint">Mint '+shortMint(t.mint)+'</small></button>';
+      '<a class="token-mint" href="'+solscan+'" target="_blank" rel="noopener noreferrer" title="'+t.mint+'">Mint '+shortMint(t.mint)+' ↗</a></article>';
   }).join("");
-  grid.querySelectorAll(".token-card").forEach(btn=>btn.addEventListener("click",()=>{selectedMint=btn.dataset.token;renderSnapshot(snapshot);}));
+  grid.querySelectorAll(".token-card").forEach(card=>card.addEventListener("click",()=>{selectedMint=card.dataset.token;renderSnapshot(snapshot);}));
+  grid.querySelectorAll(".token-mint").forEach(link=>link.addEventListener("click",event=>event.stopPropagation()));
 }
 
 function renderLifecycle(token) {
