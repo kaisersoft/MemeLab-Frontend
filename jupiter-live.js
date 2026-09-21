@@ -175,7 +175,14 @@
         if(window.MEMELAB_MARKET?.selectToken) window.MEMELAB_MARKET.selectToken(selectedMint);
       });
     });
-    if(selectedMint && window.MEMELAB_MARKET?.selectToken) window.MEMELAB_MARKET.selectToken(selectedMint);
+    if(selected){
+      if(selectedMint!==selected.mint){
+        selectedMint=selected.mint;
+        if(window.MEMELAB_MARKET?.selectToken) window.MEMELAB_MARKET.selectToken(selectedMint);
+      } else if(window.MEMELAB_MARKET?.updateLive){
+        window.MEMELAB_MARKET.updateLive(selected);
+      }
+    }
 
     const sub=document.querySelector(".discovery .panel-head > div > span");
     if(sub) sub.textContent="Lifecycle status model";
