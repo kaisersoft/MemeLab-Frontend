@@ -55,16 +55,40 @@ function renderChart(token) {
 }
 
 function renderChartHistory(token,data){
-  const line=$("#chart-line"), area=$("#chart-area"), zero=$("#chart-zero");
+  const line=$("#chart-line"), area=$("#chart-area"), zero=$("#chart-zero"), bars=$("#chart-bars");
   if(!line||!area)return;
   const pointsData=Array.isArray(data?.points)?data.points:[];
   marketHistory=pointsData;
+  renderMarketChart(pointsData, token, {live:false});
+}
+
+function updateMarketLiveToken(token){
+  if(!token || token.mint!==externalSelectedMint)return;
+  renderMarketChart(marketHistory, token, {live:true});
+}
+
+function renderMarketChart(history, token, options={}){
+  const line=$("#chart-line"), area=$("#chart-area"), zero=$("#chart-zero"), bars=$("#chart-bars");
+  if(!line||!area)return;
+  const liveStats=token?.stats_24h||{};
+  const liveBuy=Number(liveStats.buy_volume);
+  const liveSell=Number(liveStats.sell_volume);
+  const liveNet=(Number.isFinite(liveBuy)?liveBuy:0)-(Number.isFinite(liveSell)?liveSell:0);
+  const livePoint=options.live && token ? {
+    observed_at: Date.now()/1000,
+    net_flow: liveNet,
+    buy_volume: Number.isFinite(liveBuy)?liveBuy:0,
+    sell_volume: Number.isFinite(liveSell)?liveSell:0,
+    live:true
+  } : null;
+  const pointsData=[...(Array.isArray(history)?history:[])];
+  if(livePoint) pointsData.push(livePoint);
   const values=pointsData.map(p=>Number(p?.net_flow)).filter(Number.isFinite);
   const netEl=$("#chart-net-flow"), windowEl=$("#chart-window"), dataEl=$("#chart-data");
   const last=values.length?values[values.length-1]:null;
   if(netEl) netEl.textContent=last==null?"—":(last>0?"+":"")+usd(last);
   if(windowEl) windowEl.textContent=values.length?data?.window||values.length+" observations":"—";
-  if(dataEl) dataEl.textContent=values.length?"SQLite history":"waiting";
+  if(dataEl) dataEl.textContent=values.length?(livePoint?"live + SQLite":"SQLite history"):"waiting";
   if(!values.length){
     line.setAttribute("d","M0 130 L800 130");
     area.setAttribute("d","M0 130 L800 130 L800 240 L0 240 Z");
@@ -77,6 +101,18 @@ function renderChartHistory(token,data){
   line.setAttribute("d",path);
   area.setAttribute("d",path+" L"+points[points.length-1][0]+" 130 L"+points[0][0]+" 130 Z");
   if(zero)zero.setAttribute("d","M0 130H800");
+  if(bars){
+    const barW=Math.max(2,Math.min(10,760/Math.max(points.length,1)));
+    const rects=pointsData.map((p,i)=>{
+      const v=Number(p?.net_flow)||0;
+      const x=points.length===1?400:points[i][0];
+      const h=Math.max(2,Math.abs(v)/abs*95);
+      const y=v>=0?130-h:130;
+      const cls=v>=0?"chart-bar-buy":"chart-bar-sell";
+      return "<rect class=\""+cls+"\" x=\""+Math.max(0,x-barW/2).toFixed(1)+"\" y=\""+y.toFixed(1)+"\" width=\""+barW.toFixed(1)+"\" height=\""+h.toFixed(1)+"\" rx=\"1\"/>";
+    }).join("");
+    bars.innerHTML=rects;
+  }
 }
 
 function renderLifecycle(token) {
@@ -112,7 +148,7 @@ async function selectMarketToken(mint){
     renderChartHistory(token,{points:[]});
   }
 }
-window.MEMELAB_MARKET={selectToken:selectMarketToken,active:true};
+window.MEMELAB_MARKET={selectToken:selectMarketToken,updateLive:updateMarketLiveToken,active:true};
 
 function updateConnectionStatus(runtime) {
   const live=$(".live-pill"); if(!live)return;
