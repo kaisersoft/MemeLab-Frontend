@@ -102,7 +102,7 @@ function updateConnectionStatus(runtime) {
   const activityEl=document.querySelector("#market-activity");
   if(total)total.textContent=Number.isFinite(Number(market?.total_tokens))?Number(market.total_tokens).toLocaleString():"—";
   if(active)active.textContent=Number.isFinite(Number(market?.active_tokens))?Number(market.active_tokens).toLocaleString():"—";
-  if(candidates)candidates.textContent=Array.isArray(snapshot?.tokens)?snapshot.tokens.length:"—";
+  if(candidates)candidates.textContent=Array.isArray(snapshot?.tokens)?Math.min(snapshot.tokens.length,3):"—";
   if(activityEl)activityEl.textContent=pct(market?.activity);
   const note=$(".risk-note"); if(note)note.innerHTML="<b>Market context:</b> "+regime+" · buy pressure "+pct(market?.buy_pressure)+" · activity "+pct(market?.activity)+" · actor growth "+pct(market?.actor_growth)+" · liquidity "+pct(market?.liquidity)+" · active tokens "+(market?.active_tokens??0)+"/"+(market?.total_tokens??0)+". Risk engine not connected in this phase.";
 }
