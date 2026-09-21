@@ -185,11 +185,28 @@ function updateConnectionStatus(runtime) {
 
 function renderMarketContext(market) {
   const rt=snapshot?.runtime||{};
-  // Discovery / Universe DOM is owned exclusively by jupiter-live.js.
-  // Do not write to its labels, counters, scan timestamp, subtitle or note here.
   updateConnectionStatus(rt);
   const selected=$("#score-token");
   if(selected && !selected.textContent) selected.textContent="—";
+  const universe=market?.meme_universe||{};
+  const count=Number(universe.count);
+  const countEl=$("#meme-universe-count");
+  const updatedEl=$("#meme-universe-updated");
+  if(countEl) countEl.textContent=Number.isFinite(count)?formatCompactCount(count):"—";
+  if(updatedEl){
+    updatedEl.textContent=universe.updated_at
+      ? "Solscan · "+formatTime(universe.updated_at)
+      : "Solscan · waiting";
+    updatedEl.title=universe.stale && universe.error ? universe.error : "Weekly Solscan market-size snapshot";
+  }
+}
+function formatCompactCount(value){
+  const n=Number(value);
+  if(!Number.isFinite(n)) return "—";
+  if(n>=1e9) return (n/1e9).toFixed(2)+"B";
+  if(n>=1e6) return (n/1e6).toFixed(2)+"M";
+  if(n>=1e3) return (n/1e3).toFixed(1)+"K";
+  return Math.round(n).toLocaleString("de-DE");
 }
 
 function renderSnapshot(data) {
