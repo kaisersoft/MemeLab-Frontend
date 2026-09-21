@@ -55,7 +55,7 @@
     });
 
     const label=$("#market-universe-label");
-    if(label){label.textContent="Jupiter · Recent";label.title="30 current records from Jupiter Tokens V2 recent feed on Solana Mainnet.";}
+    if(label){label.textContent="Current universe";label.title="Current MemeLab universe returned by the connected source.";}
     const total=$("#market-total-tokens"); if(total) total.textContent=tokens.length.toLocaleString();
     const active=$("#market-active-tokens"); if(active) active.textContent=tokens.filter(t => {
       const s=stats24h(t);
@@ -64,9 +64,9 @@
     const candidates=$("#market-candidates"); if(candidates) candidates.textContent="—";
     const activity=$("#market-activity"); if(activity) activity.textContent="—";
     const sub=document.querySelector(".discovery .panel-head > div > span");
-    if(sub) sub.textContent="Solana Mainnet · Jupiter Recent";
+    if(sub) sub.textContent="Lifecycle status model";
     const scan=$("#scan-time");
-    if(scan) scan.textContent="Jupiter Recent · "+tokens.length+" records · "+new Date().toLocaleTimeString();
+    if(scan) scan.textContent="Live status · "+tokens.length+" records · "+new Date().toLocaleTimeString();
     const intelligence=$("#score"); if(intelligence) intelligence.textContent="— / 100";
     const selected=tokens.find(t=>t.mint===selectedMint)||tokens[0];
     const scoreToken=$("#score-token"); if(scoreToken) scoreToken.textContent=selected?.symbol || "—";
@@ -86,8 +86,10 @@
       el.onclick=()=>{ lifecycleFilter=stageName; selectedMint=null; render(); };
     });
 
+    const source=$("#source-status");
+    if(source) source.textContent="Source · Jupiter Tokens V2 · Recent · Solana Mainnet · "+tokens.length+" records · updated "+new Date().toLocaleTimeString();
     const note=$(".risk-note");
-    if(note) note.innerHTML="<b>Universe:</b> Jupiter Recent is a source feed, not yet the MemeLab candidate engine. <b>Filter:</b> "+lifecycleFilter+" · counts reflect the current live universe. Lifecycle evidence is calculated from MemeLab history.";
+    if(note) note.innerHTML="<b>Status:</b> "+lifecycleFilter+" selected · counts reflect the current live universe. Lifecycle evidence is calculated from MemeLab history.";
   }
 
   async function load() {
