@@ -214,7 +214,9 @@
     const scoreToken=$("#score-token"); if(scoreToken) scoreToken.textContent=selected?.symbol || "—";
     if(selected){
       const s=stats24h(selected);
-      const vals={"#m-liq":selected.liquidity,"#m-vol":s.volume,"#m-holder":s.num_traders,"#m-social":(selected.data_quality?.completeness!=null?Math.round(selected.data_quality.completeness*100):null),"#m-risk":"—"};
+      const observations=Number(selected?.history?.observations||0);
+      const known=observations>0;
+      const vals={"#m-liq":known?selected.liquidity:null,"#m-vol":known?s.volume:null,"#m-holder":known?s.num_traders:null,"#m-social":known&&selected.data_quality?.completeness!=null?Math.round(selected.data_quality.completeness*100):null,"#m-risk":"—"};
       Object.entries(vals).forEach(([sel,val])=>{const el=$(sel);if(el)el.textContent=val==null?"—":(sel==="#m-social"?val+"%":(sel==="#m-liq"||sel==="#m-vol"?usd(val):String(val)));});
     }
     const stage=document.querySelectorAll(".life");
