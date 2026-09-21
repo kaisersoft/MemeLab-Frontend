@@ -25,6 +25,8 @@
   let universeOpen = false;
   let sortKey = "candidate";
   let sortDir = "desc";
+  let watchlistSortKey = "top3_since";
+  let watchlistSortDir = "asc";
 
   const nextStage = (stage) => ({
     DISCOVERED: "EMERGING",
@@ -141,11 +143,36 @@
     set("#dbg-top3",(d.top3_emerging||[]).map((t,i)=>(i+1)+". "+(t.symbol||shortMint(t.mint))).join(" · ")||"—");
   }
 
+  const watchlistSortValue = (t,key) => {
+    const w=t?.watchlist||{}, m=t?.monitoring||{}, s=stats24h(t);
+    if(key==="symbol") return String(t.symbol||"").toLowerCase();
+    if(key==="lifecycle") return lifecycle(t);
+    if(key==="top3_since") return Number(w.first_top3_at||0);
+    if(key==="top3_hits") return Number(w.top3_count||0);
+    if(key==="observations") return Number(m.observations||0);
+    if(key==="trades") return Number(m.trades_24h??(Number(s.num_buys||0)+Number(s.num_sells||0)));
+    if(key==="active_12") return Number(m.active_observations_last_12||0);
+    if(key==="next_status") return String(m.next_status||"ACTIVE");
+    return 0;
+  };
+
+  const watchlistSortLabel = (label,key) => {
+    if(watchlistSortKey!==key) return label;
+    return label+" "+(watchlistSortDir==="asc"?"↑":"↓");
+  };
+
   function renderWatchlist(rows){
     const body=$("#watchlist-body"), count=$("#watchlist-count");
     if(!body)return;
-    const list=Array.isArray(rows)?rows:[];
+    const list=Array.isArray(rows)?[...rows]:[];
     if(count)count.textContent=String(list.length);
+    list.sort((a,b)=>{
+      const av=watchlistSortValue(a,watchlistSortKey), bv=watchlistSortValue(b,watchlistSortKey);
+      const cmp=(typeof av==="string"||typeof bv==="string")
+        ? String(av).localeCompare(String(bv))
+        : av-bv;
+      return watchlistSortDir==="asc"?cmp:-cmp;
+    });
     body.innerHTML=list.length?list.map(t=>{
       const w=t.watchlist||{}, m=t.monitoring||{};
       return '<tr data-token="'+(t.mint||"")+'">'+
@@ -244,6 +271,17 @@
         if(sortKey===key) sortDir=sortDir==="asc"?"desc":"asc";
         else { sortKey=key; sortDir=key==="symbol"||key==="name"||key==="lifecycle"||key==="discovery_status"||key==="next_phase"?"asc":"desc"; }
         render();
+      };
+    });
+    document.querySelectorAll(".watchlist-table th button").forEach(button=>{
+      button.onclick=()=>{
+        const key=button.dataset.sort;
+        if(watchlistSortKey===key) watchlistSortDir=watchlistSortDir==="asc"?"desc":"asc";
+        else {
+          watchlistSortKey=key;
+          watchlistSortDir=key==="symbol"||key==="lifecycle"||key==="top3_since"||key==="next_status"?"asc":"desc";
+        }
+        renderWatchlist((window.MEMELAB_JUPITER_DATA||{}).diagnostics?.watchlist||[]);
       };
     });
     renderUniverseTable(filteredTokens);
