@@ -185,6 +185,9 @@ function renderMarketContext(market) {
   const countEl=$("#meme-universe-count");
   const updatedEl=$("#meme-universe-updated");
   if(countEl) countEl.textContent=Number.isFinite(count)?formatCompactCount(count):"—";
+  const monitoredEl=$("#meme-lab-monitored");
+  const monitored=Number(window.MEMELAB_JUPITER_TOKENS?.length || 0);
+  if(monitoredEl) monitoredEl.textContent=monitored?monitored.toLocaleString("de-DE"):"—";
   if(updatedEl){
     updatedEl.textContent=universe.updated_at
       ? "Solscan · "+formatTime(universe.updated_at)
