@@ -74,7 +74,8 @@
       const s=stats24h(selected);
       const vals={"#m-liq":selected.liquidity,"#m-vol":s.volume,"#m-holder":s.num_traders,"#m-social":(selected.data_quality?.completeness!=null?Math.round(selected.data_quality.completeness*100):null),"#m-risk":"—"};
       Object.entries(vals).forEach(([sel,val])=>{const el=$(sel);if(el)el.textContent=val==null?"—":(sel==="#m-social"?val+"%":(sel==="#m-liq"||sel==="#m-vol"?usd(val):String(val)));});
-      const stage=document.querySelectorAll(".life");
+    }
+    const stage=document.querySelectorAll(".life");
     const lifecycleCounts = Object.fromEntries(LIFECYCLE_STAGES.map(stage => [stage, tokens.filter(t => lifecycle(t) === stage).length]));
     stage.forEach((el,i)=>{
       const stageName=LIFECYCLE_STAGES[i];
@@ -82,13 +83,11 @@
       el.setAttribute("aria-selected", lifecycleFilter===stageName ? "true" : "false");
       const count=el.querySelector(".life-count");
       if(count) count.textContent=String(lifecycleCounts[stageName]||0);
+      el.onclick=()=>{ lifecycleFilter=stageName; selectedMint=null; render(); };
     });
-    stage.forEach((el,i)=>{
-      el.onclick=()=>{ lifecycleFilter=LIFECYCLE_STAGES[i]; selectedMint=null; render(); };
-    });
-    }
+
     const note=$(".risk-note");
-    if(note) note.innerHTML="<b>Universe:</b> Jupiter Recent is a source feed, not yet the MemeLab candidate engine. Lifecycle is currently DISCOVERED until MemeLab has sufficient independent history; readiness evidence is shown per token.";
+    if(note) note.innerHTML="<b>Universe:</b> Jupiter Recent is a source feed, not yet the MemeLab candidate engine. <b>Filter:</b> "+lifecycleFilter+" · counts reflect the current live universe. Lifecycle evidence is calculated from MemeLab history.";
   }
 
   async function load() {
