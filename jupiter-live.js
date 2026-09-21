@@ -21,7 +21,7 @@
     const v=t?.organic_score;
     return v === null || v === undefined || v === "" ? "—" : (score(v) ?? "—")+"/100";
   };
-  const lifecycle = () => "DISCOVERED";
+  const lifecycle = (t) => t?.lifecycle || "DISCOVERED";
 
   function render() {
     const grid=$(".token-grid");
@@ -36,6 +36,8 @@
         '<small class="token-chain">Solana Mainnet · '+lifecycle(t)+'</small>'+
         '<div><label>Liquidity</label><b>'+usd(t.liquidity)+'</b></div>'+
         '<div><label>24h Volume</label><b>'+usd(s.volume)+'</b></div>'+
+        '<div><label>24h Trades</label><b>'+((Number(s.num_buys||0)+Number(s.num_sells||0))||"—")+'</b></div>'+
+        '<div><label>24h Traders</label><b>'+(s.num_traders ?? "—")+'</b></div>'+
         '<div><label>Jupiter Organic</label><b>'+organic(t)+'</b></div>'+
         '<a class="token-mint" href="'+solscan+'" target="_blank" rel="noopener noreferrer" title="'+t.mint+'">Mint '+shortMint(t.mint)+' ↗</a>'+
         '</article>';
@@ -59,7 +61,14 @@
     const scan=$("#scan-time");
     if(scan) scan.textContent="Jupiter Recent · "+tokens.length+" records · "+new Date().toLocaleTimeString();
     const intelligence=$("#score"); if(intelligence) intelligence.textContent="— / 100";
-    const scoreToken=$("#score-token"); if(scoreToken) scoreToken.textContent=tokens[0]?.symbol || "—";
+    const selected=tokens.find(t=>t.mint===selectedMint)||tokens[0];
+    const scoreToken=$("#score-token"); if(scoreToken) scoreToken.textContent=selected?.symbol || "—";
+    if(selected){
+      const s=stats24h(selected);
+      const vals={"#m-liq":selected.liquidity,"#m-vol":s.volume,"#m-holder":s.num_traders,"#m-social":(selected.data_quality?.completeness!=null?Math.round(selected.data_quality.completeness*100):null),"#m-risk":"—"};
+      Object.entries(vals).forEach(([sel,val])=>{const el=$(sel);if(el)el.textContent=val==null?"—":(sel==="#m-social"?val+"%":(sel==="#m-liq"||sel==="#m-vol"?usd(val):String(val)));});
+      const stage=document.querySelectorAll(".life"); const stages=["DISCOVERED","EMERGING","ACTIVE","MATURE"]; const idx=stages.indexOf(selected.lifecycle||"DISCOVERED"); stage.forEach((el,i)=>el.classList.toggle("active",idx>=i));
+    }
     const note=$(".risk-note");
     if(note) note.innerHTML="<b>Universe:</b> Jupiter Recent is a source feed, not yet the MemeLab candidate engine. Lifecycle is currently DISCOVERED until MemeLab has sufficient independent history.";
   }
