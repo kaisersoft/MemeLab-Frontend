@@ -310,6 +310,10 @@
     const view=btn.dataset.view, watch=$("#watchlist-panel"), discovery=document.querySelector(".discovery");
     if(watch) watch.hidden=view!=="watchlist";
     if(discovery) discovery.hidden=view==="watchlist";
+    const secondaryHidden=view==="watchlist";
+    ["#intelligence-panel","#market-structure-panel","#social-panel","#prototype-note"].forEach(sel=>{
+      const el=$(sel); if(el) el.hidden=secondaryHidden;
+    });
   }));
   window.MEMELAB_JUPITER={refresh:load,active:true};
   load();
