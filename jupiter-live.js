@@ -20,10 +20,6 @@
     return "$"+n.toExponential(2);
   };
   const stats24h = (t) => t?.stats_24h || {};
-  const organic = (t) => {
-    const v=t?.organic_score;
-    return v === null || v === undefined || v === "" ? "—" : (score(v) ?? "—")+"/100";
-  };
   const lifecycle = (t) => t?.lifecycle || "DISCOVERED";
 
   let universeOpen = false;
@@ -122,7 +118,6 @@
         '<td>'+usd(s.volume)+'</td>'+
         '<td>'+((Number(s.num_buys||0)+Number(s.num_sells||0))||"—")+'</td>'+
         '<td>'+(s.num_traders ?? "—")+'</td>'+
-        '<td>'+organic(t)+'</td>'+
         '<td class="next '+(ready?"ready":"")+(next?"":" none")+'">'+(phaseLabel(t))+'</td>'+
       '</tr>';
     }).join("");
@@ -135,6 +130,33 @@
         if(window.MEMELAB_MARKET?.selectToken) window.MEMELAB_MARKET.selectToken(selectedMint);
       });
     });
+  }
+
+  function renderDiagnostics(data){
+    const d=data?.diagnostics||{};
+    const set=(id,value)=>{const el=$(id);if(el)el.textContent=value==null?"—":String(value);};
+    set("#dbg-scope",d.discovery_scope); set("#dbg-recent",d.jupiter_recent_count); set("#dbg-scope-records",d.scope_count);
+    set("#dbg-universe",d.meme_lab_universe); set("#dbg-emerging",d.emerging_count); set("#dbg-active",d.active_count); set("#dbg-watchlist",d.watchlist_count);
+    set("#dbg-watch-scan",d.watchlist_last_scan_at?new Date(Number(d.watchlist_last_scan_at)*1000).toLocaleTimeString():"waiting");
+    set("#dbg-top3",(d.top3_emerging||[]).map((t,i)=>(i+1)+". "+(t.symbol||shortMint(t.mint))).join(" · ")||"—");
+  }
+
+  function renderWatchlist(rows){
+    const body=$("#watchlist-body"), count=$("#watchlist-count");
+    if(!body)return;
+    const list=Array.isArray(rows)?rows:[];
+    if(count)count.textContent=String(list.length);
+    body.innerHTML=list.length?list.map(t=>{
+      const w=t.watchlist||{}, m=t.monitoring||{};
+      return '<tr data-token="'+(t.mint||"")+'">'+
+        '<td><strong>'+(t.symbol||shortMint(t.mint))+'</strong><small>'+(t.name||"—")+'</small></td>'+
+        '<td>'+((t.lifecycle)||"—")+'</td>'+ '<td>'+((w.first_top3_at)?new Date(Number(w.first_top3_at)*1000).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"}):"—")+'</td>'+
+        '<td>'+((w.top3_count??"—"))+'</td>'+ '<td>'+((m.observations??"—"))+'</td>'+ '<td>'+((m.trades_24h??"—"))+'</td>'+
+        '<td>'+((m.active_observations_last_12??0))+'/12</td>'+ '<td class="next ready">'+((m.next_status)||"ACTIVE")+'</td></tr>';
+    }).join(""): '<tr><td colspan="8" class="watchlist-empty">Noch keine Top-3-EMERGING-Kandidaten.</td></tr>';
+    body.querySelectorAll("tr[data-token]").forEach(row=>row.addEventListener("click",()=>{
+      selectedMint=row.dataset.token; render(); if(window.MEMELAB_MARKET?.selectToken) window.MEMELAB_MARKET.selectToken(selectedMint);
+    }));
   }
 
   function render() {
@@ -163,7 +185,6 @@
         '<div><label>24h Traders</label><b>'+(s.num_traders ?? "—")+'</b></div>'+
         '<div><label>History</label><b>'+(t.history?.observations||0)+' obs.</b></div>'+
         '<div><label>Next phase</label><b class="'+(t?.lifecycle_readiness?.[next]?"positive":"")+'">'+phase+'</b></div>'+
-        '<div><label>Jupiter Organic</label><b>'+organic(t)+'</b></div>'+
         '<a class="token-mint" href="'+solscan+'" target="_blank" rel="noopener noreferrer" title="'+t.mint+'">Mint '+shortMint(t.mint)+' ↗</a>'+
         '</article>';
     }).join("") : '<div class="token-empty"><strong>No tokens in this lifecycle stage</strong><span>The persistent MemeLab universe currently has no records matching <b>'+lifecycleFilter+'</b>.</span></div>';
@@ -207,8 +228,10 @@
       el.onclick=()=>{ lifecycleFilter=stageName; selectedMint=null; render(); };
     });
 
+    renderDiagnostics(window.MEMELAB_JUPITER_DATA||{});
+    renderWatchlist((window.MEMELAB_JUPITER_DATA||{}).diagnostics?.watchlist||[]);
     const source=$("#source-status");
-    if(source) source.textContent="Jupiter Recent ingest · "+ingestCount+" current source records · "+tokens.length+" monitored in MemeLab";
+    if(source) source.textContent="Jupiter Discovery scope · "+ingestCount+" current source records · "+tokens.length+" monitored in MemeLab";
     const toggle=$("#universe-toggle");
     if(toggle) toggle.onclick=()=>{ universeOpen=!universeOpen; render(); };
     const preview=$("#preview-label");
@@ -231,6 +254,7 @@
       tokens=Array.isArray(data.tokens)?data.tokens:[];
       window.MEMELAB_JUPITER_TOKENS=tokens;
       ingestCount=Number(data.ingest_count)||0;
+      window.MEMELAB_JUPITER_DATA=data;
       render();
       if(selectedMint && window.MEMELAB_MARKET?.updateLive){
         const liveToken=tokens.find(t=>t.mint===selectedMint);
@@ -242,6 +266,11 @@
     }
   }
 
+  document.querySelectorAll(".nav-btn[data-view]").forEach(btn=>btn.addEventListener("click",()=>{
+    const view=btn.dataset.view, watch=$("#watchlist-panel"), discovery=document.querySelector(".discovery");
+    if(watch) watch.hidden=view!=="watchlist";
+    if(discovery) discovery.hidden=view==="watchlist";
+  }));
   window.MEMELAB_JUPITER={refresh:load,active:true};
   load();
   setInterval(load,5000);
