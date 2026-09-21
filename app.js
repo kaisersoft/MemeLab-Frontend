@@ -35,8 +35,8 @@ function renderDiscovery(tokens) {
   grid.innerHTML=tokens.slice(0,3).map((t,i)=>{
     const selected=t.mint===selectedMint||(!selectedMint&&i===0);
     return '<button class="token-card '+(selected?"selected":"")+'" data-token="'+t.mint+'">'+
-      '<strong>'+(t.symbol||"Token")+'</strong>'+
-      '<span>'+(t.name||"Token name unavailable")+'</span>'+
+      '<strong>'+(t.symbol||"Metadata pending")+'</strong>'+
+      '<span>'+(t.name||"Token metadata not available")+'</span>'+
       '<small class="token-chain">Solana · '+lifecycleLabel(t.lifecycle)+'</small>'+
       '<div><label>Liquidity signal</label><b class="'+(pct(t.liquidity)>=50?"positive":"warning")+'">'+pct(t.liquidity)+'</b></div>'+
       '<div><label>Intelligence</label><b>'+score(t.intelligence)+'</b></div>'+
@@ -52,9 +52,9 @@ function renderLifecycle(token) {
 
 function renderSelectedToken(token) {
   if(!token)return;
-  $("#score-token").textContent=shortMint(token.mint);
+  $("#score-token").textContent=token.symbol || shortMint(token.mint);
   $("#score").textContent=score(token.intelligence)+" / 100";
-  $("#chart-label").textContent=shortMint(token.mint)+" / SOL · live";
+  $("#chart-label").textContent=(token.symbol || shortMint(token.mint))+" / SOL · live";
   setMetric("m-liq",token.liquidity);
   setMetric("m-vol",token.activity);
   setMetric("m-holder",token.actor_growth);
@@ -70,24 +70,21 @@ function updateConnectionStatus(runtime) {
   const health = runtime?.health || {};
   const apiOk = health.api !== false;
   const engineOk = health.engine === true;
-  const chainDataOk = health.chain_data === true;
-  const lastEvent = Number(runtime?.last_event_at || 0);
-  const age = lastEvent ? (Date.now() / 1000) - lastEvent : Infinity;
+  const websocketOk = health.websocket === true;
+  const eventsReceived = Number(health.events_received ?? runtime?.events_received ?? 0);
 
   let state = "red";
   let label = "API OFFLINE";
   let title = runtime?.last_error || "MemeLab API is not reachable.";
 
-  if (apiOk && engineOk && chainDataOk && age <= 15) {
+  if (apiOk && engineOk && websocketOk && eventsReceived > 0 && !runtime?.last_error) {
     state = "green";
     label = "ON-CHAIN LIVE";
-    title = "API connected · engine running · Solana chain data flowing";
-  } else if (apiOk && (engineOk || runtime?.running) && !runtime?.last_error) {
+    title = "API connected · engine running · Solana websocket connected · chain events received";
+  } else if (apiOk && engineOk && websocketOk && !runtime?.last_error) {
     state = "orange";
-    label = chainDataOk ? "CHAIN DATA DELAY" : "ON-CHAIN WAITING";
-    title = chainDataOk
-      ? "API connected · engine running · last Solana event is older than 15 seconds"
-      : "API connected · engine running · waiting for Solana chain data";
+    label = "ON-CHAIN WAITING";
+    title = "API connected · engine running · Solana websocket connected · waiting for first chain event";
   }
 
   live.classList.remove("status-green", "status-orange", "status-red");
@@ -125,7 +122,7 @@ function renderSnapshot(data) {
 }
 
 async function api(path,options={}){const response=await fetch(API_BASE+path,{cache:"no-store",...options,headers:{"Accept":"application/json",...(options.headers||{})}});if(!response.ok)throw new Error(response.status+" "+response.statusText);return response.json();}
-async function refresh(){try{renderSnapshot(await api("/snapshot"));}catch(error){console.error("MemeLab snapshot failed:",error);const live=$(".live-pill");if(live)live.innerHTML="<i></i> API OFFLINE";}}
+async function refresh(){try{renderSnapshot(await api("/snapshot"));}catch(error){console.error("MemeLab snapshot failed:",error);const live=$(".live-pill");if(live){live.classList.remove("status-green","status-orange");live.classList.add("status-red");live.innerHTML="<i></i> API OFFLINE";live.title=error.message||"MemeLab API is not reachable.";}}}
 async function startEngine(){try{await api("/start",{method:"POST"});await refresh();}catch(error){console.error("MemeLab API start failed:",error);const live=$(".live-pill");if(live)live.innerHTML="<i></i> API OFFLINE";}}
 document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",()=>{document.querySelectorAll(".nav-btn").forEach(x=>x.classList.remove("active"));btn.classList.add("active");}));
 startEngine();
