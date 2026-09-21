@@ -5,6 +5,7 @@ const API_BASE = window.MEMELAB_API_URL || "http://127.0.0.1:8765/api";
 const $ = (s) => document.querySelector(s);
 let snapshot = null;
 let selectedMint = null;
+let externalSelectedMint = null;
 
 function shortMint(m) { if (!m) return "—"; return m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5); }
 function pct(v) { return Math.round(Math.max(0,Math.min(1,Number(v)||0))*100); }
@@ -58,8 +59,11 @@ function renderSelectedToken(token) {
   $("#chart-label").textContent=(token.symbol || shortMint(token.mint))+" / SOL · live";
   setMetric("m-liq",token.liquidity); setMetric("m-vol",token.activity); setMetric("m-holder",token.actor_growth); setMetric("m-social",token.confidence);
   const risk=$("#m-risk"); if(risk){risk.textContent="—";const bar=risk.parentElement?.nextElementSibling?.querySelector("em");if(bar)bar.style.width="0%";}
+  const note=$("#market-context-note"); if(note) note.textContent="Net Flow · Buy/Sell pressure · live snapshot data";
   renderLifecycle(token); renderChart(token);
 }
+function selectMarketToken(mint){ externalSelectedMint=mint; const token=(Array.isArray(snapshot?.tokens)?snapshot.tokens:[]).find(t=>t.mint===mint); if(token) renderSelectedToken(token); }
+window.MEMELAB_MARKET={selectToken:selectMarketToken,active:true};
 
 function updateConnectionStatus(runtime) {
   const live=$(".live-pill"); if(!live)return;
@@ -87,7 +91,10 @@ function renderSnapshot(data) {
   // Discovery is owned exclusively by jupiter-live.js. The snapshot must never render token cards.
   renderMarketContext(data?.market);
   if(!tokens.length)return;
-  if(!(window.MEMELAB_JUPITER && window.MEMELAB_JUPITER.active)){
+  if(window.MEMELAB_JUPITER && window.MEMELAB_JUPITER.active){
+    const marketToken=tokens.find(t=>t.mint===externalSelectedMint);
+    if(marketToken) renderSelectedToken(marketToken);
+  } else {
     if(!selectedMint||!tokens.some(t=>t.mint===selectedMint))selectedMint=tokens[0].mint;
     renderSelectedToken(tokens.find(t=>t.mint===selectedMint)||tokens[0]);
   }
