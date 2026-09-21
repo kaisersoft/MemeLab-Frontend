@@ -141,6 +141,17 @@
     set("#dbg-universe",d.meme_lab_universe); set("#dbg-emerging",d.emerging_count); set("#dbg-active",d.active_count); set("#dbg-watchlist",d.watchlist_count);
     set("#dbg-watch-scan",d.watchlist_last_scan_at?new Date(Number(d.watchlist_last_scan_at)*1000).toLocaleTimeString():"waiting");
     set("#dbg-top3",(d.top3_emerging||[]).map((t,i)=>(i+1)+". "+(t.symbol||shortMint(t.mint))).join(" · ")||"—");
+    const db=d.db||{};
+    const fmtInt=(v)=>Number.isFinite(Number(v))?Number(v).toLocaleString("de-DE"):"—";
+    const fmtMb=(v)=>Number.isFinite(Number(v))?Number(v).toFixed(2)+" MB":"—";
+    set("#dbg-db-size",fmtMb(db.db_size_mb));
+    set("#dbg-db-raw",fmtInt(db.raw_snapshots));
+    set("#dbg-db-5m",fmtInt(db.aggregates_5m));
+    set("#dbg-db-1h",fmtInt(db.aggregates_1h));
+    set("#dbg-db-1d",fmtInt(db.aggregates_1d));
+    set("#dbg-db-highres",fmtInt(db.high_res_tokens));
+    set("#dbg-db-share",Number.isFinite(Number(db.high_res_share_percent))?Number(db.high_res_share_percent).toFixed(2)+"%":"—");
+    set("#dbg-db-housekeeping",db.last_housekeeping_at?new Date(Number(db.last_housekeeping_at)*1000).toLocaleTimeString():"waiting");
   }
 
   const watchlistSortValue = (t,key) => {
