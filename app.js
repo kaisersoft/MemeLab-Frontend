@@ -117,7 +117,8 @@ function renderSnapshot(data) {
   snapshot=data;
   renderBuildInfo(data?.runtime?.build);
   const tokens=Array.isArray(data?.tokens)?data.tokens:[];
-  renderDiscovery(tokens); renderMarketContext(data?.market);
+  if (!(window.MEMELAB_JUPITER && window.MEMELAB_JUPITER.active)) renderDiscovery(tokens);
+  renderMarketContext(data?.market);
   if(!tokens.length)return;
   if(!selectedMint||!tokens.some(t=>t.mint===selectedMint))selectedMint=tokens[0].mint;
   renderSelectedToken(tokens.find(t=>t.mint===selectedMint)||tokens[0]);
