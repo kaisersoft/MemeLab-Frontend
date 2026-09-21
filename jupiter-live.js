@@ -71,12 +71,12 @@
       const stage=document.querySelectorAll(".life"); const stages=["DISCOVERED","EMERGING","ACTIVE","MATURE"]; const idx=stages.indexOf(selected.lifecycle||"DISCOVERED"); stage.forEach((el,i)=>el.classList.toggle("active",idx>=i));
     }
     const note=$(".risk-note");
-    if(note) note.innerHTML="<b>Universe:</b> Jupiter Recent is a source feed, not yet the MemeLab candidate engine. Lifecycle is currently DISCOVERED until MemeLab has sufficient independent history.";
+    if(note) note.innerHTML="<b>Universe:</b> Jupiter Recent is a source feed, not yet the MemeLab candidate engine. Lifecycle is currently DISCOVERED until MemeLab has sufficient independent history; readiness evidence is shown per token.";
   }
 
   async function load() {
     try {
-      const r=await fetch(apiBase+"/jupiter/recent",{cache:"no-store",headers:{Accept:"application/json"}});
+      const r=await fetch(apiBase+"/jupiter/universe",{cache:"no-store",headers:{Accept:"application/json"}});
       if(!r.ok) throw new Error(r.status+" "+r.statusText);
       const data=await r.json();
       tokens=Array.isArray(data.tokens)?data.tokens:[];
