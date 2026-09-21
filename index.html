@@ -57,6 +57,32 @@
 
         <div class="token-grid"></div>
 
+        <div class="universe-toolbar">
+          <button class="universe-toggle" id="universe-toggle" type="button">View all <span id="universe-count">0</span></button>
+          <span id="preview-label">Top candidates for next lifecycle phase</span>
+        </div>
+
+        <div class="universe-table-wrap" id="universe-table-wrap" hidden>
+          <table class="universe-table">
+            <thead>
+              <tr>
+                <th><button data-sort="symbol">Token</button></th>
+                <th><button data-sort="name">Name</button></th>
+                <th><button data-sort="lifecycle">Lifecycle</button></th>
+                <th><button data-sort="discovery_status">Discovery</button></th>
+                <th><button data-sort="history">History</button></th>
+                <th><button data-sort="liquidity">Liquidity</button></th>
+                <th><button data-sort="volume">24h Volume</button></th>
+                <th><button data-sort="trades">Trades</button></th>
+                <th><button data-sort="traders">Traders</button></th>
+                <th><button data-sort="organic">Organic</button></th>
+                <th><button data-sort="next_phase">Next phase</button></th>
+              </tr>
+            </thead>
+            <tbody id="universe-table-body"></tbody>
+          </table>
+        </div>
+
         <div class="source-status" id="source-status">Source · waiting</div>
       </section>
 
