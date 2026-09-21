@@ -38,13 +38,21 @@ function setMetric(id,value) {
 }
 
 function renderChart(token) {
-  const line=$("#chart-line"), area=$("#chart-area"); if(!line||!area||!token)return;
-  const windows=token.windows||{}, keys=Object.keys(windows).sort((a,b)=>Number(a)-Number(b));
-  const values=keys.map(k=>Number(windows[k]?.net_flow_ui??0));
-  if(!values.length){line.setAttribute("d","M0 220 L800 220");area.setAttribute("d","M0 220 L800 220 L800 240 L0 240 Z");return;}
-  const min=Math.min(...values), max=Math.max(...values), span=max-min||1;
-  const points=values.map((v,i)=>{const x=values.length===1?400:(i/(values.length-1))*800;const y=205-((v-min)/span)*170;return[Math.round(x),Math.round(y)]});
-  const path=points.map((p,i)=>(i?"L":"M")+p[0]+" "+p[1]).join(" "); line.setAttribute("d",path); area.setAttribute("d",path+" L"+points[points.length-1][0]+" 240 L"+points[0][0]+" 240 Z");
+  const line=$("#chart-line"), area=$("#chart-area"), zero=$("#chart-zero"); if(!line||!area||!token)return;
+  const windows=token.windows||token.market_structure?.windows||{};
+  const keys=Object.keys(windows).sort((a,b)=>Number(a)-Number(b));
+  const values=keys.map(k=>Number(windows[k]?.net_flow_ui??windows[k]?.net_flow??0)).filter(Number.isFinite);
+  const netEl=$("#chart-net-flow"), windowEl=$("#chart-window"), dataEl=$("#chart-data");
+  const last=values.length?values[values.length-1]:null;
+  if(netEl) netEl.textContent=last==null?"—":(last>0?"+":"")+usd(last);
+  if(windowEl) windowEl.textContent=keys.length?keys.length+" observations":"—";
+  if(dataEl) dataEl.textContent=values.length?"live snapshot":"waiting";
+  if(!values.length){line.setAttribute("d","M0 130 L800 130");area.setAttribute("d","M0 130 L800 130 L800 240 L0 240 Z");if(zero)zero.setAttribute("d","M0 130H800");return;}
+  const abs=Math.max(...values.map(v=>Math.abs(v)),1);
+  const points=values.map((v,i)=>{const x=values.length===1?400:(i/(values.length-1))*800;const y=130-(v/abs)*105;return[Math.round(x),Math.round(y)]});
+  const path=points.map((p,i)=>(i?"L":"M")+p[0]+" "+p[1]).join(" ");
+  line.setAttribute("d",path); area.setAttribute("d",path+" L"+points[points.length-1][0]+" 130 L"+points[0][0]+" 130 Z");
+  if(zero)zero.setAttribute("d","M0 130H800");
 }
 
 function renderLifecycle(token) {
