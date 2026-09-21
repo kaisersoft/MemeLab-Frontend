@@ -6,6 +6,7 @@ const $ = (s) => document.querySelector(s);
 let snapshot = null;
 let selectedMint = null;
 let externalSelectedMint = null;
+let marketHistoryRequest = 0;
 
 function shortMint(m) { if (!m) return "—"; return m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5); }
 function pct(v) { return Math.round(Math.max(0,Math.min(1,Number(v)||0))*100); }
@@ -38,20 +39,33 @@ function setMetric(id,value) {
 }
 
 function renderChart(token) {
-  const line=$("#chart-line"), area=$("#chart-area"), zero=$("#chart-zero"); if(!line||!area||!token)return;
-  const windows=token.windows||token.market_structure?.windows||{};
-  const keys=Object.keys(windows).sort((a,b)=>Number(a)-Number(b));
-  const values=keys.map(k=>Number(windows[k]?.net_flow_ui??windows[k]?.net_flow??0)).filter(Number.isFinite);
+  const line=$("#chart-line"), area=$("#chart-area"), zero=$("#chart-zero");
+  if(!line||!area||!token)return;
+  const values=Array.isArray(token?.market_history)?token.market_history:[];
+  renderChartHistory(token,{points:values});
+}
+
+function renderChartHistory(token,data){
+  const line=$("#chart-line"), area=$("#chart-area"), zero=$("#chart-zero");
+  if(!line||!area)return;
+  const pointsData=Array.isArray(data?.points)?data.points:[];
+  const values=pointsData.map(p=>Number(p?.net_flow)).filter(Number.isFinite);
   const netEl=$("#chart-net-flow"), windowEl=$("#chart-window"), dataEl=$("#chart-data");
   const last=values.length?values[values.length-1]:null;
   if(netEl) netEl.textContent=last==null?"—":(last>0?"+":"")+usd(last);
-  if(windowEl) windowEl.textContent=keys.length?keys.length+" observations":"—";
-  if(dataEl) dataEl.textContent=values.length?"live snapshot":"waiting";
-  if(!values.length){line.setAttribute("d","M0 130 L800 130");area.setAttribute("d","M0 130 L800 130 L800 240 L0 240 Z");if(zero)zero.setAttribute("d","M0 130H800");return;}
+  if(windowEl) windowEl.textContent=values.length?data?.window||values.length+" observations":"—";
+  if(dataEl) dataEl.textContent=values.length?"SQLite history":"waiting";
+  if(!values.length){
+    line.setAttribute("d","M0 130 L800 130");
+    area.setAttribute("d","M0 130 L800 130 L800 240 L0 240 Z");
+    if(zero)zero.setAttribute("d","M0 130H800");
+    return;
+  }
   const abs=Math.max(...values.map(v=>Math.abs(v)),1);
   const points=values.map((v,i)=>{const x=values.length===1?400:(i/(values.length-1))*800;const y=130-(v/abs)*105;return[Math.round(x),Math.round(y)]});
   const path=points.map((p,i)=>(i?"L":"M")+p[0]+" "+p[1]).join(" ");
-  line.setAttribute("d",path); area.setAttribute("d",path+" L"+points[points.length-1][0]+" 130 L"+points[0][0]+" 130 Z");
+  line.setAttribute("d",path);
+  area.setAttribute("d",path+" L"+points[points.length-1][0]+" 130 L"+points[0][0]+" 130 Z");
   if(zero)zero.setAttribute("d","M0 130H800");
 }
 
@@ -70,7 +84,24 @@ function renderSelectedToken(token) {
   const note=$("#market-context-note"); if(note) note.textContent="Net Flow · Buy/Sell pressure · live snapshot data";
   renderLifecycle(token); renderChart(token);
 }
-function selectMarketToken(mint){ externalSelectedMint=mint; const token=(Array.isArray(snapshot?.tokens)?snapshot.tokens:[]).find(t=>t.mint===mint); if(token) renderSelectedToken(token); }
+async function selectMarketToken(mint){
+  externalSelectedMint=mint;
+  const token=(Array.isArray(window.MEMELAB_JUPITER_TOKENS)?window.MEMELAB_JUPITER_TOKENS.find(t=>t.mint===mint):null)
+    || (Array.isArray(snapshot?.tokens)?snapshot.tokens:[]).find(t=>t.mint===mint);
+  if(token) renderSelectedToken(token);
+  const request=++marketHistoryRequest;
+  try{
+    const response=await fetch(API_BASE+"/jupiter/history?mint="+encodeURIComponent(mint),{cache:"no-store",headers:{Accept:"application/json"}});
+    if(!response.ok) throw new Error(response.status+" "+response.statusText);
+    const data=await response.json();
+    if(request!==marketHistoryRequest) return;
+    renderChartHistory(token,data);
+  }catch(error){
+    if(request!==marketHistoryRequest) return;
+    console.error("MemeLab market history failed:",error);
+    renderChartHistory(token,{points:[]});
+  }
+}
 window.MEMELAB_MARKET={selectToken:selectMarketToken,active:true};
 
 function updateConnectionStatus(runtime) {
