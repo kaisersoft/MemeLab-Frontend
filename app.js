@@ -35,9 +35,12 @@ function renderDiscovery(tokens) {
   grid.innerHTML=tokens.slice(0,3).map((t,i)=>{
     const selected=t.mint===selectedMint||(!selectedMint&&i===0);
     return '<button class="token-card '+(selected?"selected":"")+'" data-token="'+t.mint+'">'+
-      '<strong>'+shortMint(t.mint)+'</strong><span>Solana · '+lifecycleLabel(t.lifecycle)+'</span>'+
+      '<strong>'+(t.symbol||"Token")+'</strong>'+
+      '<span>'+(t.name||"Token name unavailable")+'</span>'+
+      '<small class="token-chain">Solana · '+lifecycleLabel(t.lifecycle)+'</small>'+
       '<div><label>Liquidity signal</label><b class="'+(pct(t.liquidity)>=50?"positive":"warning")+'">'+pct(t.liquidity)+'</b></div>'+
-      '<div><label>Intelligence</label><b>'+score(t.intelligence)+'</b></div></button>';
+      '<div><label>Intelligence</label><b>'+score(t.intelligence)+'</b></div>'+
+      '<small class="token-mint">Mint '+shortMint(t.mint)+'</small></button>';
   }).join("");
   grid.querySelectorAll(".token-card").forEach(btn=>btn.addEventListener("click",()=>{selectedMint=btn.dataset.token;renderSnapshot(snapshot);}));
 }
