@@ -12,6 +12,15 @@ let marketHistory = [];
 function shortMint(m) { if (!m) return "—"; return m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5); }
 function pct(v) { return Math.round(Math.max(0,Math.min(1,Number(v)||0))*100); }
 function score(v) { return Math.round(Number(v)||0); }
+function usd(v) {
+  const n=Number(v);
+  if(!Number.isFinite(n)) return "—";
+  if(Math.abs(n)>=1e9) return "$"+(n/1e9).toFixed(2)+"B";
+  if(Math.abs(n)>=1e6) return "$"+(n/1e6).toFixed(2)+"M";
+  if(Math.abs(n)>=1e3) return "$"+(n/1e3).toFixed(1)+"K";
+  if(Math.abs(n)>=1) return "$"+n.toFixed(2);
+  return "$"+n.toExponential(2);
+}
 function lifecycleLabel(v) {
   const map={DISCOVERY:"Discover",LAUNCH:"Launch",EARLY_TRADING:"Early Trading",MOMENTUM:"Momentum",DISTRIBUTION:"Distribution",DECAY:"Decay"};
   return map[v]||v||"—";
