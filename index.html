@@ -108,6 +108,9 @@
         </div>
         <div class="chart-wrap">
           <svg viewBox="0 0 800 260" preserveAspectRatio="none" role="img" aria-label="Live market structure chart">
+            <text class="chart-axis-label chart-axis-top" x="8" y="18">BUY</text>
+            <text class="chart-axis-label chart-axis-zero" x="8" y="134">0</text>
+            <text class="chart-axis-label chart-axis-bottom" x="8" y="250">SELL</text>
             <defs>
               <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stop-color="#75c8ff" stop-opacity=".16"/>
@@ -115,11 +118,13 @@
               </linearGradient>
             </defs>
             <path class="gridline" d="M0 58H800M0 130H800M0 202H800"/>
+            <path id="chart-zero" class="chart-zero" d="M0 130H800"/>
             <path id="chart-area" fill="url(#area)" d="M0 240 L0 220 L800 220 L800 240 Z"/>
             <path id="chart-line" d="M0 220 L800 220"/>
           </svg>
         </div>
-        <div class="risk-note"><b>Market context:</b> waiting for live Solana data.</div>
+        <div class="chart-stats"><span>Net Flow <b id="chart-net-flow">—</b></span><span>Window <b id="chart-window">—</b></span><span>Data <b id="chart-data">—</b></span></div>
+        <div class="risk-note"><b>Market context:</b> <span id="market-context-note">waiting for live Solana data.</span></div>
       </section>
 
       <section class="panel social">
