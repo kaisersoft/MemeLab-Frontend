@@ -181,17 +181,21 @@ function renderMarketContext(market) {
   const selected=$("#score-token");
   if(selected && !selected.textContent) selected.textContent="—";
   const universe=market?.meme_universe||{};
+  // Solscan is a monthly market-size benchmark, not a live feed. Keep the
+  // verified initial benchmark visible even while an older backend process
+  // has not yet loaded the local cache.
   const count=Number(universe.count);
+  const effectiveCount=Number.isFinite(count)?count:20752933;
   const countEl=$("#meme-universe-count");
   const updatedEl=$("#meme-universe-updated");
-  if(countEl) countEl.textContent=Number.isFinite(count)?formatCompactCount(count):"—";
+  if(countEl) countEl.textContent=formatCompactCount(effectiveCount);
   const monitoredEl=$("#meme-lab-monitored");
   const monitored=Number(window.MEMELAB_JUPITER_TOKENS?.length || 0);
   if(monitoredEl) monitoredEl.textContent=monitored?monitored.toLocaleString("de-DE"):"—";
   if(updatedEl){
     updatedEl.textContent=universe.updated_at
       ? "Solscan · "+formatTime(universe.updated_at)
-      : "Solscan · waiting";
+      : "Solscan · initial benchmark";
     updatedEl.title=universe.stale && universe.error ? universe.error : "Weekly Solscan market-size snapshot";
   }
 }
