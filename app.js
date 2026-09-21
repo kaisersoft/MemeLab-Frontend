@@ -82,9 +82,10 @@ function renderMarketChart(history, token, options={}){
   // the token's rolling 24h flow into a 1m/5m/1h/etc. history series.
   const pointsData=[...(Array.isArray(history)?history:[])];
   const values=pointsData.map(p=>Number(p?.net_flow)).filter(Number.isFinite);
-  const netEl=$("#chart-net-flow"), windowEl=$("#chart-window"), dataEl=$("#chart-data");
+  const netEl=$("#chart-net-flow"), netLabel=$("#chart-net-flow-label"), windowEl=$("#chart-window"), dataEl=$("#chart-data");
   const lastPoint=pointsData.length?pointsData[pointsData.length-1]:null;
   const last=lastPoint && Number.isFinite(Number(lastPoint?.net_flow))?Number(lastPoint.net_flow):null;
+  if(netLabel) netLabel.textContent="Latest Net Flow ("+(options.windowLabel||marketWindow)+")";
   if(netEl) netEl.textContent=last==null?"—":(last>0?"+":"")+usd(last);
   if(windowEl) windowEl.textContent=values.length?(options.windowLabel||values.length+" observations"):"—";
   if(dataEl) dataEl.textContent=values.length?"SQLite history":"waiting";
