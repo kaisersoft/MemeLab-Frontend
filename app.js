@@ -238,7 +238,7 @@ function renderSnapshot(data) {
   const tokens=Array.isArray(data?.tokens)?data.tokens:[];
   renderLifecycleOverview(window.MEMELAB_JUPITER_TOKENS || tokens);
   // Discovery is owned exclusively by jupiter-live.js. The snapshot must never render token cards.
-  renderMarketContext(data?.market);
+  renderMarketContext(data?.market_size);
   if(!tokens.length)return;
   if(window.MEMELAB_JUPITER && window.MEMELAB_JUPITER.active){
     const marketToken=tokens.find(t=>t.mint===externalSelectedMint);
