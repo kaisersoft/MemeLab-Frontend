@@ -16,9 +16,9 @@
     if (Math.abs(n) >= 1) return "$"+n.toFixed(2);
     return "$"+n.toExponential(2);
   };
-  const stats24h = (t) => t?.stats24h || {};
+  const stats24h = (t) => t?.stats_24h || {};
   const organic = (t) => {
-    const v=t?.organicScore;
+    const v=t?.organic_score;
     return v === null || v === undefined || v === "" ? "—" : (score(v) ?? "—")+"/100";
   };
   const lifecycle = () => "DISCOVERED";
@@ -50,7 +50,7 @@
     const total=$("#market-total-tokens"); if(total) total.textContent=tokens.length.toLocaleString();
     const active=$("#market-active-tokens"); if(active) active.textContent=tokens.filter(t => {
       const s=stats24h(t);
-      return Number(s.numBuys||0)+Number(s.numSells||0) > 0;
+      return Number(s.num_buys||0)+Number(s.num_sells||0) > 0;
     }).length.toLocaleString();
     const candidates=$("#market-candidates"); if(candidates) candidates.textContent="—";
     const activity=$("#market-activity"); if(activity) activity.textContent="—";
@@ -58,6 +58,8 @@
     if(sub) sub.textContent="Solana Mainnet · Jupiter Recent";
     const scan=$("#scan-time");
     if(scan) scan.textContent="Jupiter Recent · "+tokens.length+" records · "+new Date().toLocaleTimeString();
+    const intelligence=$("#score"); if(intelligence) intelligence.textContent="— / 100";
+    const scoreToken=$("#score-token"); if(scoreToken) scoreToken.textContent=tokens[0]?.symbol || "—";
     const note=$(".risk-note");
     if(note) note.innerHTML="<b>Universe:</b> Jupiter Recent is a source feed, not yet the MemeLab candidate engine. Lifecycle is currently DISCOVERED until MemeLab has sufficient independent history.";
   }
