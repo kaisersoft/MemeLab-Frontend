@@ -136,7 +136,7 @@ function renderSelectedToken(token) {
   $("#chart-label").textContent=(token.symbol || shortMint(token.mint))+" / SOL · "+marketWindow+" history";
   setMetric("m-liq",token.liquidity); setMetric("m-vol",token.activity); setMetric("m-holder",token.actor_growth); setMetric("m-social",token.confidence);
   const risk=$("#m-risk"); if(risk){risk.textContent="—";const bar=risk.parentElement?.nextElementSibling?.querySelector("em");if(bar)bar.style.width="0%";}
-  const note=$("#market-context-note"); if(note) note.textContent="Net Flow · Buy/Sell pressure · live snapshot data";
+  const note=$("#market-context-note"); if(note) note.textContent="24h rolling Buy/Sell flow · selected history window";
   renderLifecycle(token); renderChart(token);
 }
 async function selectMarketToken(mint){
