@@ -106,7 +106,15 @@ function renderMarketContext(market) {
   const active=document.querySelector("#market-active-tokens");
   const candidates=document.querySelector("#market-candidates");
   const activityEl=document.querySelector("#market-activity");
-  const censusTotal=snapshot?.runtime?.census_complete?Number(snapshot.runtime.census_tokens):Number(market?.total_tokens);
+  const rt=snapshot?.runtime||{};
+  const censusComplete=rt.census_complete===true;
+  const censusRunning=rt.census_running===true;
+  const censusTotal=censusComplete?Number(rt.census_tokens):NaN;
+  const universeLabel=$("#market-universe-label");
+  if(universeLabel) {
+    universeLabel.textContent=censusComplete ? "Token universe · census" : (censusRunning ? "Token universe · scanning" : "Token universe · census error");
+    universeLabel.title=rt.census_error || (censusComplete ? ("Legacy: "+Number(rt.census_legacy||0)+" · Token-2022: "+Number(rt.census_token2022||0)) : "Census has not completed successfully");
+  }
   if(total)total.textContent=Number.isFinite(censusTotal)?censusTotal.toLocaleString():"—";
   if(active)active.textContent=Number.isFinite(Number(market?.observed_tokens))?Number(market.observed_tokens).toLocaleString():"—";
   if(candidates)candidates.textContent=Array.isArray(snapshot?.tokens)?Math.min(snapshot.tokens.length,3):"—";
