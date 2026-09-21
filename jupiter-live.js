@@ -175,6 +175,7 @@
         if(window.MEMELAB_MARKET?.selectToken) window.MEMELAB_MARKET.selectToken(selectedMint);
       });
     });
+    const selected=tokens.find(t=>t.mint===selectedMint)||tokens[0];
     if(selected){
       if(selectedMint!==selected.mint){
         selectedMint=selected.mint;
@@ -189,7 +190,6 @@
     const scan=$("#scan-time");
     if(scan) scan.textContent="Live status · "+tokens.length+" monitored records · "+new Date().toLocaleTimeString();
     const intelligence=$("#score"); if(intelligence) intelligence.textContent="— / 100";
-    const selected=tokens.find(t=>t.mint===selectedMint)||tokens[0];
     const scoreToken=$("#score-token"); if(scoreToken) scoreToken.textContent=selected?.symbol || "—";
     if(selected){
       const s=stats24h(selected);
