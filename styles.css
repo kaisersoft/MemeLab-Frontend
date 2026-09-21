@@ -64,10 +64,10 @@ h2{font-size:20px;margin:0 0 5px}
 .token-card>span{display:block}
 
 .brand-identity{display:flex;align-items:center;gap:16px;min-width:0}
-.brand-logo{width:54px;height:54px;object-fit:cover;border-radius:12px;border:1px solid #263d4d;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.brand-logo{width:82px;height:82px;object-fit:cover;border-radius:14px;border:1px solid #263d4d;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .brand-copy{min-width:0}
 .title-line{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .build-badge{display:inline-flex;align-items:center;border:1px solid #2a4555;background:#0b1821;color:#8fa8b8;border-radius:8px;padding:5px 9px;font:500 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.2px;white-space:nowrap}
 .build-meta{margin:9px 0 0 70px;color:#5f7482;font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
-@media(max-width:900px){.brand-logo{width:44px;height:44px}.build-meta{margin-left:60px}}
+@media(max-width:900px){.brand-logo{width:64px;height:64px}.build-meta{margin-left:80px}}
 @media(max-width:560px){.brand-identity{align-items:flex-start}.brand-logo{width:40px;height:40px}.title-line{display:block}.build-badge{margin-top:7px}.build-meta{margin-left:0}.brand-copy h1{font-size:20px}}
