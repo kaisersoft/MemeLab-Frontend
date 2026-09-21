@@ -219,6 +219,7 @@ async function api(path,options={}){const response=await fetch(API_BASE+path,{ca
 async function refresh(){try{apiReachable=true;renderSnapshot(await api("/snapshot"));}catch(error){apiReachable=false;console.error("MemeLab snapshot failed:",error);const live=$(".live-pill");if(live){live.classList.remove("status-green","status-orange");live.classList.add("status-red");live.innerHTML="<i></i> API OFFLINE";live.title=error.message||"MemeLab API is not reachable.";}}}
 async function startEngine(){try{apiReachable=true;await api("/start",{method:"POST"});await refresh();}catch(error){apiReachable=false;console.error("MemeLab API start failed:",error);const live=$(".live-pill");if(live)live.innerHTML="<i></i> API OFFLINE";}}
 document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",()=>{document.querySelectorAll(".nav-btn").forEach(x=>x.classList.remove("active"));btn.classList.add("active");}));
+document.querySelectorAll(".chart-window-btn").forEach(btn=>btn.addEventListener("click",()=>setMarketWindow(btn.dataset.window)));
 renderBuildInfo();
 startEngine();
 setInterval(refresh,1000);
