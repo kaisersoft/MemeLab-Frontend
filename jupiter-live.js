@@ -4,6 +4,8 @@
   const apiBase = window.MEMELAB_API_URL || "http://127.0.0.1:8765/api";
   let tokens = [];
   let selectedMint = null;
+  let lifecycleFilter = "DISCOVERED";
+  const LIFECYCLE_STAGES = ["DISCOVERED","EMERGING","ACTIVE","MATURE"];
   const $ = (s) => document.querySelector(s);
   const shortMint = (m) => !m ? "—" : m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5);
   const score = (v) => Number.isFinite(Number(v)) ? Math.round(Number(v)) : null;
@@ -26,7 +28,11 @@
   function render() {
     const grid=$(".token-grid");
     if (!grid) return;
-    grid.innerHTML=tokens.slice(0,3).map((t,i) => {
+    const filteredTokens = tokens.filter(t => lifecycle(t) === lifecycleFilter);
+    const selectedInFilter = filteredTokens.some(t => t.mint === selectedMint);
+    if (!selectedInFilter) selectedMint = filteredTokens[0]?.mint || null;
+    const visibleTokens = filteredTokens.slice(0,3);
+    grid.innerHTML = visibleTokens.length ? visibleTokens.map((t,i) => {
       const selected=t.mint===selectedMint || (!selectedMint && i===0);
       const solscan="https://solscan.io/token/"+encodeURIComponent(t.mint);
       const s=stats24h(t);
@@ -42,7 +48,7 @@
         '<div><label>Jupiter Organic</label><b>'+organic(t)+'</b></div>'+
         '<a class="token-mint" href="'+solscan+'" target="_blank" rel="noopener noreferrer" title="'+t.mint+'">Mint '+shortMint(t.mint)+' ↗</a>'+
         '</article>';
-    }).join("");
+    }).join("") : '<div class="token-empty"><strong>No tokens in this lifecycle stage</strong><span>The live Jupiter universe currently has no records matching <b>'+lifecycleFilter+'</b>.</span></div>';
 
     grid.querySelectorAll(".token-card").forEach(card => {
       card.addEventListener("click", () => { selectedMint=card.dataset.token; render(); });
@@ -68,7 +74,18 @@
       const s=stats24h(selected);
       const vals={"#m-liq":selected.liquidity,"#m-vol":s.volume,"#m-holder":s.num_traders,"#m-social":(selected.data_quality?.completeness!=null?Math.round(selected.data_quality.completeness*100):null),"#m-risk":"—"};
       Object.entries(vals).forEach(([sel,val])=>{const el=$(sel);if(el)el.textContent=val==null?"—":(sel==="#m-social"?val+"%":(sel==="#m-liq"||sel==="#m-vol"?usd(val):String(val)));});
-      const stage=document.querySelectorAll(".life"); const stages=["DISCOVERED","EMERGING","ACTIVE","MATURE"]; const idx=stages.indexOf(selected.lifecycle||"DISCOVERED"); stage.forEach((el,i)=>el.classList.toggle("active",idx>=i));
+      const stage=document.querySelectorAll(".life");
+    const lifecycleCounts = Object.fromEntries(LIFECYCLE_STAGES.map(stage => [stage, tokens.filter(t => lifecycle(t) === stage).length]));
+    stage.forEach((el,i)=>{
+      const stageName=LIFECYCLE_STAGES[i];
+      el.classList.toggle("active", lifecycleFilter===stageName);
+      el.setAttribute("aria-selected", lifecycleFilter===stageName ? "true" : "false");
+      const count=el.querySelector(".life-count");
+      if(count) count.textContent=String(lifecycleCounts[stageName]||0);
+    });
+    stage.forEach((el,i)=>{
+      el.onclick=()=>{ lifecycleFilter=LIFECYCLE_STAGES[i]; selectedMint=null; render(); };
+    });
     }
     const note=$(".risk-note");
     if(note) note.innerHTML="<b>Universe:</b> Jupiter Recent is a source feed, not yet the MemeLab candidate engine. Lifecycle is currently DISCOVERED until MemeLab has sufficient independent history; readiness evidence is shown per token.";
