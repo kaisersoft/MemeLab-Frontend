@@ -30,7 +30,7 @@ h2{font-size:20px;margin:0 0 5px}
 .token-card{border:1px solid #223847;background:#0d1b25;border-radius:16px;padding:18px;text-align:left;cursor:pointer;transition:.18s}
 .token-card:hover,.token-card.selected{border-color:#688da1;background:#142531}
 .token-card strong{display:block;font-size:21px}.token-card>span{display:block;color:#7f919f;font-size:14px;margin:8px 0 22px}
-.token-card div{display:flex;justify-content:space-between;margin-top:12px}.token-card label{color:#d3dde4}.positive{color:var(--green)!important}.warning{color:var(--gold)!important}
+.token-card div{display:flex;justify-content:space-between;margin-top:12px}.token-mint{display:block;margin-top:10px;color:#8da8b8;font-size:12px;text-decoration:none;cursor:pointer}.token-mint:hover{text-decoration:underline;color:#c5dbe7}.token-card label{color:#d3dde4}.positive{color:var(--green)!important}.warning{color:var(--gold)!important}
 .lifecycle{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:18px}
 .life{border:1px solid #273c4a;background:#0d1922;border-radius:13px;padding:13px 8px;cursor:pointer}
 .life.active{background:#112531;border-color:#55798c}.life b,.life span{display:block}.life span{color:#92a2ad;font-size:14px;margin-top:7px}
