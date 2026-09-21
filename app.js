@@ -60,11 +60,42 @@ function renderSelectedToken(token) {
   renderLifecycle(token); renderChart(token);
 }
 
-function renderMarketContext(market) {
+function updateConnectionStatus(runtime) {
+  const live = $(".live-pill");
+  if (!live) return;
+
+  const health = runtime?.health || {};
+  const apiOk = health.api !== false;
+  const engineOk = health.engine === true;
+  const chainDataOk = health.chain_data === true;
+  const lastEvent = Number(runtime?.last_event_at || 0);
+  const age = lastEvent ? (Date.now() / 1000) - lastEvent : Infinity;
+
+  let state = "red";
+  let label = "API OFFLINE";
+  let title = runtime?.last_error || "MemeLab API is not reachable.";
+
+  if (apiOk && engineOk && chainDataOk && age <= 15) {
+    state = "green";
+    label = "ON-CHAIN LIVE";
+    title = "API connected · engine running · Solana chain data flowing";
+  } else if (apiOk && (engineOk || runtime?.running) && !runtime?.last_error) {
+    state = "orange";
+    label = chainDataOk ? "CHAIN DATA DELAY" : "ON-CHAIN WAITING";
+    title = chainDataOk
+      ? "API connected · engine running · last Solana event is older than 15 seconds"
+      : "API connected · engine running · waiting for Solana chain data";
+  }
+
+  live.classList.remove("status-green", "status-orange", "status-red");
+  live.classList.add("status-" + state);
+  live.innerHTML = "<i></i> " + label;
+  live.title = title;
+}\n\nfunction renderMarketContext(market) {
   const regime=market?.regime||"—";
   const subtitle=document.querySelector(".discovery .panel-head > div > span"); if(subtitle)subtitle.textContent="Solana · "+regime;
   const scan=$("#scan-time"); if(scan)scan.textContent=snapshot?.runtime?.last_event_at?"Last event · "+formatTime(snapshot.runtime.last_event_at):"Waiting for live events";
-  const live=$(".live-pill"); if(live){const running=Boolean(snapshot?.runtime?.running);live.innerHTML="<i></i> "+(running?"ON-CHAIN LIVE":"ON-CHAIN IDLE");}
+  updateConnectionStatus(snapshot?.runtime);
   const note=$(".risk-note"); if(note)note.innerHTML="<b>Market context:</b> "+regime+" · buy pressure "+pct(market?.buy_pressure)+" · activity "+pct(market?.activity)+" · actor growth "+pct(market?.actor_growth)+" · liquidity "+pct(market?.liquidity)+" · active tokens "+(market?.active_tokens??0)+"/"+(market?.total_tokens??0)+". Risk engine not connected in this phase.";
 }
 
