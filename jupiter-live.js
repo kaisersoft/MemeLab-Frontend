@@ -225,6 +225,10 @@
       window.MEMELAB_JUPITER_TOKENS=tokens;
       ingestCount=Number(data.ingest_count)||0;
       render();
+      if(selectedMint && window.MEMELAB_MARKET?.updateLive){
+        const liveToken=tokens.find(t=>t.mint===selectedMint);
+        if(liveToken) window.MEMELAB_MARKET.updateLive(liveToken);
+      }
     } catch(e) {
       console.error("MemeLab Jupiter feed:",e);
       const scan=$("#scan-time"); if(scan) scan.textContent="Jupiter feed unavailable";
