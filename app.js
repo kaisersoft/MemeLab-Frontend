@@ -59,12 +59,12 @@ function renderChartHistory(token,data){
   if(!line||!area)return;
   const pointsData=Array.isArray(data?.points)?data.points:[];
   marketHistory=pointsData;
-  renderMarketChart(pointsData, token, {live:false});
+  renderMarketChart(pointsData, token, {live:false, windowLabel:data?.window});
 }
 
 function updateMarketLiveToken(token){
   if(!token || token.mint!==externalSelectedMint)return;
-  renderMarketChart(marketHistory, token, {live:true});
+  renderMarketChart(marketHistory, token, {live:true, windowLabel:"1h"});
 }
 
 function renderMarketChart(history, token, options={}){
@@ -87,7 +87,7 @@ function renderMarketChart(history, token, options={}){
   const netEl=$("#chart-net-flow"), windowEl=$("#chart-window"), dataEl=$("#chart-data");
   const last=values.length?values[values.length-1]:null;
   if(netEl) netEl.textContent=last==null?"—":(last>0?"+":"")+usd(last);
-  if(windowEl) windowEl.textContent=values.length?data?.window||values.length+" observations":"—";
+  if(windowEl) windowEl.textContent=values.length?(options.windowLabel||values.length+" observations"):"—";
   if(dataEl) dataEl.textContent=values.length?(livePoint?"live + SQLite":"SQLite history"):"waiting";
   if(!values.length){
     line.setAttribute("d","M0 130 L800 130");
