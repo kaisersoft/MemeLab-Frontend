@@ -132,6 +132,7 @@
         if(event.target.closest("a")) return;
         selectedMint=row.dataset.token;
         render();
+        if(window.MEMELAB_MARKET?.selectToken) window.MEMELAB_MARKET.selectToken(selectedMint);
       });
     });
   }
