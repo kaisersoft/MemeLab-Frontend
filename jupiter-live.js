@@ -75,7 +75,7 @@
     }
   }
 
-  window.MEMELAB_JUPITER={refresh:load};
+  window.MEMELAB_JUPITER={refresh:load,active:true};
   load();
   setInterval(load,5000);
 })();
