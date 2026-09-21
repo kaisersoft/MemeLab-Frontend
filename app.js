@@ -46,24 +46,6 @@ function renderChart(token) {
   const path=points.map((p,i)=>(i?"L":"M")+p[0]+" "+p[1]).join(" "); line.setAttribute("d",path); area.setAttribute("d",path+" L"+points[points.length-1][0]+" 240 L"+points[0][0]+" 240 Z");
 }
 
-function renderDiscovery(tokens) {
-  const grid=$(".token-grid"); if(!grid)return;
-  if(!tokens.length){grid.innerHTML='<div class="muted">Waiting for live Solana events…</div>';return;}
-  grid.innerHTML=tokens.slice(0,3).map((t,i)=>{
-    const selected=t.mint===selectedMint||(!selectedMint&&i===0);
-    const solscan="https://solscan.io/token/"+encodeURIComponent(t.mint)+"?cluster=devnet";
-    return '<article class="token-card '+(selected?"selected":"")+'" data-token="'+t.mint+'">'+
-      '<strong>'+(t.symbol||shortMint(t.mint))+'</strong>'+
-      '<span>'+(t.name||"Solana token")+'</span>'+
-      '<small class="token-chain">Solana · '+lifecycleLabel(t.lifecycle)+'</small>'+
-      '<div><label>Liquidity signal</label><b class="'+(pct(t.liquidity)>=50?"positive":"warning")+'">'+pct(t.liquidity)+'</b></div>'+
-      '<div><label>Intelligence</label><b>'+score(t.intelligence)+'</b></div>'+
-      '<a class="token-mint" href="'+solscan+'" target="_blank" rel="noopener noreferrer" title="'+t.mint+'">Mint '+shortMint(t.mint)+' ↗</a></article>';
-  }).join("");
-  grid.querySelectorAll(".token-card").forEach(card=>card.addEventListener("click",()=>{selectedMint=card.dataset.token;renderSnapshot(snapshot);}));
-  grid.querySelectorAll(".token-mint").forEach(link=>link.addEventListener("click",event=>event.stopPropagation()));
-}
-
 function renderLifecycle(token) {
   const stages=["DISCOVERY","LAUNCH","EARLY_TRADING","MOMENTUM","DISTRIBUTION","DECAY"], current=stages.indexOf(token?.lifecycle);
   document.querySelectorAll(".life").forEach((el,i)=>el.classList.toggle("active",current>=0&&i<=current));
