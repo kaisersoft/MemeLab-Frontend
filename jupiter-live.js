@@ -21,6 +21,13 @@
   };
   const stats24h = (t) => t?.stats_24h || {};
   const lifecycle = (t) => t?.lifecycle || "DISCOVERED";
+  const clamp = (v,min=0,max=100) => Math.max(min,Math.min(max,Number(v)||0));
+  const logScore = (v,min,max) => { const n=Math.max(Number(v)||0,min); return clamp((Math.log10(n)-Math.log10(min))/(Math.log10(max)-Math.log10(min))*100); };
+  const metricFor = (t) => (window.MEMELAB_POSITION_METRICS||new Map()).get(t?.mint)||{};
+  const marketScore = (t) => { const s=stats24h(t), liq=Number(t?.liquidity||0), vol=Number(s.volume||0), traders=Number(s.num_traders||0), organic=Number(t?.organic_score||0); return 0.35*logScore(liq,1e3,1e8)+0.25*logScore(vol,1e3,1e8)+0.20*logScore(traders,1,1e5)+0.20*clamp(organic); };
+  const momentumScore = (t) => { const s=stats24h(t), price=Number(s.price_change), volChange=Number(s.volume_change), holderChange=Number(s.holder_change), buy=Number(s.buy_volume||0), sell=Number(s.sell_volume||0), flow=buy+sell>0?(buy-sell)/(buy+sell):0; return 0.40*clamp((price+50)/150*100)+0.25*clamp((volChange+100)/400*100)+0.15*clamp((holderChange+50)/150*100)+0.20*clamp((flow+1)*50); };
+  const riskScore = (t) => { const s=stats24h(t), m=metricFor(t), vol=Number(m.volatility_24h_pct); if(!Number.isFinite(vol)) return null; const liq=Number(t?.liquidity||0), change=Math.abs(Number(s.price_change)||0), declining=lifecycle(t)==="DECLINING"?15:0; const volRisk=clamp(100-(vol/20*100)); const liqRisk=clamp(logScore(liq,1e3,1e8)); const moveRisk=clamp(100-change*2); return clamp(0.50*volRisk+0.30*liqRisk+0.20*moveRisk-declining); };
+  const coreScores = (t) => { const market=marketScore(t), momentum=momentumScore(t), risk=riskScore(t); if(risk==null) return {market,momentum,risk:null,core:null}; return {market,momentum,risk,core:Math.round(0.40*market+0.30*momentum+0.30*risk)}; };
 
   let universeOpen = false;
   let sortKey = "candidate";
@@ -203,6 +210,7 @@
       });
     });
     const selected=tokens.find(t=>t.mint===selectedMint)||tokens[0];
+    window.MEMELAB_POSITION_METRICS=new Map((window.MEMELAB_JUPITER_DATA?.diagnostics?.watchlist||[]).map(t=>[t.mint,t.market_metrics||{}]));
     if(selected){
       if(selectedMint!==selected.mint){
         selectedMint=selected.mint;
@@ -216,14 +224,13 @@
     if(sub) sub.textContent="Lifecycle status model";
     const scan=$("#scan-time");
     if(scan) scan.textContent="Live status · "+tokens.length+" monitored records · "+new Date().toLocaleTimeString();
-    const intelligence=$("#score"); if(intelligence) intelligence.textContent="— / 100";
+    const intelligence=$("#score"), selectedScores=selected?coreScores(selected):null; if(intelligence) intelligence.textContent=selectedScores?.core==null?"— / 100":selectedScores.core+" / 100"; const setScoreMetric=(id,value)=>{const el=$("#"+id);if(!el)return;el.textContent=value==null?"—":Math.round(value);const bar=el.parentElement?.nextElementSibling?.querySelector("em");if(bar)bar.style.width=value==null?"0%":clamp(value)+"%";}; setScoreMetric("m-liq",selectedScores?.market);setScoreMetric("m-vol",selectedScores?.momentum);setScoreMetric("m-holder",selectedScores?.risk);setScoreMetric("m-social",null);setScoreMetric("m-risk",selectedScores?.core);
     const scoreToken=$("#score-token"); if(scoreToken) scoreToken.textContent=selected?.symbol || "—";
     if(selected){
       const s=stats24h(selected);
       const observations=Number(selected?.history?.observations||0);
       const known=observations>0;
-      const vals={"#m-liq":known?selected.liquidity:null,"#m-vol":known?s.volume:null,"#m-holder":known?s.num_traders:null,"#m-social":known&&selected.data_quality?.completeness!=null?Math.round(selected.data_quality.completeness*100):null,"#m-risk":"—"};
-      Object.entries(vals).forEach(([sel,val])=>{const el=$(sel);if(el)el.textContent=val==null?"—":(sel==="#m-social"?val+"%":(sel==="#m-liq"||sel==="#m-vol"?usd(val):String(val)));});
+      const labels={"#m-liq":"Market","#m-vol":"Momentum","#m-holder":"Risk","#m-social":"Social","#m-risk":"Core Score"};Object.entries(labels).forEach(([sel,label])=>{const el=$(sel);if(el?.parentElement?.firstChild)el.parentElement.firstChild.textContent=label+" ";});
     }
     const stage=document.querySelectorAll(".life");
     const lifecycleCounts = Object.fromEntries(LIFECYCLE_STAGES.map(stage => [stage, tokens.filter(t => lifecycle(t) === stage).length]));
@@ -284,7 +291,7 @@
     if(watch) watch.hidden=view!=="watchlist";
     if(position) position.hidden=view!=="position";
     if(view==="position" && window.MEMELAB_MARKET?.selectToken){
-      const mature=tokens.filter(t=>lifecycle(t)==="MATURE");
+      const mature=tokens.filter(t=>lifecycle(t)==="MATURE"||lifecycle(t)==="DECLINING");
       const target=mature.find(t=>t.mint===selectedMint)||mature[0];
       if(target){
         selectedMint=target.mint;
