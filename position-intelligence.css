@@ -1,0 +1,10 @@
+/* Position Intelligence layout */
+.position-shell{display:grid;grid-template-columns:1fr;gap:14px;grid-column:1/-1}
+.position-top-grid{display:grid;grid-template-columns:minmax(190px,1fr) minmax(420px,2.1fr) minmax(190px,1fr);gap:14px;align-items:stretch}
+.position-top-grid>.panel{margin:0;min-width:0}
+.position-top-grid .chart-panel{min-width:0}
+.position-shell .mature-position-watchlist{margin:0}
+.position-shell .prototype-note{margin:0}
+.position-shell .intelligence,.position-shell .social{height:100%}
+@media(max-width:1100px){.position-top-grid{grid-template-columns:1fr 1.7fr 1fr}}
+@media(max-width:850px){.position-top-grid{grid-template-columns:1fr}.position-top-grid .chart-panel{order:1}.position-top-grid .intelligence{order:0}.position-top-grid .social{order:2}}
