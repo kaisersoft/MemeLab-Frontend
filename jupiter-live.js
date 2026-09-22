@@ -25,7 +25,7 @@
   let universeOpen = false;
   let sortKey = "candidate";
   let sortDir = "desc";
-  let watchlistSortKey = "top3_since";
+  let watchlistSortKey = "lifecycle";
   let watchlistSortDir = "asc";
 
   const nextStage = (stage) => ({
@@ -184,6 +184,9 @@
     const list=Array.isArray(rows)?[...rows]:[];
     if(count)count.textContent=String(list.length);
     list.sort((a,b)=>{
+      const lifecycleRank={ACTIVE:0,MATURE:1};
+      const rankA=lifecycleRank[lifecycle(a)]??9, rankB=lifecycleRank[lifecycle(b)]??9;
+      if(rankA!==rankB) return rankA-rankB;
       const av=watchlistSortValue(a,watchlistSortKey), bv=watchlistSortValue(b,watchlistSortKey);
       const cmp=(typeof av==="string"||typeof bv==="string")
         ? String(av).localeCompare(String(bv))
@@ -194,10 +197,12 @@
       const w=t.watchlist||{}, m=t.monitoring||{};
       return '<tr data-token="'+(t.mint||"")+'">'+
         '<td><strong>'+(t.symbol||shortMint(t.mint))+'</strong><small>'+(t.name||"—")+'</small></td>'+
-        '<td>'+((t.lifecycle)||"—")+'</td>'+ '<td>'+((w.first_top3_at)?new Date(Number(w.first_top3_at)*1000).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"}):"—")+'</td>'+
-        '<td>'+((w.top3_count??"—"))+'</td>'+ '<td>'+((m.observations??"—"))+'</td>'+ '<td>'+((m.trades_24h??"—"))+'</td>'+
-        '<td>'+((m.active_observations_last_12??0))+'/12</td>'+ '<td class="next ready">'+((m.next_status)||"ACTIVE")+'</td></tr>';
-    }).join(""): '<tr><td colspan="8" class="watchlist-empty">Noch keine Top-3-EMERGING-Kandidaten.</td></tr>';
+        '<td>'+((t.lifecycle)||"—")+'</td>'+
+        '<td>'+((m.observations??"—"))+'</td>'+
+        '<td>'+((m.trades_24h??"—"))+'</td>'+
+        '<td>'+((m.active_observations_last_12??0))+'/12</td>'+
+        '<td class="next ready">'+((m.next_status)||"ACTIVE")+'</td></tr>';
+    }).join(""): '<tr><td colspan="6" class="watchlist-empty">Noch keine ACTIVE- oder MATURE-Tokens.</td></tr>';
     body.querySelectorAll("tr[data-token]").forEach(row=>row.addEventListener("click",()=>{
       selectedMint=row.dataset.token; render(); if(window.MEMELAB_MARKET?.selectToken) window.MEMELAB_MARKET.selectToken(selectedMint);
     }));
@@ -297,7 +302,7 @@
         if(watchlistSortKey===key) watchlistSortDir=watchlistSortDir==="asc"?"desc":"asc";
         else {
           watchlistSortKey=key;
-          watchlistSortDir=key==="symbol"||key==="lifecycle"||key==="top3_since"||key==="next_status"?"asc":"desc";
+          watchlistSortDir=key==="symbol"||key==="lifecycle"||key==="next_status"?"asc":"desc";
         }
         renderWatchlist((window.MEMELAB_JUPITER_DATA||{}).diagnostics?.watchlist||[]);
       };
