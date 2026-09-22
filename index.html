@@ -7,6 +7,7 @@
   <meta name="description" content="MemeLab frontend prototype — on-chain market intelligence, lifecycle and risk engine.">
   <link rel="icon" href="./assets/memelab-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./position-intelligence.css">
 </head>
 <body>
   <main class="app-shell">
@@ -154,27 +155,29 @@
         <div class="watchlist-table-wrap" id="watchlist-root"></div>
       </section>
 
-      <section class="panel intelligence" id="intelligence-panel">
-        <div class="panel-head">
+      <section class="position-shell" id="position-panel" hidden>
+        <div class="position-top-grid">
+          <section class="panel intelligence" id="intelligence-panel">
+          <div class="panel-head">
           <div><h2>Intelligence Score</h2></div>
           <span class="asset-tag" id="score-token">—</span>
-        </div>
-        <div class="score-row"><strong id="score">— / 100</strong><span>Composite market &amp; risk signal</span></div>
-        <div class="metrics">
+          </div>
+          <div class="score-row"><strong id="score">— / 100</strong><span>Composite market &amp; risk signal</span></div>
+          <div class="metrics">
           <div class="metric"><span>Liquidity <b id="m-liq">—</b></span><i><em></em></i></div>
           <div class="metric"><span>24h Volume <b id="m-vol">—</b></span><i><em></em></i></div>
           <div class="metric"><span>24h Traders <b id="m-holder">—</b></span><i><em></em></i></div>
           <div class="metric"><span>Data quality <b id="m-social">—</b></span><i><em></em></i></div>
           <div class="metric risk"><span>Risk engine <b id="m-risk">—</b></span><i><em></em></i></div>
-        </div>
-      </section>
-
-      <section class="panel chart-panel" id="market-structure-panel">
-        <div class="panel-head">
+          </div>
+          </section>
+          
+          <section class="panel chart-panel" id="market-structure-panel">
+          <div class="panel-head">
           <div><h2>Live Market Structure</h2></div>
           <span class="muted" id="chart-label">— / SOL · 1h history</span>
-        </div>
-        <div class="chart-window-controls" aria-label="Market structure history window">
+          </div>
+          <div class="chart-window-controls" aria-label="Market structure history window">
           <button class="chart-window-btn" type="button" data-window="1m" aria-pressed="false">1m</button>
           <button class="chart-window-btn" type="button" data-window="5m" aria-pressed="false">5m</button>
           <button class="chart-window-btn" type="button" data-window="15m" aria-pressed="false">15m</button>
@@ -185,44 +188,52 @@
           <button class="chart-window-btn" type="button" data-window="24h" aria-pressed="false">24h</button>
           <button class="chart-window-btn" type="button" data-window="1w" aria-pressed="false">1W</button>
           <button class="chart-window-btn" type="button" data-window="1mth" aria-pressed="false">1M</button>
-        </div>
-        <div class="chart-wrap">
+          </div>
+          <div class="chart-wrap">
           <svg viewBox="0 0 800 260" preserveAspectRatio="none" role="img" aria-label="Live market structure chart">
-            <text class="chart-axis-label chart-axis-top" x="8" y="18">BUY</text>
-            <text class="chart-axis-label chart-axis-zero" x="8" y="134">0</text>
-            <text class="chart-axis-label chart-axis-bottom" x="8" y="250">SELL</text>
-            <defs>
-              <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#75c8ff" stop-opacity=".16"/>
-                <stop offset="1" stop-color="#75c8ff" stop-opacity="0"/>
-              </linearGradient>
-            </defs>
-            <path class="gridline" d="M0 58H800M0 130H800M0 202H800"/>
-            <path id="chart-zero" class="chart-zero" d="M0 130H800"/>
-            <g id="chart-bars"></g>
-            <path id="chart-area" fill="url(#area)" d="M0 240 L0 220 L800 220 L800 240 Z"/>
-            <path id="chart-line" d="M0 220 L800 220"/>
+          <text class="chart-axis-label chart-axis-top" x="8" y="18">BUY</text>
+          <text class="chart-axis-label chart-axis-zero" x="8" y="134">0</text>
+          <text class="chart-axis-label chart-axis-bottom" x="8" y="250">SELL</text>
+          <defs>
+          <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#75c8ff" stop-opacity=".16"/>
+          <stop offset="1" stop-color="#75c8ff" stop-opacity="0"/>
+          </linearGradient>
+          </defs>
+          <path class="gridline" d="M0 58H800M0 130H800M0 202H800"/>
+          <path id="chart-zero" class="chart-zero" d="M0 130H800"/>
+          <g id="chart-bars"></g>
+          <path id="chart-area" fill="url(#area)" d="M0 240 L0 220 L800 220 L800 240 Z"/>
+          <path id="chart-line" d="M0 220 L800 220"/>
           </svg>
-        </div>
-        <div class="chart-stats"><span><span id="chart-net-flow-label">Latest Net Flow (1h)</span> <b id="chart-net-flow">—</b></span><span>Window <b id="chart-window">—</b></span><span>Data <b id="chart-data">—</b></span></div>
-        <div class="risk-note"><b>Market context:</b> <span id="market-context-note">24h rolling Buy/Sell flow · selected history window.</span></div>
-      </section>
-
-      <section class="panel social" id="social-panel">
-        <div class="panel-head">
+          </div>
+          <div class="chart-stats"><span><span id="chart-net-flow-label">Latest Net Flow (1h)</span> <b id="chart-net-flow">—</b></span><span>Window <b id="chart-window">—</b></span><span>Data <b id="chart-data">—</b></span></div>
+          <div class="risk-note"><b>Market context:</b> <span id="market-context-note">24h rolling Buy/Sell flow · selected history window.</span></div>
+          </section>
+          
+          <section class="panel social" id="social-panel">
+          <div class="panel-head">
           <div><h2>Social Signal</h2></div>
           <span class="muted">X / on-chain correlation</span>
-        </div>
-        <div class="signal-table">
+          </div>
+          <div class="signal-table">
           <div><span>Status</span><b>NOT CONNECTED</b></div>
           <div><span>Data source</span><b>Separate API</b></div>
           <div><span>Integration</span><b>Later phase</b></div>
           <div><span>On-chain data</span><b>Available</b></div>
           <div><span>Social intelligence</span><b>Not evaluated</b></div>
+          </div>
+          </section>
         </div>
+        <section class="panel mature-position-watchlist">
+          <div class="panel-head">
+            <div><h2>Mature Token Watchlist</h2><span>Position Intelligence universe · MATURE only</span></div>
+            <span class="asset-tag" id="mature-watchlist-count">0</span>
+          </div>
+          <div class="watchlist-table-wrap" id="position-watchlist-root"></div>
+        </section>
+        <footer class="prototype-note" id="prototype-note">MemeLab · live Solana intelligence · risk and social intelligence follow in later development blocks.</footer>
       </section>
-
-      <footer class="prototype-note" id="prototype-note">MemeLab · live Solana intelligence · risk and social intelligence follow in later development blocks.</footer>
     </section>
   </main>
   <script src="./build-info.js?v=20260922-166"></script>
