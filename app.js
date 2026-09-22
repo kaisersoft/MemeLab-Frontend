@@ -141,20 +141,26 @@ function renderMarketChart(history, token, options={}){
     momentum:"Momentum",
     net_flow:"Net Flow"
   };
-  const netEl=$("#chart-net-flow"), netLabel=$("#chart-net-flow-label"), windowEl=$("#chart-window"), dataEl=$("#chart-data");
+  const currentEl=$("#chart-current"), maxEl=$("#chart-max"), minEl=$("#chart-min"), windowEl=$("#chart-window"), dataEl=$("#chart-data"), metricNameEl=$("#chart-metric-name");
   const topEl=$("#chart-axis-top"),zeroEl=$("#chart-axis-zero"),bottomEl=$("#chart-axis-bottom");
   const latest=values.length?values[values.length-1]:null;
-  if(netLabel)netLabel.textContent=metricLabels[metric]+" · Current";
-  if(netEl)netEl.textContent=formatChartMetric(latest,metric);
+  const windowMax=values.length?Math.max(...values):null;
+  const windowMin=values.length?Math.min(...values):null;
+  const metricLabel=metricLabels[metric]||metric;
+  if(currentEl)currentEl.textContent=formatChartMetric(latest,metric);
+  if(maxEl)maxEl.textContent=formatChartMetric(windowMax,metric);
+  if(minEl)minEl.textContent=formatChartMetric(windowMin,metric);
   if(windowEl)windowEl.textContent=values.length?(options.windowLabel||values.length+" observations"):"—";
   if(dataEl)dataEl.textContent=values.length?"SQLite history":"waiting";
-  const isSigned=metric==="net_flow" || metric==="activity" || metric==="momentum";
-  if(topEl)topEl.textContent=values.length?formatChartMetric(Math.max(...values),metric):"—";
-  if(bottomEl)bottomEl.textContent=values.length?formatChartMetric(Math.min(...values),metric):"—";
-  if(zeroEl)zeroEl.textContent=isSigned?"0":"";
-  const topAxis=$("#chart-axis-top"), bottomAxis=$("#chart-axis-bottom");
-  if(topAxis)topAxis.textContent=isSigned?"POSITIVE":"MAX";
-  if(bottomAxis)bottomAxis.textContent=isSigned?"NEGATIVE":"MIN";
+  if(metricNameEl)metricNameEl.textContent=metricLabel;
+  const isSigned=metric==="activity" || metric==="momentum";
+  const isFlow=metric==="net_flow";
+  if(topEl)topEl.textContent=values.length?(isFlow?"BUY":(isSigned?"POSITIVE":"MAX")):"—";
+  if(bottomEl)bottomEl.textContent=values.length?(isFlow?"SELL":(isSigned?"NEGATIVE":"MIN")):"—";
+  if(zeroEl)zeroEl.textContent=(isSigned||isFlow)?"0":"";
+  if(currentEl)currentEl.setAttribute("aria-label",metricLabel+" current");
+  if(maxEl)maxEl.setAttribute("aria-label",metricLabel+" window maximum");
+  if(minEl)minEl.setAttribute("aria-label",metricLabel+" window minimum");
   if(!values.length){
     line.setAttribute("d","M0 130 L800 130"); area.setAttribute("d","M0 130 L800 130 L800 240 L0 240 Z");
     if(zero)zero.setAttribute("d","M0 130H800");
