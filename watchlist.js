@@ -3,7 +3,7 @@
 const $=s=>document.querySelector(s),life=t=>t?.lifecycle||"DISCOVERED",stats=t=>t?.stats_24h||{};
 const mint=m=>!m?"—":m.length<=14?m:m.slice(0,7)+"…"+m.slice(-5);
 const usd=v=>{const n=Number(v);if(!Number.isFinite(n))return"—";if(Math.abs(n)>=1e9)return"$"+(n/1e9).toFixed(2)+"B";if(Math.abs(n)>=1e6)return"$"+(n/1e6).toFixed(2)+"M";if(Math.abs(n)>=1e3)return"$"+(n/1e3).toFixed(1)+"K";if(Math.abs(n)>=1)return"$"+n.toFixed(2);return"$"+n.toExponential(2)};
-let rows=[],sortKey="organic",sortDir="desc";
+let rows=[],sortKey="liquidity",sortDir="desc";
 const val=(t,k)=>{const m=t?.monitoring||{},s=stats(t);if(k==="symbol")return String(t.symbol||"").toLowerCase();if(k==="lifecycle")return life(t);if(k==="liquidity")return Number(t.liquidity||0);if(k==="volume")return Number(s.volume||0);if(k==="trades")return Number(m.trades_24h??(Number(s.num_buys||0)+Number(s.num_sells||0)));if(k==="traders")return Number(s.num_traders||0);if(k==="organic")return Number(t.organic_score||0);if(k==="active_12")return Number(m.active_observations_last_12||0);if(k==="observations")return Number(m.observations||0);if(k==="next_status")return String(m.next_status||life(t));return 0};
 function render(){const root=$("#watchlist-root");if(!root)return;const list=rows.filter(t=>life(t)==="ACTIVE"||life(t)==="MATURE");list.sort((a,b)=>{const av=val(a,sortKey),bv=val(b,sortKey),c=(typeof av==="string"||typeof bv==="string")?String(av).localeCompare(String(bv)):av-bv;return sortDir==="asc"?c:-c});
 const h=[["symbol","Token"],["lifecycle","Lifecycle"],["liquidity","Liquidity"],["volume","24h Volume"],["trades","Trades"],["traders","Traders"],["organic","Organic"],["active_12","Active 12"],["observations","Observations"],["next_status","Next status"]];
