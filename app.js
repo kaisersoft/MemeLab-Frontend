@@ -115,7 +115,7 @@ function formatChartMetric(v,metric){
   if(v==null||!Number.isFinite(Number(v)))return "—";
   const n=Number(v);
   if(metric==="price")return usd(n);
-  if(["volume","liquidity"].includes(metric))return usd(n);
+  if(["volume","buy_volume","sell_volume","liquidity"].includes(metric))return usd(n);
   if(["activity","momentum","volatility"].includes(metric))return (n>0?"+":"")+n.toFixed(2)+"%";
   if(metric==="net_flow")return (n>0?"+":"")+usd(n);
   return n.toLocaleString("de-DE",{maximumFractionDigits:0});
