@@ -81,11 +81,15 @@ function metricValue(point,metric,index,points){
   const p=points[index-1]||null;
   if(metric==="price") return n(point?.price_usd);
   if(metric==="volume") return n(point?.volume);
+  if(metric==="buy_volume") return n(point?.buy_volume);
+  if(metric==="sell_volume") return n(point?.sell_volume);
   if(metric==="liquidity") return n(point?.liquidity);
   if(metric==="trades"){
     const buys=n(point?.buys), sells=n(point?.sells);
     return buys!=null&&sells!=null?buys+sells:null;
   }
+  if(metric==="buy_trades") return n(point?.buys);
+  if(metric==="sell_trades") return n(point?.sells);
   if(metric==="traders") return n(point?.traders);
   if(metric==="net_flow") return n(point?.net_flow);
   if(metric==="activity"){
@@ -122,7 +126,21 @@ function renderMarketChart(history, token, options={}){
   const pointsData=[...(Array.isArray(history)?history:[])];
   const metric=$("#chart-metric")?.value||chartMetric;
   const values=pointsData.map((p,i)=>metricValue(p,metric,i,pointsData)).filter(v=>v!=null&&Number.isFinite(v));
-  const metricLabels={price:"Price",volume:"Volume",liquidity:"Liquidity",trades:"Trades",traders:"Traders",volatility:"Volatility",activity:"Activity",momentum:"Momentum",net_flow:"Net Flow"};
+  const metricLabels={
+    price:"Price",
+    volume:"Volume",
+    buy_volume:"Buy Volume",
+    sell_volume:"Sell Volume",
+    liquidity:"Liquidity",
+    trades:"Trades",
+    buy_trades:"Buy Trades",
+    sell_trades:"Sell Trades",
+    traders:"Traders",
+    volatility:"Volatility",
+    activity:"Activity",
+    momentum:"Momentum",
+    net_flow:"Net Flow"
+  };
   const netEl=$("#chart-net-flow"), netLabel=$("#chart-net-flow-label"), windowEl=$("#chart-window"), dataEl=$("#chart-data");
   const topEl=$("#chart-axis-top"),zeroEl=$("#chart-axis-zero"),bottomEl=$("#chart-axis-bottom");
   const latest=values.length?values[values.length-1]:null;
@@ -130,9 +148,13 @@ function renderMarketChart(history, token, options={}){
   if(netEl)netEl.textContent=formatChartMetric(latest,metric);
   if(windowEl)windowEl.textContent=values.length?(options.windowLabel||values.length+" observations"):"—";
   if(dataEl)dataEl.textContent=values.length?"SQLite history":"waiting";
+  const isSigned=metric==="net_flow" || metric==="activity" || metric==="momentum";
   if(topEl)topEl.textContent=values.length?formatChartMetric(Math.max(...values),metric):"—";
   if(bottomEl)bottomEl.textContent=values.length?formatChartMetric(Math.min(...values),metric):"—";
-  if(zeroEl)zeroEl.textContent=metric==="net_flow"?"0":"";
+  if(zeroEl)zeroEl.textContent=isSigned?"0":"";
+  const topAxis=$("#chart-axis-top"), bottomAxis=$("#chart-axis-bottom");
+  if(topAxis)topAxis.textContent=isSigned?"POSITIVE":"MAX";
+  if(bottomAxis)bottomAxis.textContent=isSigned?"NEGATIVE":"MIN";
   if(!values.length){
     line.setAttribute("d","M0 130 L800 130"); area.setAttribute("d","M0 130 L800 130 L800 240 L0 240 Z");
     if(zero)zero.setAttribute("d","M0 130H800");
@@ -155,7 +177,7 @@ function renderMarketChart(history, token, options={}){
   line.setAttribute("d",path.trim()||"M0 130 L800 130");
   area.setAttribute("d",path.trim()?path.trim()+" L"+points.filter(Boolean).at(-1)[0]+" 240 L"+points.find(Boolean)[0]+" 240 Z":"M0 130 L800 130 L800 240 L0 240 Z");
   if(zero){
-    if(metric==="net_flow"&&min<=0&&max>=0){
+    if(isSigned&&min<=0&&max>=0){
       const y=230-((0-min)/(max-min))*200;
       zero.setAttribute("d","M0 "+Math.round(y)+"H800");
     }else zero.setAttribute("d","M0 130H800");
@@ -176,7 +198,7 @@ function renderSelectedToken(token) {
   $("#chart-label").textContent=(token.symbol || shortMint(token.mint))+" / SOL · "+marketWindow+" history";
   setMetric("m-liq",token.liquidity); setMetric("m-vol",token.activity); setMetric("m-holder",token.actor_growth); setMetric("m-social",token.confidence);
   const risk=$("#m-risk"); if(risk){risk.textContent="—";const bar=risk.parentElement?.nextElementSibling?.querySelector("em");if(bar)bar.style.width="0%";}
-  const note=$("#market-context-note"); if(note) note.textContent="24h rolling Buy/Sell flow · selected history window";
+  const note=$("#market-context-note"); if(note) note.textContent="Selected metric · selected history window";
   renderLifecycle(token); renderChart(token);
 }
 async function selectMarketToken(mint){
@@ -335,6 +357,8 @@ async function refresh(){try{apiReachable=true;renderSnapshot(await api("/snapsh
 async function startEngine(){try{apiReachable=true;await api("/start",{method:"POST"});await refresh();}catch(error){apiReachable=false;console.error("MemeLab API start failed:",error);const live=$(".live-pill");if(live)live.innerHTML="<i></i> API OFFLINE";}}
 document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",()=>{document.querySelectorAll(".nav-btn").forEach(x=>x.classList.remove("active"));btn.classList.add("active");}));
 document.querySelectorAll(".chart-window-btn").forEach(btn=>btn.addEventListener("click",()=>setMarketWindow(btn.dataset.window)));
+const chartMetricSelect=$("#chart-metric");
+if(chartMetricSelect) chartMetricSelect.addEventListener("change",()=>setChartMetric(chartMetricSelect.value));
 renderBuildInfo();
 startEngine();
 setInterval(refresh,1000);
