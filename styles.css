@@ -26,7 +26,7 @@ h1 b{color:#657583;font-weight:400}
 h2{font-size:20px;margin:0 0 5px}
 .panel-head span{color:var(--muted)}
 .muted{font-size:14px;white-space:nowrap}
-.discovery{min-height:420px}.token-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.discovery{min-height:420px;grid-column:1/-1}.token-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .token-card{border:1px solid #223847;background:#0d1b25;border-radius:16px;padding:18px;text-align:left;cursor:pointer;transition:.18s}
 .token-card:hover,.token-card.selected{border-color:#688da1;background:#142531}
 .token-card strong{display:block;font-size:21px}.token-card>span{display:block;color:#7f919f;font-size:14px;margin:8px 0 22px}
