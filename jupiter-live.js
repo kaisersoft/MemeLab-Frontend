@@ -153,6 +153,7 @@
     set("#dbg-db-share",Number.isFinite(Number(db.high_res_share_percent))?Number(db.high_res_share_percent).toFixed(2)+"%":"—");
     set("#dbg-db-housekeeping",db.last_housekeeping_at?new Date(Number(db.last_housekeeping_at)*1000).toLocaleTimeString():"waiting");
     set("#dbg-db-oldraw",fmtInt(db.raw_older_than_15m));
+    set("#dbg-db-oldraw24",fmtInt(db.raw_older_than_24h));
     set("#dbg-db-oldraw-low",fmtInt(db.raw_older_than_15m_low_priority));
     const hk=db.housekeeping||{};
     set("#dbg-db-hk-deleted",fmtInt(hk.raw_deleted));
