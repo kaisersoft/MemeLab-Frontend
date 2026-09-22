@@ -70,10 +70,11 @@
     if(key==="organic") return Number(t.organic_score||0);
       if(key==="name") return String(t.name||"").toLowerCase();
       if(key==="lifecycle") return lifecycle(t);
+    if(key==="liquidity") return Number(t.liquidity||0);
+    if(key==="volume") return Number(s.volume||0);
+    if(key==="organic") return Number(t.organic_score||0);
       if(key==="discovery_status") return String(t.discovery_status||"");
       if(key==="history") return Number(t.history?.observations||0);
-      if(key==="liquidity") return Number(t.liquidity||0);
-      if(key==="volume") return Number(s.volume||0);
       if(key==="trades") return Number(s.num_buys||0)+Number(s.num_sells||0);
       if(key==="traders") return Number(s.num_traders||0);
       if(key==="organic") return Number(t.organic_score||0);
