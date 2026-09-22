@@ -27,7 +27,7 @@
   const marketScore = (t) => { const s=stats24h(t), liq=Number(t?.liquidity||0), vol=Number(s.volume||0), traders=Number(s.num_traders||0), organic=Number(t?.organic_score||0); return 0.35*logScore(liq,1e3,1e8)+0.25*logScore(vol,1e3,1e8)+0.20*logScore(traders,1,1e5)+0.20*clamp(organic); };
   const momentumScore = (t) => { const s=stats24h(t), price=Number(s.price_change), volChange=Number(s.volume_change), holderChange=Number(s.holder_change), buy=Number(s.buy_volume||0), sell=Number(s.sell_volume||0), flow=buy+sell>0?(buy-sell)/(buy+sell):0; return 0.40*clamp((price+50)/150*100)+0.25*clamp((volChange+100)/400*100)+0.15*clamp((holderChange+50)/150*100)+0.20*clamp((flow+1)*50); };
   const riskScore = (t) => { const s=stats24h(t), m=metricFor(t), vol=Number(m.volatility_24h_pct); if(!Number.isFinite(vol)) return null; const liq=Number(t?.liquidity||0), change=Math.abs(Number(s.price_change)||0), declining=lifecycle(t)==="DECLINING"?15:0; const volRisk=clamp(100-(vol/20*100)); const liqRisk=clamp(logScore(liq,1e3,1e8)); const moveRisk=clamp(100-change*2); return clamp(0.50*volRisk+0.30*liqRisk+0.20*moveRisk-declining); };
-  const coreScores = (t) => { const market=marketScore(t), momentum=momentumScore(t), risk=riskScore(t); if(risk==null) return {market,momentum,risk:null,core:null}; return {market,momentum,risk,core:Math.round(0.40*market+0.30*momentum+0.30*risk)}; };
+  const activityTrendScore = (t) => { const s=stats24h(t), change=Number(s.volume_change); if(!Number.isFinite(change)) return null; return clamp((change+100)/400*100); };\n  const coreScores = (t) => { const market=marketScore(t), momentum=momentumScore(t), risk=riskScore(t), activity=activityTrendScore(t); if(risk==null || activity==null) return {market,momentum,risk,activity,risk:null,core:null}; return {market,momentum,risk,activity,core:Math.round(0.30*market+0.25*momentum+0.20*risk+0.15*activity+0.10*0)}; };
 
   let universeOpen = false;
   let sortKey = "candidate";
@@ -224,13 +224,13 @@
     if(sub) sub.textContent="Lifecycle status model";
     const scan=$("#scan-time");
     if(scan) scan.textContent="Live status · "+tokens.length+" monitored records · "+new Date().toLocaleTimeString();
-    const intelligence=$("#score"), selectedScores=selected?coreScores(selected):null; if(intelligence) intelligence.textContent=selectedScores?.core==null?"— / 100":selectedScores.core+" / 100"; const setScoreMetric=(id,value)=>{const el=$("#"+id);if(!el)return;el.textContent=value==null?"—":Math.round(value);const bar=el.parentElement?.nextElementSibling?.querySelector("em");if(bar)bar.style.width=value==null?"0%":clamp(value)+"%";}; setScoreMetric("m-liq",selectedScores?.market);setScoreMetric("m-vol",selectedScores?.momentum);setScoreMetric("m-holder",selectedScores?.risk);setScoreMetric("m-social",null);setScoreMetric("m-risk",selectedScores?.core);
+    const intelligence=$("#score"), selectedScores=selected?coreScores(selected):null; if(intelligence) intelligence.textContent=selectedScores?.core==null?"— / 100":selectedScores.core+" / 100"; const setScoreMetric=(id,value)=>{const el=$("#"+id);if(!el)return;el.textContent=value==null?"—":Math.round(value);const bar=el.parentElement?.nextElementSibling?.querySelector("em");if(bar)bar.style.width=value==null?"0%":clamp(value)+"%";}; setScoreMetric("m-liq",selectedScores?.market);setScoreMetric("m-vol",selectedScores?.momentum);setScoreMetric("m-holder",selectedScores?.risk);setScoreMetric("m-activity",selectedScores?.activity);setScoreMetric("m-social",null);setScoreMetric("m-risk",selectedScores?.core);
     const scoreToken=$("#score-token"); if(scoreToken) scoreToken.textContent=selected?.symbol || "—";
     if(selected){
       const s=stats24h(selected);
       const observations=Number(selected?.history?.observations||0);
       const known=observations>0;
-      const labels={"#m-liq":"Market","#m-vol":"Momentum","#m-holder":"Risk","#m-social":"Social","#m-risk":"Core Score"};Object.entries(labels).forEach(([sel,label])=>{const el=$(sel);if(el?.parentElement?.firstChild)el.parentElement.firstChild.textContent=label+" ";});
+      const labels={"#m-liq":"Market","#m-vol":"Momentum","#m-holder":"Risk","#m-activity":"Activity Trend","#m-social":"Social","#m-risk":"Core Score"};Object.entries(labels).forEach(([sel,label])=>{const el=$(sel);if(el?.parentElement?.firstChild)el.parentElement.firstChild.textContent=label+" ";});
     }
     const stage=document.querySelectorAll(".life");
     const lifecycleCounts = Object.fromEntries(LIFECYCLE_STAGES.map(stage => [stage, tokens.filter(t => lifecycle(t) === stage).length]));
