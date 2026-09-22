@@ -276,13 +276,21 @@
   }
 
   document.querySelectorAll(".nav-btn[data-view]").forEach(btn=>btn.addEventListener("click",()=>{
-    const view=btn.dataset.view, watch=$("#watchlist-panel"), discovery=document.querySelector(".discovery");
+    const view=btn.dataset.view;
+    const discovery=document.querySelector(".discovery");
+    const watch=$("#watchlist-panel");
+    const position=$("#position-panel");
+    if(discovery) discovery.hidden=view!=="memelab";
     if(watch) watch.hidden=view!=="watchlist";
-    if(discovery) discovery.hidden=view==="watchlist";
-    const secondaryHidden=view==="watchlist";
-    ["#intelligence-panel","#market-structure-panel","#social-panel","#prototype-note"].forEach(sel=>{
-      const el=$(sel); if(el) el.hidden=secondaryHidden;
-    });
+    if(position) position.hidden=view!=="position";
+    if(view==="position" && window.MEMELAB_MARKET?.selectToken){
+      const mature=tokens.filter(t=>lifecycle(t)==="MATURE");
+      const target=mature.find(t=>t.mint===selectedMint)||mature[0];
+      if(target){
+        selectedMint=target.mint;
+        window.MEMELAB_MARKET.selectToken(target.mint);
+      }
+    }
   }));
   window.MEMELAB_JUPITER={refresh:load,active:true};
   load();
