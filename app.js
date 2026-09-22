@@ -133,6 +133,7 @@ function renderSelectedToken(token) {
 }
 async function selectMarketToken(mint){
   externalSelectedMint=mint;
+  window.dispatchEvent(new CustomEvent("memelab:market-token-selected",{detail:{mint}}));
   marketHistory=[];
   const token=(Array.isArray(window.MEMELAB_JUPITER_TOKENS)?window.MEMELAB_JUPITER_TOKENS.find(t=>t.mint===mint):null)
     || (Array.isArray(snapshot?.tokens)?snapshot.tokens:[]).find(t=>t.mint===mint);
