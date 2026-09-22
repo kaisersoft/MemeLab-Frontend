@@ -164,90 +164,6 @@
     set("#dbg-db-hk-backlog",fmtInt(hk.raw_backlog_before));
   }
 
-  const watchlistSortValue = (t,key) => {
-    const m=t?.monitoring||{}, stats=stats24h(t);
-    if(key==="symbol") return String(t.symbol||"").toLowerCase();
-    if(key==="lifecycle") return lifecycle(t);
-    if(key==="liquidity") return Number(t.liquidity||0);
-    if(key==="volume") return Number(stats.volume||0);
-    if(key==="trades") return Number(m.trades_24h??(Number(stats.num_buys||0)+Number(stats.num_sells||0)));
-    if(key==="traders") return Number(stats.num_traders||0);
-    if(key==="organic") return Number(t.organic_score||0);
-    if(key==="active_12") return Number(m.active_observations_last_12||0);
-    if(key==="observations") return Number(m.observations||0);
-    if(key==="next_status") return String(m.next_status||t.lifecycle||"");
-    return 0;
-  };
-
-  function renderWatchlist(rows){
-    const panel=$("#watchlist-panel");
-    const table=panel?.querySelector(".watchlist-table");
-    const count=$("#watchlist-count");
-    if(!table) return;
-
-    const list=(Array.isArray(rows)?rows:[]).filter(t=>{
-      const stage=lifecycle(t);
-      return stage==="ACTIVE" || stage==="MATURE";
-    });
-
-    list.sort((a,b)=>{
-      const lifecycleRank={ACTIVE:0,MATURE:1};
-      const rankA=lifecycleRank[lifecycle(a)]??9;
-      const rankB=lifecycleRank[lifecycle(b)]??9;
-      if(rankA!==rankB) return rankA-rankB;
-      const av=watchlistSortValue(a,watchlistSortKey);
-      const bv=watchlistSortValue(b,watchlistSortKey);
-      const cmp=(typeof av==="string"||typeof bv==="string")
-        ? String(av).localeCompare(String(bv))
-        : av-bv;
-      return watchlistSortDir==="asc"?cmp:-cmp;
-    });
-
-    const header=[
-      ["symbol","Token"],["lifecycle","Lifecycle"],["liquidity","Liquidity"],
-      ["volume","24h Volume"],["trades","Trades"],["traders","Traders"],
-      ["organic","Organic"],["active_12","Active 12"],["observations","Observations"],
-      ["next_status","Next status"]
-    ].map(([key,label]) =>
-      '<th><button type="button" data-sort="'+key+'">'+label+'</button></th>'
-    ).join("");
-
-    const body=list.length?list.map(t=>{
-      const m=t.monitoring||{}, stats=stats24h(t);
-      const trades=m.trades_24h??(Number(stats.num_buys||0)+Number(stats.num_sells||0));
-      return '<tr data-token="'+(t.mint||"")+'">'+
-        '<td><strong>'+(t.symbol||shortMint(t.mint))+'</strong><small>'+(t.name||"—")+'</small></td>'+
-        '<td>'+(t.lifecycle||"—")+'</td>'+
-        '<td>'+usd(t.liquidity)+'</td>'+
-        '<td>'+usd(stats.volume)+'</td>'+
-        '<td>'+((trades)||"—")+'</td>'+
-        '<td>'+(stats.num_traders??"—")+'</td>'+
-        '<td>'+(t.organic_score!=null?Number(t.organic_score).toFixed(0):"—")+'</td>'+
-        '<td>'+String(m.active_observations_last_12??0)+'/12</td>'+
-        '<td>'+(m.observations??"—")+'</td>'+
-        '<td class="next ready">'+(m.next_status||t.lifecycle||"—")+'</td>'+
-        '</tr>';
-    }).join(""):'<tr><td colspan="10" class="watchlist-empty">Noch keine ACTIVE- oder MATURE-Tokens.</td></tr>';
-
-    table.innerHTML='<thead><tr>'+header+'</tr></thead><tbody id="watchlist-body">'+body+'</tbody>';
-    if(count) count.textContent=String(list.length);
-
-    table.querySelectorAll("tbody tr[data-token]").forEach(row=>row.addEventListener("click",()=>{
-      selectedMint=row.dataset.token;
-      render();
-      if(window.MEMELAB_MARKET?.selectToken) window.MEMELAB_MARKET.selectToken(selectedMint);
-    }));
-
-    table.querySelectorAll("thead th button").forEach(button=>button.onclick=()=>{
-      const key=button.dataset.sort;
-      if(watchlistSortKey===key) watchlistSortDir=watchlistSortDir==="asc"?"desc":"asc";
-      else {
-        watchlistSortKey=key;
-        watchlistSortDir=["symbol","lifecycle","next_status"].includes(key)?"asc":"desc";
-      }
-      renderWatchlist(window.MEMELAB_JUPITER_DATA?.diagnostics?.watchlist||[]);
-    });
-  }
 
   function render() {
     const grid=$(".token-grid");
@@ -322,7 +238,6 @@
     });
 
     renderDiagnostics(window.MEMELAB_JUPITER_DATA||{});
-    renderWatchlist((window.MEMELAB_JUPITER_DATA||{}).diagnostics?.watchlist||[]);
     const source=$("#source-status");
     if(source) source.textContent="Jupiter Discovery scope · "+ingestCount+" current source records · "+tokens.length+" monitored in MemeLab";
     const toggle=$("#universe-toggle");
@@ -337,17 +252,6 @@
         render();
       };
     });
-    document.querySelectorAll(".watchlist-table th button").forEach(button=>{
-      button.onclick=()=>{
-        const key=button.dataset.sort;
-        if(watchlistSortKey===key) watchlistSortDir=watchlistSortDir==="asc"?"desc":"asc";
-        else {
-          watchlistSortKey=key;
-          watchlistSortDir=key==="symbol"||key==="lifecycle"||key==="next_status"?"asc":"desc";
-        }
-        renderWatchlist((window.MEMELAB_JUPITER_DATA||{}).diagnostics?.watchlist||[]);
-      };
-    });
     renderUniverseTable(filteredTokens);
   }
   async function load() {
@@ -359,6 +263,7 @@
       window.MEMELAB_JUPITER_TOKENS=tokens;
       ingestCount=Number(data.ingest_count)||0;
       window.MEMELAB_JUPITER_DATA=data;
+      window.dispatchEvent(new CustomEvent("memelab:jupiter-data",{detail:data}));
       render();
       if(selectedMint && window.MEMELAB_MARKET?.updateLive){
         const liveToken=tokens.find(t=>t.mint===selectedMint);
