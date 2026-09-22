@@ -119,6 +119,115 @@
     };
   };
 
+
+  let engineTimer=null;
+  let engineIntervalMs=5000;
+  let engineCandidates=[];
+  let engineCursor=0;
+  let engineSelectedMint=null;
+  let engineScannedAt=0;
+
+  function engineNum(v){const n=Number(v);return Number.isFinite(n)?n:null;}
+  function engineUsd(v){const n=engineNum(v);if(n==null)return "—";if(Math.abs(n)>=1e6)return "$"+(n/1e6).toFixed(2)+"M";if(Math.abs(n)>=1e3)return "$"+(n/1e3).toFixed(1)+"K";if(Math.abs(n)>=1)return "$"+n.toFixed(2);return "$"+n.toExponential(2);}
+  function enginePct(v){const n=engineNum(v);return n==null?"—":(n>0?"+":"")+n.toFixed(2)+"%";}
+  function engineStats(t){
+    const s=t?.stats_24h||t?.stats||{};
+    const price=engineNum(t?.price_usd), volume=engineNum(s.volume), buy=engineNum(s.buy_volume), sell=engineNum(s.sell_volume);
+    const traders=engineNum(s.num_traders), buys=engineNum(s.num_buys), sells=engineNum(s.num_sells);
+    const flow=buy!=null&&sell!=null?buy-sell:null;
+    const momentum=engineNum(t?.momentum ?? t?.momentum_score);
+    const activity=engineNum(t?.volume_change ?? s.volume_change);
+    const volatility=engineNum(t?.volatility_24h ?? t?.volatility);
+    const liquidity=engineNum(t?.liquidity);
+    return {price,volume,buy,sell,flow,traders,buys,sells,momentum,activity,volatility,liquidity};
+  }
+  function engineSignal(t){
+    const s=engineStats(t);
+    let score=0, reasons=[];
+    if(s.flow!=null&&s.flow>0){score+=2;reasons.push("Buy flow positive");} else if(s.flow!=null&&s.flow<0){score-=2;reasons.push("Sell flow dominant");}
+    if(s.momentum!=null&&s.momentum>0){score+=2;reasons.push("Momentum positive");} else if(s.momentum!=null&&s.momentum<0){score-=2;reasons.push("Momentum negative");}
+    if(s.activity!=null&&s.activity>0){score+=1;reasons.push("Activity increasing");} else if(s.activity!=null&&s.activity<0){score-=1;reasons.push("Activity declining");}
+    if(s.traders!=null&&s.traders>0){reasons.push("Trader participation present");}
+    if(s.volatility!=null&&s.volatility>25){score-=1;reasons.push("Volatility elevated");}
+    const strength=Math.round(Math.min(100,Math.max(0,50+score*10)));
+    const signal=score>=3?"BUY":score<=-3?"SELL":score!==0?"WATCH":"HOLD";
+    let entry=null,stop=null,take=null,rr=null;
+    if((signal==="BUY"||signal==="SELL")&&s.price!=null){
+      entry=s.price;
+      const riskPct=Math.min(0.08,Math.max(0.015,(s.volatility!=null?s.volatility/1000:0.025)));
+      if(signal==="BUY"){stop=entry*(1-riskPct);take=entry*(1+riskPct*2);rr=2;}
+      else {stop=entry*(1+riskPct);take=entry*(1-riskPct*2);rr=2;}
+    }
+    return {signal,strength,entry,stop,take,rr,reasons,s};
+  }
+  function engineMatureCandidates(){
+    const all=Array.isArray(window.MEMELAB_JUPITER_TOKENS)?window.MEMELAB_JUPITER_TOKENS:[];
+    const mature=all.filter(t=>["MATURE","DECLINING"].includes(String(t?.lifecycle||"").toUpperCase()));
+    return mature.map(t=>({t,core:engineNum(t?.core_score)}))
+      .sort((a,b)=>(b.core??-1)-(a.core??-1))
+      .slice(0,10).map(x=>x.t);
+  }
+  function engineRender(){
+    const body=$("#engine-table-body"), count=$("#engine-candidate-count");
+    if(!body)return;
+    engineCandidates=engineMatureCandidates();
+    if(count)count.textContent=String(engineCandidates.length);
+    if(!engineCandidates.length){body.innerHTML='<tr><td colspan="12" class="engine-empty">No MATURE / DECLINING candidates available.</td></tr>';return;}
+    body.innerHTML=engineCandidates.map((t,i)=>{
+      const e=engineSignal(t), s=e.s, selected=t.mint===engineSelectedMint;
+      return '<tr data-engine-mint="'+t.mint+'" class="'+(selected?"selected":"")+'">'+
+        '<td>'+(i+1)+'</td><td><span class="engine-token">'+(t.symbol||"—")+'</span><br><span class="engine-symbol">'+(t.name||"")+'</span></td>'+
+        '<td>'+(engineNum(t.core_score)!=null?Math.round(t.core_score):"—")+'</td><td>'+engineUsd(s.price)+'</td><td>'+engineUsd(s.flow)+'</td><td>'+engineUsd(s.volume)+'</td>'+
+        '<td>'+(s.traders==null?"—":s.traders.toLocaleString("de-DE"))+'</td><td>'+enginePct(s.momentum)+'</td><td>'+enginePct(s.volatility)+'</td><td>'+enginePct(s.activity)+'</td>'+
+        '<td class="engine-signal-cell '+e.signal.toLowerCase()+'">'+e.signal+'</td><td>'+e.strength+'</td></tr>';
+    }).join("");
+    body.querySelectorAll("tr[data-engine-mint]").forEach(row=>row.addEventListener("click",()=>{engineSelectedMint=row.dataset.engineMint;engineRender();engineRenderSelected();}));
+    if(!engineSelectedMint&&engineCandidates[0])engineSelectedMint=engineCandidates[0].mint;
+    engineRenderSelected();
+  }
+  function engineRenderSelected(){
+    const t=engineCandidates.find(x=>x.mint===engineSelectedMint)||engineCandidates[0];
+    if(!t)return;
+    const e=engineSignal(t), s=e.s;
+    const set=(id,v)=>{const el=$("#"+id);if(el)el.textContent=v;};
+    set("engine-selected-token",(t.symbol||"—")+" · "+(t.lifecycle||"—"));
+    set("engine-entry",engineUsd(e.entry));set("engine-stop",engineUsd(e.stop));set("engine-take",engineUsd(e.take));set("engine-margin","PAPER · 0");set("engine-rr",e.rr?e.rr.toFixed(1)+"R":"—");set("engine-pnl","—");
+    const badge=$("#engine-signal-badge");if(badge){badge.textContent=e.signal;badge.className="engine-signal-badge "+e.signal.toLowerCase();}
+    const reasons=$("#engine-reasons");if(reasons)reasons.innerHTML=e.reasons.length?e.reasons.map(x=>"✓ "+x).join("<br>"):"No directional conditions met.";
+  }
+  function engineScanStep(){
+    if(!engineCandidates.length)engineCandidates=engineMatureCandidates();
+    if(!engineCandidates.length)return;
+    engineCursor=(engineCursor+1)%engineCandidates.length;
+    const t=engineCandidates[engineCursor];
+    engineSelectedMint=t.mint;
+    engineScannedAt=Date.now();
+    const cycle=$("#engine-cycle");if(cycle)cycle.textContent=(engineCursor+1)+" / "+engineCandidates.length;
+    const last=$("#engine-last-scan");if(last)last.textContent=new Date(engineScannedAt).toLocaleTimeString();
+    engineRender();
+  }
+  function engineStart(){
+    if(engineTimer)clearInterval(engineTimer);
+    engineIntervalMs=Number($("#engine-interval")?.value)||5000;
+    const status=$("#engine-status"), wrap=status?.parentElement;
+    if(status)status.textContent="SCANNING";
+    if(wrap)wrap.classList.add("running");
+    engineRender();
+    engineTimer=setInterval(engineScanStep,engineIntervalMs);
+  }
+  function engineStop(){
+    if(engineTimer)clearInterval(engineTimer);
+    engineTimer=null;
+    const status=$("#engine-status"), wrap=status?.parentElement;
+    if(status)status.textContent="READY";
+    if(wrap)wrap.classList.remove("running");
+  }
+  function engineInit(){
+    const select=$("#engine-interval");if(select)select.addEventListener("change",engineStart);
+    engineRender();
+    engineStart();
+  }
+
   let universeOpen = false;
   let sortKey = "candidate";
   let sortDir = "desc";
@@ -363,6 +472,7 @@
       window.MEMELAB_JUPITER_DATA=data;
       window.dispatchEvent(new CustomEvent("memelab:jupiter-data",{detail:data}));
       render();
+      if(!document.getElementById("engine-panel")?.hidden) engineRender();
       if(selectedMint && window.MEMELAB_MARKET?.updateLive){
         const liveToken=tokens.find(t=>t.mint===selectedMint);
         if(liveToken) window.MEMELAB_MARKET.updateLive(liveToken);
@@ -377,10 +487,12 @@
     const view=btn.dataset.view;
     const discovery=document.querySelector(".discovery");
     const watch=$("#watchlist-panel");
-    const position=$("#position-panel");
+    const position=$("#position-panel"), engine=$("#engine-panel");
     if(discovery) discovery.hidden=view!=="memelab";
     if(watch) watch.hidden=view!=="watchlist";
     if(position) position.hidden=view!=="position";
+    if(engine) engine.hidden=view!=="engine";
+    if(view==="engine"){ engineInit(); } else { engineStop(); }
     if(view==="position" && window.MEMELAB_MARKET?.selectToken){
       const mature=tokens.filter(t=>lifecycle(t)==="MATURE"||lifecycle(t)==="DECLINING");
       const target=mature.find(t=>t.mint===selectedMint)||mature[0];
