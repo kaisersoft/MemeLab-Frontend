@@ -139,7 +139,7 @@ function renderMarketChart(history, token, options={}){
     volatility:"Volatility",
     activity:"Activity",
     momentum:"Momentum",
-    net_flow:"Net Flow"
+    net_flow:"Buy / Sell Flow"
   };
   const currentEl=$("#chart-current"), maxEl=$("#chart-max"), minEl=$("#chart-min"), windowEl=$("#chart-window"), dataEl=$("#chart-data"), metricNameEl=$("#chart-metric-name");
   const topEl=$("#chart-axis-top"),zeroEl=$("#chart-axis-zero"),bottomEl=$("#chart-axis-bottom");
