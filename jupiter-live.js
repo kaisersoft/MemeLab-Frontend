@@ -135,11 +135,19 @@
     const price=engineNum(t?.price_usd), volume=engineNum(s.volume), buy=engineNum(s.buy_volume), sell=engineNum(s.sell_volume);
     const traders=engineNum(s.num_traders), buys=engineNum(s.num_buys), sells=engineNum(s.num_sells);
     const flow=buy!=null&&sell!=null?buy-sell:null;
-    const momentum=engineNum(t?.momentum ?? t?.momentum_score);
-    const activity=engineNum(t?.volume_change ?? s.volume_change);
-    const volatility=engineNum(t?.volatility_24h ?? t?.volatility);
-    const liquidity=engineNum(t?.liquidity);
-    return {price,volume,buy,sell,flow,traders,buys,sells,momentum,activity,volatility,liquidity};
+    const hist=Array.isArray(t?._engineHistory)?t._engineHistory:[];
+    const last=hist.at(-1)||null, prev=hist.at(-2)||null;
+    const histPrice=engineNum(last?.price_usd), histVolume=engineNum(last?.volume);
+    const momentum=engineNum(t?.momentum ?? t?.momentum_score) ?? (histPrice!=null&&engineNum(prev?.price_usd)?((histPrice/Number(prev.price_usd))-1)*100:null);
+    const activity=engineNum(t?.volume_change ?? s.volume_change) ?? (histVolume!=null&&engineNum(prev?.volume)?((histVolume/Number(prev.volume))-1)*100:null);
+    let volatility=engineNum(t?.volatility_24h ?? t?.volatility);
+    if(volatility==null&&hist.length>=3){
+      const ps=hist.slice(-13).map(x=>engineNum(x?.price_usd)).filter(x=>x!=null&&x>0), rs=[];
+      for(let i=1;i<ps.length;i++)rs.push(Math.log(ps[i]/ps[i-1]));
+      if(rs.length){const m=rs.reduce((a,x)=>a+x,0)/rs.length;volatility=Math.sqrt(rs.reduce((a,x)=>a+(x-m)**2,0)/rs.length)*100;}
+    }
+    const liquidity=engineNum(t?.liquidity) ?? engineNum(last?.liquidity);
+    return {price:price ?? histPrice,volume:volume ?? histVolume,buy:buy ?? engineNum(last?.buy_volume),sell:sell ?? engineNum(last?.sell_volume),flow:flow ?? engineNum(last?.net_flow),traders:traders ?? engineNum(last?.traders),buys:buys ?? engineNum(last?.buys),sells:sells ?? engineNum(last?.sells),momentum,activity,volatility,liquidity};
   }
   function engineSignal(t){
     const s=engineStats(t);
@@ -163,7 +171,7 @@
   function engineMatureCandidates(){
     const all=Array.isArray(window.MEMELAB_JUPITER_TOKENS)?window.MEMELAB_JUPITER_TOKENS:[];
     const mature=all.filter(t=>["MATURE","DECLINING"].includes(String(t?.lifecycle||"").toUpperCase()));
-    return mature.map(t=>({t,core:engineNum(t?.core_score)}))
+    return mature.map(t=>({t,core:engineNum(t?.core_score) ?? engineNum(coreScores(t)?.core)}))
       .sort((a,b)=>(b.core??-1)-(a.core??-1))
       .slice(0,10).map(x=>x.t);
   }
@@ -195,7 +203,7 @@
     const badge=$("#engine-signal-badge");if(badge){badge.textContent=e.signal;badge.className="engine-signal-badge "+e.signal.toLowerCase();}
     const reasons=$("#engine-reasons");if(reasons)reasons.innerHTML=e.reasons.length?e.reasons.map(x=>"✓ "+x).join("<br>"):"No directional conditions met.";
   }
-  function engineScanStep(){
+  async function engineScanStep(){
     if(!engineCandidates.length)engineCandidates=engineMatureCandidates();
     if(!engineCandidates.length)return;
     engineCursor=(engineCursor+1)%engineCandidates.length;
@@ -204,6 +212,13 @@
     engineScannedAt=Date.now();
     const cycle=$("#engine-cycle");if(cycle)cycle.textContent=(engineCursor+1)+" / "+engineCandidates.length;
     const last=$("#engine-last-scan");if(last)last.textContent=new Date(engineScannedAt).toLocaleTimeString();
+    try{
+      const response=await fetch(apiBase+"/jupiter/history?mint="+encodeURIComponent(t.mint)+"&window=5m",{cache:"no-store",headers:{Accept:"application/json"}});
+      if(response.ok){
+        const data=await response.json();
+        t._engineHistory=Array.isArray(data?.points)?data.points:[];
+      }
+    }catch(e){console.debug("Trading engine history scan:",e);}
     engineRender();
   }
   function engineStart(){
