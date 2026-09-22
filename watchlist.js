@@ -1,15 +1,45 @@
-/* MemeLab Watchlist — monitoring pool renderer. */
+/* MemeLab Watchlist — monitoring pool + Position Intelligence mature universe. */
 (()=>{
 const $=s=>document.querySelector(s),life=t=>t?.lifecycle||"DISCOVERED",stats=t=>t?.stats_24h||{};
 const mint=m=>!m?"—":m.length<=14?m:m.slice(0,7)+"…"+m.slice(-5);
 const usd=v=>{const n=Number(v);if(!Number.isFinite(n))return"—";if(Math.abs(n)>=1e9)return"$"+(n/1e9).toFixed(2)+"B";if(Math.abs(n)>=1e6)return"$"+(n/1e6).toFixed(2)+"M";if(Math.abs(n)>=1e3)return"$"+(n/1e3).toFixed(1)+"K";if(Math.abs(n)>=1)return"$"+n.toFixed(2);return"$"+n.toExponential(2)};
 const price=v=>{const n=Number(v);if(!Number.isFinite(n)||n<=0)return"—";if(n>=1)return"$"+n.toFixed(2);if(n>=0.01)return"$"+n.toFixed(4);if(n>=0.000001)return"$"+n.toFixed(8);return"$"+n.toExponential(2)};
 const dateFmt=v=>{if(!v)return"—";const d=new Date(v);return Number.isNaN(d.getTime())?"—":d.toISOString().slice(0,10)};
-let rows=[],sortKey="liquidity",sortDir="desc";
+let rows=[],sortKey="liquidity",sortDir="desc",matureSortKey="liquidity",matureSortDir="desc";
+
 const val=(t,k)=>{const s=stats(t),m=t?.monitoring||{};if(k==="symbol")return String(t.symbol||"").toLowerCase();if(k==="lifecycle")return life(t);if(k==="created")return String(t.created_at||t.createdAt||"");if(k==="price")return Number(t.price_usd||0);if(k==="liquidity")return Number(t.liquidity||0);if(k==="volume")return Number(s.volume||0);if(k==="trades")return Number(m.trades_24h??(Number(s.num_buys||0)+Number(s.num_sells||0)));if(k==="traders")return Number(s.num_traders||0);if(k==="organic")return Number(t.organic_score||0);if(k==="observations")return Number(m.observations||0);return 0};
-function render(){const root=$("#watchlist-root");if(!root)return;const list=rows.filter(t=>life(t)==="ACTIVE"||life(t)==="MATURE");list.sort((a,b)=>{const av=val(a,sortKey),bv=val(b,sortKey),c=(typeof av==="string"||typeof bv==="string")?String(av).localeCompare(String(bv)):av-bv;return sortDir==="asc"?c:-c});
-const h=[["symbol","Token"],["lifecycle","Lifecycle"],["created","Created"],["price","Price"],["liquidity","Liquidity"],["volume","24h Volume"],["trades","Trades"],["traders","Traders"],["organic","Organic"],["observations","Observations"]];
-const table=document.createElement("table");table.className="watchlist-table";const hr=document.createElement("tr");h.forEach(([k,label])=>{const th=document.createElement("th"),b=document.createElement("button");b.type="button";b.dataset.sort=k;b.textContent=label;b.onclick=()=>{if(sortKey===k)sortDir=sortDir==="asc"?"desc":"asc";else{sortKey=k;sortDir=["symbol","lifecycle","created"].includes(k)?"asc":"desc"}render()};th.appendChild(b);hr.appendChild(th)});const thead=document.createElement("thead");thead.appendChild(hr);table.appendChild(thead);
-const tbody=document.createElement("tbody");if(!list.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=h.length;td.className="watchlist-empty";td.textContent="Noch keine ACTIVE- oder MATURE-Tokens.";tr.appendChild(td);tbody.appendChild(tr)}else list.forEach(t=>{const m=t.monitoring||{},s=stats(t),trades=m.trades_24h??(Number(s.num_buys||0)+Number(s.num_sells||0)),cells=['<strong>'+(t.symbol||mint(t.mint))+'</strong><small>'+(t.name||"—")+'</small>',t.lifecycle||"—",dateFmt(t.created_at||t.createdAt),price(t.price_usd),usd(t.liquidity),usd(s.volume),trades||"—",s.num_traders??"—",t.organic_score!=null?Number(t.organic_score).toFixed(0):"—",m.observations??"—"];const tr=document.createElement("tr");tr.dataset.token=t.mint||"";cells.forEach(x=>{const td=document.createElement("td");td.innerHTML=x;tr.appendChild(td)});tr.onclick=()=>window.MEMELAB_MARKET?.selectToken?.(t.mint);tbody.appendChild(tr)});table.appendChild(tbody);root.replaceChildren(table);const count=$("#watchlist-count");if(count)count.textContent=String(list.length)}
-function update(d){rows=Array.isArray(d?.diagnostics?.watchlist)?d.diagnostics.watchlist:[];render()}window.addEventListener("memelab:jupiter-data",e=>update(e.detail));if(window.MEMELAB_JUPITER_DATA)update(window.MEMELAB_JUPITER_DATA);
+
+const headers=[["symbol","Token"],["lifecycle","Lifecycle"],["created","Created"],["price","Price"],["liquidity","Liquidity"],["volume","24h Volume"],["trades","Trades"],["traders","Traders"],["organic","Organic"],["observations","Observations"]];
+
+function renderTable(rootSelector,list,state,emptyText,countSelector){
+  const root=$(rootSelector);if(!root)return;
+  const {key,dir,setState}=state;
+  const sorted=[...list].sort((a,b)=>{const av=val(a,key),bv=val(b,key),c=(typeof av==="string"||typeof bv==="string")?String(av).localeCompare(String(bv)):av-bv;return dir==="asc"?c:-c});
+  const table=document.createElement("table");table.className="watchlist-table";
+  const hr=document.createElement("tr");
+  headers.forEach(([k,label])=>{const th=document.createElement("th"),b=document.createElement("button");b.type="button";b.textContent=label;b.onclick=()=>{if(state.key===k)setState(k,state.dir==="asc"?"desc":"asc");else setState(k,["symbol","lifecycle","created"].includes(k)?"asc":"desc")};th.appendChild(b);hr.appendChild(th)});
+  const thead=document.createElement("thead");thead.appendChild(hr);table.appendChild(thead);
+  const tbody=document.createElement("tbody");
+  if(!sorted.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=headers.length;td.className="watchlist-empty";td.textContent=emptyText;tr.appendChild(td);tbody.appendChild(tr)}
+  else sorted.forEach(t=>{
+    const m=t.monitoring||{},s=stats(t),trades=m.trades_24h??(Number(s.num_buys||0)+Number(s.num_sells||0));
+    const cells=['<strong>'+(t.symbol||mint(t.mint))+'</strong><small>'+(t.name||"—")+'</small>',t.lifecycle||"—",dateFmt(t.created_at||t.createdAt),price(t.price_usd),usd(t.liquidity),usd(s.volume),trades||"—",s.num_traders??"—",t.organic_score!=null?Number(t.organic_score).toFixed(0):"—",m.observations??"—"];
+    const tr=document.createElement("tr");tr.dataset.token=t.mint||"";cells.forEach(x=>{const td=document.createElement("td");td.innerHTML=x;tr.appendChild(td)});
+    tr.onclick=()=>window.MEMELAB_MARKET?.selectToken?.(t.mint);tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);root.replaceChildren(table);
+  const count=$(countSelector);if(count)count.textContent=String(sorted.length);
+}
+
+function render(){
+  renderTable("#watchlist-root",rows.filter(t=>life(t)==="ACTIVE"||life(t)==="MATURE"),
+    {get key(){return sortKey},get dir(){return sortDir},setState:(k,d)=>{sortKey=k;sortDir=d;render()}},
+    "Noch keine ACTIVE- oder MATURE-Tokens.","#watchlist-count");
+  renderTable("#position-watchlist-root",rows.filter(t=>life(t)==="MATURE"),
+    {get key(){return matureSortKey},get dir(){return matureSortDir},setState:(k,d)=>{matureSortKey=k;matureSortDir=d;render()}},
+    "Noch keine MATURE-Tokens.","#mature-watchlist-count");
+}
+function update(d){rows=Array.isArray(d?.tokens)?d.tokens:[];render()}
+window.addEventListener("memelab:jupiter-data",e=>update(e.detail));
+if(window.MEMELAB_JUPITER_DATA)update(window.MEMELAB_JUPITER_DATA);
 })();
