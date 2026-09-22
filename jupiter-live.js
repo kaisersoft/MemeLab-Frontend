@@ -25,7 +25,7 @@
   let universeOpen = false;
   let sortKey = "candidate";
   let sortDir = "desc";
-  let watchlistSortKey = "lifecycle";
+  let watchlistSortKey = "organic";
   let watchlistSortDir = "asc";
 
   const nextStage = (stage) => ({
@@ -65,6 +65,9 @@
     const value = (t) => {
       const s=stats24h(t);
       if(key==="symbol") return String(t.symbol||"").toLowerCase();
+    if(key==="liquidity") return Number(t.liquidity||0);
+    if(key==="volume") return Number(s.volume||0);
+    if(key==="organic") return Number(t.organic_score||0);
       if(key==="name") return String(t.name||"").toLowerCase();
       if(key==="lifecycle") return lifecycle(t);
       if(key==="discovery_status") return String(t.discovery_status||"");
@@ -195,14 +198,19 @@
     });
     body.innerHTML=list.length?list.map(t=>{
       const w=t.watchlist||{}, m=t.monitoring||{};
+      const trades=m.trades_24h??(Number(s.num_buys||0)+Number(s.num_sells||0));
       return '<tr data-token="'+(t.mint||"")+'">'+
         '<td><strong>'+(t.symbol||shortMint(t.mint))+'</strong><small>'+(t.name||"—")+'</small></td>'+
         '<td>'+((t.lifecycle)||"—")+'</td>'+
-        '<td>'+((m.observations??"—"))+'</td>'+
-        '<td>'+((m.trades_24h??"—"))+'</td>'+
+        '<td>'+usd(t.liquidity)+'</td>'+
+        '<td>'+usd(s.volume)+'</td>'+
+        '<td>'+((trades)||"—")+'</td>'+
+        '<td>'+((s.num_traders??"—"))+'</td>'+
+        '<td>'+((t.organic_score!=null)?Number(t.organic_score).toFixed(0):"—")+'</td>'+
         '<td>'+((m.active_observations_last_12??0))+'/12</td>'+
+        '<td>'+((m.observations??"—"))+'</td>'+
         '<td class="next ready">'+((m.next_status)||"ACTIVE")+'</td></tr>';
-    }).join(""): '<tr><td colspan="6" class="watchlist-empty">Noch keine ACTIVE- oder MATURE-Tokens.</td></tr>';
+    }).join(""): '<tr><td colspan="10" class="watchlist-empty">Noch keine ACTIVE- oder MATURE-Tokens.</td></tr>';
     body.querySelectorAll("tr[data-token]").forEach(row=>row.addEventListener("click",()=>{
       selectedMint=row.dataset.token; render(); if(window.MEMELAB_MARKET?.selectToken) window.MEMELAB_MARKET.selectToken(selectedMint);
     }));
