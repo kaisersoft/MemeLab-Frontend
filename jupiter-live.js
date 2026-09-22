@@ -266,8 +266,9 @@
     const grid=$(".token-grid");
     if (!grid) return;
     const filteredTokens = tokens.filter(t => lifecycle(t) === lifecycleFilter);
-    const selectedInFilter = filteredTokens.some(t => t.mint === selectedMint);
-    if (!selectedInFilter) selectedMint = filteredTokens[0]?.mint || null;
+    if (!selectedMint || !tokens.some(t => t.mint === selectedMint)) {
+      selectedMint = filteredTokens[0]?.mint || null;
+    }
 
     const ranked=[...filteredTokens].sort((a,b)=>candidateScore(b)-candidateScore(a));
     const visibleTokens = ranked.slice(0,3);
