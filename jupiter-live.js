@@ -389,6 +389,12 @@
       }
     }
   }));
+  window.addEventListener("memelab:market-token-selected",e=>{
+    const mint=e.detail?.mint;
+    if(!mint) return;
+    selectedMint=mint;
+    render();
+  });
   window.addEventListener("memelab:market-history",e=>{
     if(e.detail?.mint!==selectedMint) return;
     positionHistory=Array.isArray(e.detail?.points)?e.detail.points:[];
