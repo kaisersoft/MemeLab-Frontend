@@ -183,8 +183,12 @@
             <select id="chart-metric">
               <option value="price" selected>Price</option>
               <option value="volume">Volume</option>
+              <option value="buy_volume">Buy Volume</option>
+              <option value="sell_volume">Sell Volume</option>
               <option value="liquidity">Liquidity</option>
               <option value="trades">Trades</option>
+              <option value="buy_trades">Buy Trades</option>
+              <option value="sell_trades">Sell Trades</option>
               <option value="traders">Traders</option>
               <option value="volatility">Volatility</option>
               <option value="activity">Activity</option>
@@ -206,9 +210,9 @@
           </div>
           <div class="chart-wrap">
           <svg viewBox="0 0 800 260" preserveAspectRatio="none" role="img" aria-label="Live market structure chart">
-          <text class="chart-axis-label chart-axis-top" x="8" y="18">BUY</text>
-          <text class="chart-axis-label chart-axis-zero" x="8" y="134">0</text>
-          <text class="chart-axis-label chart-axis-bottom" x="8" y="250">SELL</text>
+          <text id="chart-axis-top" class="chart-axis-label chart-axis-top" x="8" y="18">MAX</text>
+          <text id="chart-axis-zero" class="chart-axis-label chart-axis-zero" x="8" y="134"></text>
+          <text id="chart-axis-bottom" class="chart-axis-label chart-axis-bottom" x="8" y="250">MIN</text>
           <defs>
           <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#75c8ff" stop-opacity=".16"/>
