@@ -8,7 +8,7 @@ let selectedMint = null;
 let externalSelectedMint = null;
 let marketHistoryRequest = 0;
 let marketHistory = [];
-let marketWindow = "1h";
+let marketWindow = "24h";
 let apiReachable = false;
 
 function shortMint(m) { if (!m) return "—"; return m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5); }
@@ -144,6 +144,8 @@ async function selectMarketToken(mint){
     const data=await response.json();
     if(request!==marketHistoryRequest) return;
     renderChartHistory(token,data);
+    window.MEMELAB_POSITION_HISTORY=Array.isArray(data?.points)?data.points:[];
+    window.dispatchEvent(new CustomEvent("memelab:market-history",{detail:{mint,window:data?.window||marketWindow,points:window.MEMELAB_POSITION_HISTORY}}));
   }catch(error){
     if(request!==marketHistoryRequest) return;
     console.error("MemeLab market history failed:",error);
