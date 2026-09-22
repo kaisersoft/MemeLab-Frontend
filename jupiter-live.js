@@ -21,14 +21,103 @@
   };
   const stats24h = (t) => t?.stats_24h || {};
   const lifecycle = (t) => t?.lifecycle || "DISCOVERED";
-  const clamp = (v,min=0,max=100) => Math.max(min,Math.min(max,Number(v)||0));
-  const logScore = (v,min,max) => { const n=Math.max(Number(v)||0,min); return clamp((Math.log10(n)-Math.log10(min))/(Math.log10(max)-Math.log10(min))*100); };
+  const clamp = (v,min=0,max=100) => {
+    const n=Number(v);
+    return Number.isFinite(n) ? Math.max(min,Math.min(max,n)) : null;
+  };
+  const num = (v) => {
+    const n=Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const logScore = (v,min,max) => {
+    const n=num(v);
+    if(n==null || n<=0) return null;
+    return clamp((Math.log10(Math.max(n,min))-Math.log10(min))/(Math.log10(max)-Math.log10(min))*100);
+  };
   const metricFor = (t) => (window.MEMELAB_POSITION_METRICS||new Map()).get(t?.mint)||{};
-  const marketScore = (t) => { const s=stats24h(t), liq=Number(t?.liquidity||0), vol=Number(s.volume||0), traders=Number(s.num_traders||0), organic=Number(t?.organic_score||0); return 0.35*logScore(liq,1e3,1e8)+0.25*logScore(vol,1e3,1e8)+0.20*logScore(traders,1,1e5)+0.20*clamp(organic); };
-  const momentumScore = (t) => { const s=stats24h(t), price=Number(s.price_change), volChange=Number(s.volume_change), holderChange=Number(s.holder_change), buy=Number(s.buy_volume||0), sell=Number(s.sell_volume||0), flow=buy+sell>0?(buy-sell)/(buy+sell):0; return 0.40*clamp((price+50)/150*100)+0.25*clamp((volChange+100)/400*100)+0.15*clamp((holderChange+50)/150*100)+0.20*clamp((flow+1)*50); };
-  const riskScore = (t) => { const s=stats24h(t), m=metricFor(t), vol=Number(m.volatility_24h_pct); if(!Number.isFinite(vol)) return null; const liq=Number(t?.liquidity||0), change=Math.abs(Number(s.price_change)||0), declining=lifecycle(t)==="DECLINING"?15:0; const volRisk=clamp(100-(vol/20*100)); const liqRisk=clamp(logScore(liq,1e3,1e8)); const moveRisk=clamp(100-change*2); return clamp(0.50*volRisk+0.30*liqRisk+0.20*moveRisk-declining); };
-  const activityTrendScore = (t) => { const s=stats24h(t), change=Number(s.volume_change); if(!Number.isFinite(change)) return null; return clamp((change+100)/400*100); };
-  const coreScores = (t) => { const market=marketScore(t), momentum=momentumScore(t), risk=riskScore(t), activity=activityTrendScore(t); if(risk==null || activity==null) return {market,momentum,risk,activity,core:null}; return {market,momentum,risk,activity,core:Math.round(0.30*market+0.25*momentum+0.20*risk+0.15*activity+0.10*0)}; };
+
+  const marketScore = (t) => {
+    const s=stats24h(t);
+    const liq=num(t?.liquidity), vol=num(s.volume), traders=num(s.num_traders);
+    if(liq==null || vol==null || traders==null) return null;
+    const liqScore=logScore(liq,1e3,1e8);
+    const volScore=logScore(vol,1e3,1e8);
+    const traderScore=logScore(traders,1,1e5);
+    if(liqScore==null || volScore==null || traderScore==null) return null;
+    return 0.40*liqScore+0.35*volScore+0.25*traderScore;
+  };
+
+  const momentumScore = (t) => {
+    const s=stats24h(t);
+    const price=num(s.price_change), volChange=num(s.volume_change), holderChange=num(s.holder_change);
+    const buy=num(s.buy_volume), sell=num(s.sell_volume);
+    if(price==null || volChange==null || holderChange==null || buy==null || sell==null) return null;
+    const totalFlow=buy+sell;
+    if(totalFlow<=0) return null;
+    const flow=(buy-sell)/totalFlow;
+    return 0.40*clamp((price+50)/150*100)
+      +0.25*clamp((volChange+100)/400*100)
+      +0.15*clamp((holderChange+50)/150*100)
+      +0.20*clamp((flow+1)*50);
+  };
+
+  const activityTrendScore = (t) => {
+    const change=num(stats24h(t).volume_change);
+    if(change==null) return null;
+    // 0% change is neutral (50/100). +/-200% spans the displayed score range.
+    return clamp(50+(change/4));
+  };
+
+  const volatilityFromHistory = (points) => {
+    const prices=(Array.isArray(points)?points:[])
+      .map(p=>num(p?.price_usd))
+      .filter(v=>v!=null && v>0);
+    if(prices.length<3) return null;
+    const returns=[];
+    for(let i=1;i<prices.length;i++){
+      if(prices[i-1]>0 && prices[i]>0) returns.push(Math.log(prices[i]/prices[i-1]));
+    }
+    if(returns.length<2) return null;
+    const mean=returns.reduce((a,b)=>a+b,0)/returns.length;
+    const variance=returns.reduce((a,b)=>a+(b-mean)**2,0)/returns.length;
+    return Math.sqrt(variance)*100;
+  };
+
+  let positionHistory=[];
+  const riskScore = (t) => {
+    const historyVol=volatilityFromHistory(positionHistory);
+    const fallback=num(metricFor(t).volatility_24h_pct);
+    const vol=historyVol!=null?historyVol:fallback;
+    if(vol==null) return null;
+    const liq=num(t?.liquidity);
+    const change=num(stats24h(t).price_change);
+    if(liq==null || change==null) return null;
+    const liqRisk=logScore(liq,1e3,1e8);
+    if(liqRisk==null) return null;
+    const volRisk=clamp(100-(vol/20*100));
+    const moveRisk=clamp(100-Math.abs(change)*2);
+    if(volRisk==null || moveRisk==null) return null;
+    const declining=lifecycle(t)==="DECLINING"?15:0;
+    return clamp(0.50*volRisk+0.30*liqRisk+0.20*moveRisk-declining);
+  };
+
+  const coreScores = (t) => {
+    const market=marketScore(t);
+    const momentum=momentumScore(t);
+    const risk=riskScore(t);
+    const activity=activityTrendScore(t);
+    if(market==null || momentum==null || risk==null || activity==null)
+      return {market,momentum,risk,activity,core:null};
+    // Core Score is the current market-intelligence layer. Social is deliberately
+    // excluded until the separate qualitative social signal is connected.
+    return {
+      market,
+      momentum,
+      risk,
+      activity,
+      core:Math.round(0.30*market+0.25*momentum+0.25*risk+0.20*activity)
+    };
+  };
 
   let universeOpen = false;
   let sortKey = "candidate";
@@ -300,6 +389,11 @@
       }
     }
   }));
+  window.addEventListener("memelab:market-history",e=>{
+    if(e.detail?.mint!==selectedMint) return;
+    positionHistory=Array.isArray(e.detail?.points)?e.detail.points:[];
+    render();
+  });
   window.MEMELAB_JUPITER={refresh:load,active:true};
   load();
   setInterval(load,5000);
