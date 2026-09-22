@@ -176,17 +176,31 @@
           <section class="panel chart-panel" id="market-structure-panel">
           <div class="panel-head">
           <div><h2>Live Market Structure</h2></div>
-          <span class="muted" id="chart-label">— / SOL · 1h history</span>
+          <span class="muted" id="chart-label">— / SOL · 24h history</span>
+          </div>
+          <div class="chart-metric-controls" aria-label="Market structure metric">
+            <label for="chart-metric">Metric</label>
+            <select id="chart-metric">
+              <option value="price" selected>Price</option>
+              <option value="volume">Volume</option>
+              <option value="liquidity">Liquidity</option>
+              <option value="trades">Trades</option>
+              <option value="traders">Traders</option>
+              <option value="volatility">Volatility</option>
+              <option value="activity">Activity</option>
+              <option value="momentum">Momentum</option>
+              <option value="net_flow">Net Flow</option>
+            </select>
           </div>
           <div class="chart-window-controls" aria-label="Market structure history window">
           <button class="chart-window-btn" type="button" data-window="1m" aria-pressed="false">1m</button>
           <button class="chart-window-btn" type="button" data-window="5m" aria-pressed="false">5m</button>
           <button class="chart-window-btn" type="button" data-window="15m" aria-pressed="false">15m</button>
           <button class="chart-window-btn" type="button" data-window="30m" aria-pressed="false">30m</button>
-          <button class="chart-window-btn active" type="button" data-window="1h" aria-pressed="true">1h</button>
+          <button class="chart-window-btn active" type="button" data-window="1h" aria-pressed="false">1h</button>
           <button class="chart-window-btn" type="button" data-window="4h" aria-pressed="false">4h</button>
           <button class="chart-window-btn" type="button" data-window="8h" aria-pressed="false">8h</button>
-          <button class="chart-window-btn" type="button" data-window="24h" aria-pressed="false">24h</button>
+          <button class="chart-window-btn" type="button" data-window="24h" aria-pressed="true">24h</button>
           <button class="chart-window-btn" type="button" data-window="1w" aria-pressed="false">1W</button>
           <button class="chart-window-btn" type="button" data-window="1mth" aria-pressed="false">1M</button>
           </div>
