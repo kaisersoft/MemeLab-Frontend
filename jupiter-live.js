@@ -197,7 +197,7 @@
       return watchlistSortDir==="asc"?cmp:-cmp;
     });
     body.innerHTML=list.length?list.map(t=>{
-      const w=t.watchlist||{}, m=t.monitoring||{};
+      const w=t.watchlist||{}, m=t.monitoring||{}, s=stats24h(t);
       const trades=m.trades_24h??(Number(s.num_buys||0)+Number(s.num_sells||0));
       return '<tr data-token="'+(t.mint||"")+'">'+
         '<td><strong>'+(t.symbol||shortMint(t.mint))+'</strong><small>'+(t.name||"—")+'</small></td>'+
