@@ -248,6 +248,51 @@ function renderLifecycleOverview(tokens){
   }
 }
 
+function enforceWatchlistTable(){
+  const table=document.querySelector(".watchlist-table");
+  const body=document.querySelector("#watchlist-body");
+  if(!table||!body)return;
+  const head=table.querySelector("thead");
+  const header='<tr>'+
+    '<th><button type="button" data-sort="symbol">Token</button></th>'+
+    '<th><button type="button" data-sort="lifecycle">Lifecycle</button></th>'+
+    '<th><button type="button" data-sort="liquidity">Liquidity</button></th>'+
+    '<th><button type="button" data-sort="volume">24h Volume</button></th>'+
+    '<th><button type="button" data-sort="trades">Trades</button></th>'+
+    '<th><button type="button" data-sort="traders">Traders</button></th>'+
+    '<th><button type="button" data-sort="organic">Organic</button></th>'+
+    '<th><button type="button" data-sort="active_12">Active 12</button></th>'+
+    '<th><button type="button" data-sort="observations">Observations</button></th>'+
+    '<th><button type="button" data-sort="next_status">Next status</button></th>'+
+    '</tr>';
+  if(head && head.innerHTML!==header)head.innerHTML=header;
+  const rows=window.MEMELAB_JUPITER_DATA?.diagnostics?.watchlist;
+  if(!Array.isArray(rows))return;
+  const current=body.querySelector("tr");
+  if(current && current.cells.length===10)return;
+  const usdLocal=(v)=>{const n=Number(v);if(!Number.isFinite(n))return "—";if(Math.abs(n)>=1e9)return "$"+(n/1e9).toFixed(2)+"B";if(Math.abs(n)>=1e6)return "$"+(n/1e6).toFixed(2)+"M";if(Math.abs(n)>=1e3)return "$"+(n/1e3).toFixed(1)+"K";if(Math.abs(n)>=1)return "$"+n.toFixed(2);return "$"+n.toExponential(2);};
+  body.innerHTML=rows.length?rows.map(t=>{
+    const st=t.stats_24h||{}, m=t.monitoring||{};
+    const trades=m.trades_24h??((Number(st.num_buys)||0)+(Number(st.num_sells)||0));
+    return '<tr data-token="'+(t.mint||"")+'">'+
+      '<td><strong>'+(t.symbol||"—")+'</strong><small>'+(t.name||"—")+'</small></td>'+
+      '<td>'+(t.lifecycle||"—")+'</td>'+
+      '<td>'+usdLocal(t.liquidity)+'</td>'+
+      '<td>'+usdLocal(st.volume)+'</td>'+
+      '<td>'+String(trades||"—")+'</td>'+
+      '<td>'+String(st.num_traders??"—")+'</td>'+
+      '<td>'+(t.organic_score!=null?Number(t.organic_score).toFixed(0):"—")+'</td>'+
+      '<td>'+String(m.active_observations_last_12??0)+'/12</td>'+
+      '<td>'+String(m.observations??"—")+'</td>'+
+      '<td class="next ready">'+(m.next_status||t.lifecycle||"—")+'</td>'+
+      '</tr>';
+  }).join(""):'<tr><td colspan="10" class="watchlist-empty">Noch keine ACTIVE- oder MATURE-Tokens.</td></tr>';
+}
+const watchlistTableObserver=new MutationObserver(()=>{enforceWatchlistTable();});
+const watchlistTableNode=document.querySelector(".watchlist-table");
+if(watchlistTableNode)watchlistTableObserver.observe(watchlistTableNode,{childList:true,subtree:true});
+setInterval(enforceWatchlistTable,1000);
+
 function renderSnapshot(data) {
   snapshot=data;
   renderBuildInfo(data?.runtime?.build);
