@@ -180,6 +180,7 @@
           </div>
           <div class="chart-metric-controls" aria-label="Market structure metric">
             <label for="chart-metric">Metric</label>
+            <div class="chart-select-shell">
             <select id="chart-metric">
               <option value="price" selected>Price</option>
               <option value="volume">Volume</option>
@@ -193,8 +194,9 @@
               <option value="volatility">Volatility</option>
               <option value="activity">Activity</option>
               <option value="momentum">Momentum</option>
-              <option value="net_flow">Net Flow</option>
+              <option value="net_flow">Buy / Sell Flow</option>
             </select>
+            </div>
           </div>
           <div class="chart-window-controls" aria-label="Market structure history window">
           <button class="chart-window-btn" type="button" data-window="1m" aria-pressed="false">1m</button>
@@ -226,7 +228,16 @@
           <path id="chart-line" d="M0 220 L800 220"/>
           </svg>
           </div>
-          <div class="chart-stats"><span><span id="chart-net-flow-label">Latest Net Flow (1h)</span> <b id="chart-net-flow">—</b></span><span>Window <b id="chart-window">—</b></span><span>Data <b id="chart-data">—</b></span></div>
+          <div class="chart-stats" aria-label="Chart statistics">
+            <span><span>Current</span><b id="chart-current">—</b></span>
+            <span><span>Window Max</span><b id="chart-max">—</b></span>
+            <span><span>Window Min</span><b id="chart-min">—</b></span>
+          </div>
+          <div class="chart-stats chart-meta-stats">
+            <span><span>Window</span><b id="chart-window">—</b></span>
+            <span><span>Data</span><b id="chart-data">—</b></span>
+            <span><span>Metric</span><b id="chart-metric-name">—</b></span>
+          </div>
           <div class="risk-note"><b>Market context:</b> <span id="market-context-note">24h rolling Buy/Sell flow · selected history window.</span></div>
           </section>
           
