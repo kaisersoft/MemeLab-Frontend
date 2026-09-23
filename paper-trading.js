@@ -22,7 +22,17 @@
   function realizedPnl(){ return journal.reduce((s,p)=>s+Number(p.pnl||0),0); }
   function investedCapital(){ return positions.reduce((s,p)=>s+(Number(p.entry)||0)*(Number(p.qty)||0),0); }
   function availableCash(){ return Math.max(0,START_CAPITAL+realizedPnl()-investedCapital()); }
-  function currentPrice(p){ return Number(p.t?.price_usd)||Number(p.entry)||null; }
+  function liveToken(mint){
+    const list=window.MEMELAB_JUPITER_TOKENS||[];
+    return list.find(t=>t?.mint===mint)||null;
+  }
+  function currentPrice(p){
+    const live=liveToken(p.mint);
+    const n=Number(live?.price_usd);
+    if(Number.isFinite(n)&&n>0){p.t=live;return n;}
+    const fallback=Number(p.t?.price_usd);
+    return Number.isFinite(fallback)&&fallback>0?fallback:Number(p.entry)||null;
+  }
 
   function openPaperPosition(x){
     if(!paperRunning) return false;
@@ -120,7 +130,7 @@
     if(cashDetail) cashDetail.textContent="Unallocated · "+(((START_CAPITAL+realizedPnl())>0)?((cash/(START_CAPITAL+realizedPnl()))*100).toFixed(1):"0.0")+"%";
     if(investedDetail) investedDetail.textContent=positions.length+" open position"+(positions.length===1?"":"s");
     body.innerHTML=positions.length?positions.map(p=>{
-      const current=Number(p.t?.price_usd)||p.entry;
+      const current=currentPrice(p)||p.entry;
       const pnl=(current-p.entry)*p.qty;
       return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td>'+price(current)+'</td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td>OPEN</td></tr>';
     }).join(""):'<tr><td colspan="10" class="paper-empty">No open paper positions.</td></tr>';
@@ -135,7 +145,7 @@
 
   function renderPnl(){
     const realized=journal.reduce((s,p)=>s+p.pnl,0);
-    const open=positions.reduce((s,p)=>s+((Number(p.t?.price_usd)||p.entry)-p.entry)*p.qty,0);
+    const open=positions.reduce((s,p)=>s+((currentPrice(p)||p.entry)-p.entry)*p.qty,0);
     $("#pnl-start").textContent=usd(START_CAPITAL);
     $("#pnl-equity").textContent=usd(START_CAPITAL+realized+open);
     $("#pnl-cash").textContent=usd(availableCash());
