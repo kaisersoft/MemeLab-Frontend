@@ -224,8 +224,58 @@
     });
   }
 
+  const PAPER_STORAGE_KEY = "memelab.paperTrading.v1";
+
+  function localPaperSnapshot(){
+    return {
+      savedAt: now(),
+      positions,
+      journal,
+      state: {
+        threshold, riskPct, capitalLimitPct, portfolioLimitPct,
+        profitTimeoutMinutes, portfolioTakeAllPct, portfolioCycleBaselineEquity,
+        costModelEnabled, phantomFeePct, slippagePct, priceImpactPct,
+        networkFeeUsd, priorityFeeUsd, paperRunning, sessionStartedAt, sessionElapsedMs
+      }
+    };
+  }
+
+  function saveLocalPaperSnapshot(){
+    try { localStorage.setItem(PAPER_STORAGE_KEY, JSON.stringify(localPaperSnapshot())); } catch(_err) {}
+  }
+
+  function restoreLocalPaperSnapshot(){
+    try{
+      const raw=localStorage.getItem(PAPER_STORAGE_KEY);
+      if(!raw) return false;
+      const data=JSON.parse(raw);
+      if(!data || !Array.isArray(data.positions) || !Array.isArray(data.journal)) return false;
+      const state=data.state||{};
+      positions=data.positions.map(p=>({...p,t:p.t||{mint:p.mint,symbol:p.symbol,name:p.name,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
+      journal=data.journal;
+      if(Number.isFinite(Number(state.threshold))) threshold=Number(state.threshold);
+      if(Number.isFinite(Number(state.riskPct))) riskPct=Number(state.riskPct);
+      if(Number.isFinite(Number(state.capitalLimitPct))) capitalLimitPct=Number(state.capitalLimitPct);
+      if(Number.isFinite(Number(state.portfolioLimitPct))) portfolioLimitPct=Number(state.portfolioLimitPct);
+      if(Number.isFinite(Number(state.profitTimeoutMinutes))) profitTimeoutMinutes=Number(state.profitTimeoutMinutes);
+      if(Number.isFinite(Number(state.portfolioTakeAllPct))) portfolioTakeAllPct=Number(state.portfolioTakeAllPct);
+      if(Number.isFinite(Number(state.portfolioCycleBaselineEquity))) portfolioCycleBaselineEquity=Number(state.portfolioCycleBaselineEquity);
+      if(typeof state.costModelEnabled==="boolean") costModelEnabled=state.costModelEnabled;
+      if(Number.isFinite(Number(state.phantomFeePct))) phantomFeePct=Number(state.phantomFeePct);
+      if(Number.isFinite(Number(state.slippagePct))) slippagePct=Number(state.slippagePct);
+      if(Number.isFinite(Number(state.priceImpactPct))) priceImpactPct=Number(state.priceImpactPct);
+      if(Number.isFinite(Number(state.networkFeeUsd))) networkFeeUsd=Number(state.networkFeeUsd);
+      if(Number.isFinite(Number(state.priorityFeeUsd))) priorityFeeUsd=Number(state.priorityFeeUsd);
+      paperRunning=Boolean(state.paperRunning);
+      sessionStartedAt=Number.isFinite(Number(state.sessionStartedAt)) ? Number(state.sessionStartedAt) : null;
+      sessionElapsedMs=Number.isFinite(Number(state.sessionElapsedMs)) ? Number(state.sessionElapsedMs) : 0;
+      return true;
+    }catch(_err){ return false; }
+  }
+
   function postTradingEvents(events){
     if(!events.length) return;
+    saveLocalPaperSnapshot();
     const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
     fetch(apiBase+"/trading/events",{
       method:"POST",
@@ -370,8 +420,10 @@
         exitPriceText:typeof p.exitPriceText==="string"?p.exitPriceText:price(p.exit),
         durationMs:Number(p.durationMs)||0
       }));
+      saveLocalPaperSnapshot();
       return true;
     }catch(_err){
+      if(restoreLocalPaperSnapshot()) return true;
       return false;
     }
   }
@@ -467,6 +519,7 @@
     renderJournal();
     renderPnl();
     captureTradingState();
+    saveLocalPaperSnapshot();
   }
 
   async function init(){
@@ -504,12 +557,14 @@
       if(view==="paper"||view==="pnl")renderAll();
     }));
     window.addEventListener("memelab:jupiter-data",renderAll);
-    await restoreTradingState();
+    const restored=await restoreTradingState();
+    if(!restored) restoreLocalPaperSnapshot();
     renderAll();
     updatePaperControl();
     renderSession();
     setInterval(renderSession,1000);
     setInterval(()=>{if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){renderAll();}},5000);
+    window.addEventListener("pagehide",()=>saveLocalPaperSnapshot());
   }
   window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,capitalLimitPct,portfolioLimitPct,profitTimeoutMinutes,portfolioTakeAllPct,portfolioCycleBaselineEquity,paperRunning,sessionStartedAt,sessionElapsedMs}),isRunning:()=>paperRunning,manualBuy,manualSell};
   init();
