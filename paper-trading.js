@@ -80,7 +80,7 @@
       event_type:"POSITION_OPEN",
       mint:t.mint,
       position_id:positions[positions.length-1].positionId,
-      payload:{symbol:t.symbol||t.name||null,entry:Number(e.entry),stop:Number(e.stop),take:Number(e.take),qty:Number(qty),capital:Number(qty*Number(e.entry)),risk:Number(actualRisk),reason:manual?"MANUAL_BUY":"SIGNAL"}
+      payload:{symbol:t.symbol||t.name||null,name:t.name||"",entry:Number(e.entry),stop:Number(e.stop),take:Number(e.take),qty:Number(qty),capital:Number(qty*Number(e.entry)),risk:Number(actualRisk),opened_at_ms:positions[positions.length-1].openedAt,reason:manual?"MANUAL_BUY":"SIGNAL"}
     }]);
     return true;
   }
@@ -109,7 +109,7 @@
       event_type:"POSITION_CLOSE",
       mint:p.mint,
       position_id:p.positionId||p.mint,
-      payload:{symbol:p.symbol,entry:Number(p.entry),exit:Number(exit),qty:Number(p.qty),capital:Number(size),pnl:Number(pnl),pnl_pct:Number(size?((pnl/size)*100):0),reason}
+      payload:{symbol:p.symbol,entry:Number(p.entry),exit:Number(exit),qty:Number(p.qty),capital:Number(size),pnl:Number(pnl),pnl_pct:Number(size?((pnl/size)*100):0),entry_price_text:price(p.entry),exit_price_text:price(exit),duration_ms:Math.max(0,now()-p.openedAt),reason}
     }]);
     positions=positions.filter(x=>x!==p);
   }
@@ -199,7 +199,22 @@
   function captureTradingState(){
     if(!paperRunning) return;
     const ts=Date.now()/1000;
-    const events=[];
+    const events=[{
+      event_id:crypto.randomUUID(),
+      observed_at:ts,
+      event_type:"TRADING_STATE",
+      position_id:null,
+      payload:{
+        threshold:Number(threshold),
+        riskPct:Number(riskPct),
+        capitalLimitPct:Number(capitalLimitPct),
+        portfolioLimitPct:Number(portfolioLimitPct),
+        profitTimeoutMinutes:Number(profitTimeoutMinutes),
+        portfolioTakeAllPct:Number(portfolioTakeAllPct),
+        portfolioCycleBaselineEquity:Number(portfolioCycleBaselineEquity),
+        paperRunning:Boolean(paperRunning)
+      }
+    }];
     for(const x of lastSignals){
       const t=x.t||{}, e=x.e||{}, s=e.s||{};
       events.push({
@@ -257,6 +272,39 @@
       });
     }
     postTradingEvents(events);
+  }
+
+
+  async function restoreTradingState(){
+    try{
+      const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+      const response=await fetch(apiBase+"/trading/state",{headers:{"Accept":"application/json"},cache:"no-store"});
+      if(!response.ok) return false;
+      const data=await response.json();
+      const state=data?.state||{};
+      const restoredPositions=Array.isArray(data?.positions)?data.positions:[];
+      const restoredJournal=Array.isArray(data?.journal)?data.journal:[];
+      if(Object.keys(state).length){
+        if(Number.isFinite(Number(state.threshold))) threshold=Number(state.threshold);
+        if(Number.isFinite(Number(state.riskPct))) riskPct=Number(state.riskPct);
+        if(Number.isFinite(Number(state.capitalLimitPct))) capitalLimitPct=Number(state.capitalLimitPct);
+        if(Number.isFinite(Number(state.portfolioLimitPct))) portfolioLimitPct=Number(state.portfolioLimitPct);
+        if(Number.isFinite(Number(state.profitTimeoutMinutes))) profitTimeoutMinutes=Number(state.profitTimeoutMinutes);
+        if(Number.isFinite(Number(state.portfolioTakeAllPct))) portfolioTakeAllPct=Number(state.portfolioTakeAllPct);
+        if(Number.isFinite(Number(state.portfolioCycleBaselineEquity))) portfolioCycleBaselineEquity=Number(state.portfolioCycleBaselineEquity);
+        paperRunning=Boolean(state.paperRunning);
+      }
+      positions=restoredPositions.map(p=>({...p,t:{mint:p.mint,symbol:p.symbol,name:p.name,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
+      journal=restoredJournal.map(p=>({
+        ...p,
+        entryPriceText:typeof p.entryPriceText==="string"?p.entryPriceText:price(p.entry),
+        exitPriceText:typeof p.exitPriceText==="string"?p.exitPriceText:price(p.exit),
+        durationMs:Number(p.durationMs)||0
+      }));
+      return true;
+    }catch(_err){
+      return false;
+    }
   }
 
   function updatePaperControl(){
@@ -335,7 +383,7 @@
     captureTradingState();
   }
 
-  function init(){
+  async function init(){
     const sel=$("#paper-threshold");
     if(sel)sel.addEventListener("change",()=>{threshold=Number(sel.value)||3;renderSignals();});
     const risk=$("#paper-risk");
@@ -358,6 +406,7 @@
       if(view==="paper"||view==="pnl")renderAll();
     }));
     window.addEventListener("memelab:jupiter-data",renderAll);
+    await restoreTradingState();
     renderAll();
     updatePaperControl();
     setInterval(()=>{if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){renderAll();}},5000);
