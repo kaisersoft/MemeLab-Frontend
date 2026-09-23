@@ -1,6 +1,7 @@
 (() => {
   const START_CAPITAL = 10000;
   let threshold = 3;
+  let riskPct = 2;
   let positions = [];
   let journal = [];
   let lastSignals = [];
@@ -14,6 +15,70 @@
     return "$"+n.toExponential(3);
   };
   const now=()=>Date.now();
+  const MAX_POSITIONS_PER_TOKEN = 1;
+  const TP_R = 2;
+  const SL_R = 1;
+
+  function realizedPnl(){ return journal.reduce((s,p)=>s+Number(p.pnl||0),0); }
+  function investedCapital(){ return positions.reduce((s,p)=>s+(Number(p.entry)||0)*(Number(p.qty)||0),0); }
+  function availableCash(){ return Math.max(0,START_CAPITAL+realizedPnl()-investedCapital()); }
+  function currentPrice(p){ return Number(p.t?.price_usd)||Number(p.entry)||null; }
+
+  function openPaperPosition(x){
+    if(!paperRunning) return false;
+    const t=x.t, e=x.e||{};
+    if(e.signal!=="BUY" || Number(e.strength)<Number(threshold)) return false;
+    if(e.entry==null || e.stop==null || e.take==null || Number(e.entry)<=0 || Number(e.stop)>=Number(e.entry)) return false;
+    const existing=positions.some(p=>p.mint===t.mint);
+    if(existing) return false;
+    const equity=START_CAPITAL+realizedPnl()+positions.reduce((s,p)=>s+(currentPrice(p)-p.entry)*p.qty,0);
+    const riskAmount=Math.max(0,equity*(Number(riskPct)/100));
+    const unitRisk=Number(e.entry)-Number(e.stop);
+    if(riskAmount<=0 || unitRisk<=0) return false;
+    let qty=riskAmount/unitRisk;
+    const maxAffordable=availableCash()/Number(e.entry);
+    qty=Math.min(qty,maxAffordable);
+    if(!Number.isFinite(qty)||qty<=0) return false;
+    const actualRisk=qty*unitRisk;
+    positions.push({
+      mint:t.mint,symbol:t.symbol||t.name||"—",name:t.name||"",
+      entry:Number(e.entry),stop:Number(e.stop),take:Number(e.take),qty,
+      riskAmount:actualRisk,size:qty*Number(e.entry),openedAt:now(),
+      t
+    });
+    return true;
+  }
+
+  function closePaperPosition(p, exitPrice, reason){
+    const exit=Number(exitPrice);
+    if(!Number.isFinite(exit)||exit<=0) return;
+    const pnl=(exit-p.entry)*p.qty;
+    const size=p.entry*p.qty;
+    journal.push({
+      id:"PT-"+String(journal.length+1).padStart(4,"0"),
+      mint:p.mint,symbol:p.symbol,entryPriceText:price(p.entry),exitPriceText:price(exit),
+      reason,size,pnl,pnlPct:size?((pnl/size)*100):0,
+      durationMs:Math.max(0,now()-p.openedAt),entry:p.entry,exit,qty:p.qty
+    });
+    positions=positions.filter(x=>x!==p);
+  }
+
+  function manageOpenPositions(){
+    for(const p of [...positions]){
+      const current=currentPrice(p);
+      if(current==null) continue;
+      if(current<=p.stop){ closePaperPosition(p,p.stop,"STOP LOSS"); continue; }
+      if(current>=p.take){ closePaperPosition(p,p.take,"TAKE PROFIT"); continue; }
+      p.t=p.t;
+    }
+  }
+
+  function executePaperCycle(){
+    manageOpenPositions();
+    if(!paperRunning) return;
+    const rows=signalRows();
+    for(const x of rows) openPaperPosition(x);
+  }
 
   function signalRows(){
     const engine=window.MEMELAB_ENGINE;
@@ -72,11 +137,19 @@
     $("#pnl-winrate").textContent=journal.length?((journal.filter(x=>x.pnl>0).length/journal.length)*100).toFixed(1)+"%":"—";
   }
 
-  function renderAll(){renderSignals();renderPositions();renderJournal();renderPnl();}
+  function renderAll(){
+    executePaperCycle();
+    renderSignals();
+    renderPositions();
+    renderJournal();
+    renderPnl();
+  }
 
   function init(){
     const sel=$("#paper-threshold");
     if(sel)sel.addEventListener("change",()=>{threshold=Number(sel.value)||3;renderSignals();});
+    const risk=$("#paper-risk");
+    if(risk)risk.addEventListener("change",()=>{riskPct=Number(risk.value)||2;renderSignals();});
     const startStop=$("#paper-start-stop");
     if(startStop) startStop.addEventListener("click",()=>{paperRunning=!paperRunning;updatePaperControl();});
     document.querySelectorAll(".nav-btn[data-view]").forEach(btn=>btn.addEventListener("click",()=>{
@@ -91,6 +164,6 @@
     updatePaperControl();
     setInterval(()=>{if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){renderAll();}},5000);
   }
-  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,paperRunning}),isRunning:()=>paperRunning};
+  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,paperRunning}),isRunning:()=>paperRunning};
   init();
 })();
