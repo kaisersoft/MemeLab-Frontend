@@ -22,6 +22,8 @@
   let lastSignals = [];
   let paperRunning = false;
   let liveTradingPrices = new Map();
+  let previousTradingPrices = new Map();
+  let tradingPriceDirections = new Map();
   let tradingPriceRefreshInFlight = false;
   let sessionStartedAt = null;
   let sessionElapsedMs = 0;
@@ -107,6 +109,14 @@
       for(const [mint,item] of Object.entries(prices)){
         const usdPrice=Number(item?.usdPrice);
         if(!Number.isFinite(usdPrice)||usdPrice<=0) continue;
+        const previous=Number(liveTradingPrices.get(mint));
+        if(Number.isFinite(previous)&&previous>0){
+          const epsilon=Math.max(previous*0.000001,1e-12);
+          tradingPriceDirections.set(mint,usdPrice>previous+epsilon?"up":usdPrice<previous-epsilon?"down":"flat");
+          previousTradingPrices.set(mint,previous);
+        }else{
+          tradingPriceDirections.set(mint,"flat");
+        }
         liveTradingPrices.set(mint,usdPrice);
         const token=liveToken(mint);
         if(token){
@@ -539,7 +549,10 @@
     body.innerHTML=positions.length?positions.map(p=>{
       const current=currentPrice(p)||p.entry;
       const pnl=positionNetPnl(p,current);
-      return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td>'+price(current)+'</td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td><button type="button" class="paper-sell-now" data-position-id="'+(p.positionId||'')+'">SELL NOW</button></td></tr>';
+      const direction=tradingPriceDirections.get(p.mint)||"flat";
+      const arrow=direction==="up"?"↑":direction==="down"?"↓":"→";
+      const arrowClass="price-direction "+direction;
+      return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td class="paper-current-price">'+price(current)+' <span class="'+arrowClass+'" title="Last 5s price change">'+arrow+'</span></td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td><button type="button" class="paper-sell-now" data-position-id="'+(p.positionId||'')+'">SELL NOW</button></td></tr>';
     }).join(""):'<tr><td colspan="10" class="paper-empty">No open paper positions.</td></tr>';
     body.querySelectorAll(".paper-sell-now").forEach(btn=>btn.addEventListener("click",()=>{const p=positions.find(x=>(x.positionId||"")===btn.dataset.positionId);if(p&&manualSell(p))renderAll();}));
   }
