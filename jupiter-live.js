@@ -172,10 +172,12 @@
   }
   function engineMatureCandidates(){
     const all=Array.isArray(window.MEMELAB_JUPITER_TOKENS)?window.MEMELAB_JUPITER_TOKENS:[];
-    const mature=all.filter(t=>["MATURE","DECLINING"].includes(String(t?.lifecycle||"").toUpperCase()));
-    return mature.map(t=>({t,core:engineNum(t?.core_score) ?? engineNum(coreScores(t)?.core)}))
-      .sort((a,b)=>(b.core??-1)-(a.core??-1))
-      .slice(0,10).map(x=>x.t);
+    const mature=all.filter(t=>["MATURE","DECLINING"].includes(String(t?.lifecycle||"").toUpperCase()) || t?.permanent===true);
+    const permanent=mature.filter(t=>t?.permanent===true);
+    const ranked=mature.map(t=>({t,core:engineNum(t?.core_score) ?? engineNum(coreScores(t)?.core)}))
+      .sort((a,b)=>(b.core??-1)-(a.core??-1));
+    const regular=ranked.filter(x=>x.t?.permanent!==true).slice(0,Math.max(0,10-permanent.length)).map(x=>x.t);
+    return [...regular,...permanent];
   }
   function engineRender(){
     const body=$("#engine-table-body"), count=$("#engine-candidate-count");
