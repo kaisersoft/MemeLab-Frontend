@@ -138,6 +138,8 @@
     const open=positions.reduce((s,p)=>s+((Number(p.t?.price_usd)||p.entry)-p.entry)*p.qty,0);
     $("#pnl-start").textContent=usd(START_CAPITAL);
     $("#pnl-equity").textContent=usd(START_CAPITAL+realized+open);
+    $("#pnl-cash").textContent=usd(availableCash());
+    $("#pnl-invested").textContent=usd(investedCapital());
     $("#pnl-realized").textContent=usd(realized);
     $("#pnl-open").textContent=usd(open);
     $("#pnl-trades").textContent=String(journal.length);
