@@ -57,8 +57,16 @@
       mint:t.mint,symbol:t.symbol||t.name||"—",name:t.name||"",
       entry:Number(e.entry),stop:Number(e.stop),take:Number(e.take),qty,
       riskAmount:actualRisk,size:qty*Number(e.entry),openedAt:now(),
-      t
+      positionId:"POS-"+t.mint+"-"+now(),t
     });
+    postTradingEvents([{
+      event_id:crypto.randomUUID(),
+      observed_at:Date.now()/1000,
+      event_type:"POSITION_OPEN",
+      mint:t.mint,
+      position_id:positions[positions.length-1].positionId,
+      payload:{symbol:t.symbol||t.name||null,entry:Number(e.entry),stop:Number(e.stop),take:Number(e.take),qty:Number(qty),capital:Number(qty*Number(e.entry)),risk:Number(actualRisk)}
+    }]);
     return true;
   }
 
@@ -73,6 +81,14 @@
       reason,size,pnl,pnlPct:size?((pnl/size)*100):0,
       durationMs:Math.max(0,now()-p.openedAt),entry:p.entry,exit,qty:p.qty
     });
+    postTradingEvents([{
+      event_id:crypto.randomUUID(),
+      observed_at:Date.now()/1000,
+      event_type:"POSITION_CLOSE",
+      mint:p.mint,
+      position_id:p.positionId||p.mint,
+      payload:{symbol:p.symbol,entry:Number(p.entry),exit:Number(exit),qty:Number(p.qty),capital:Number(size),pnl:Number(pnl),pnl_pct:Number(size?((pnl/size)*100):0),reason}
+    }]);
     positions=positions.filter(x=>x!==p);
   }
 
