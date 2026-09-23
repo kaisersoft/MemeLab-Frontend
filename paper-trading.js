@@ -147,7 +147,7 @@
       event_type:"POSITION_CLOSE",
       mint:p.mint,
       position_id:p.positionId||p.mint,
-      payload:{symbol:p.symbol,entry:Number(p.entry),exit:Number(exit),qty:Number(p.qty),capital:Number(size),pnl:Number(pnl),pnl_pct:Number(size?((pnl/size)*100):0),gross_pnl:Number(pnl),entry_cost:Number(estimatedEntryCost(p)),exit_cost:Number(estimatedExitCost(p,exit)),cost_total:Number(estimatedEntryCost(p)+estimatedExitCost(p,exit)),net_pnl:Number(pnl-estimatedEntryCost(p)-estimatedExitCost(p,exit)),net_pnl_pct:Number(size?((pnl-estimatedEntryCost(p)-estimatedExitCost(p,exit))/size*100):0),entry_price_text:price(p.entry),exit_price_text:price(exit),duration_ms:Math.max(0,now()-p.openedAt),reason}
+      payload:{symbol:p.symbol,entry:Number(p.entry),exit:Number(exit),qty:Number(p.qty),capital:Number(size),pnl:Number(netPnl),pnl_pct:Number(size?((netPnl/size)*100):0),gross_pnl:Number(grossPnl),entry_cost:Number(entryCost),exit_cost:Number(exitCost),cost_total:Number(costTotal),net_pnl:Number(netPnl),net_pnl_pct:Number(size?((netPnl/size)*100):0),entry_price_text:price(p.entry),exit_price_text:price(exit),duration_ms:Math.max(0,now()-p.openedAt),reason}
     }]);
     positions=positions.filter(x=>x!==p);
   }
@@ -160,7 +160,7 @@
       if(current>=p.take){ closePaperPosition(p,p.take,"TAKE PROFIT"); continue; }
       const timeout=Number(profitTimeoutMinutes);
       const ageMinutes=(now()-p.openedAt)/60000;
-      const pnl=(current-p.entry)*p.qty;
+      const pnl=positionNetPnl(p,current);
       if(timeout>0 && ageMinutes>=timeout && pnl>0){
         closePaperPosition(p,current,"PROFIT TIMEOUT");
         continue;
