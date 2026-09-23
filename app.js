@@ -359,7 +359,44 @@ function renderSnapshot(data) {
 }
 
 async function api(path,options={}){const response=await fetch(API_BASE+path,{cache:"no-store",...options,headers:{"Accept":"application/json",...(options.headers||{})}});if(!response.ok)throw new Error(response.status+" "+response.statusText);return response.json();}
-async function refresh(){try{apiReachable=true;renderSnapshot(await api("/snapshot"));}catch(error){apiReachable=false;console.error("MemeLab snapshot failed:",error);const live=$(".live-pill");if(live){live.classList.remove("status-green","status-orange");live.classList.add("status-red");live.innerHTML="<i></i> API OFFLINE";live.title=error.message||"MemeLab API is not reachable.";}}}
+async function refreshDatabaseStatus(){
+  const el=$("#db-status"), textEl=$("#db-status-text");
+  if(!el||!textEl)return;
+  try{
+    const data=await api("/supabase/status");
+    const sqlite=data.sqlite||{};
+    const size=Number(sqlite.db_size_mb);
+    const sizeLabel=Number.isFinite(size)?size.toFixed(1)+" MB":"—";
+    if(data.active_store==="sqlite"){
+      el.className="db-status db-sqlite";
+      textEl.textContent="DB · SQLite ACTIVE · "+sizeLabel;
+      el.title="Active database: SQLite. Supabase "+(data.connected?"connected / standby":"not connected / fallback ready")+".";
+    }else{
+      el.className="db-status db-supabase";
+      textEl.textContent="DB · SUPABASE ACTIVE · "+sizeLabel;
+      el.title="Active database: Supabase.";
+    }
+  }catch(error){
+    el.className="db-status db-fallback";
+    textEl.textContent="DB · SQLite FALLBACK";
+    el.title="Supabase status unavailable. SQLite remains the authoritative fallback.";
+  }
+}
+
+async function refresh(){
+  try{
+    apiReachable=true;
+    renderSnapshot(await api("/snapshot"));
+    refreshDatabaseStatus();
+  }catch(error){
+    apiReachable=false;
+    console.error("MemeLab snapshot failed:",error);
+    const live=$(".live-pill");
+    if(live){live.classList.remove("status-green","status-orange");live.classList.add("status-red");live.innerHTML="<i></i> API OFFLINE";live.title=error.message||"MemeLab API is not reachable.";}
+    const db=$("#db-status"), dbText=$("#db-status-text");
+    if(db&&dbText){db.className="db-status db-fallback";dbText.textContent="DB · SQLite FALLBACK";db.title="API offline. Local SQLite is the fallback store.";}
+  }
+}
 async function startEngine(){try{apiReachable=true;await api("/start",{method:"POST"});await refresh();}catch(error){apiReachable=false;console.error("MemeLab API start failed:",error);const live=$(".live-pill");if(live)live.innerHTML="<i></i> API OFFLINE";}}
 document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",()=>{document.querySelectorAll(".nav-btn").forEach(x=>x.classList.remove("active"));btn.classList.add("active");}));
 document.querySelectorAll(".chart-window-btn").forEach(btn=>btn.addEventListener("click",()=>setMarketWindow(btn.dataset.window)));
