@@ -141,6 +141,8 @@
       netPnlPct:size?((netPnl/size)*100):0,
       durationMs:Math.max(0,now()-p.openedAt),entry:p.entry,exit,qty:p.qty
     });
+    positions=positions.filter(x=>x!==p);
+    saveLocalPaperSnapshot();
     postTradingEvents([{
       event_id:crypto.randomUUID(),
       observed_at:Date.now()/1000,
@@ -149,7 +151,6 @@
       position_id:p.positionId||p.mint,
       payload:{symbol:p.symbol,entry:Number(p.entry),exit:Number(exit),qty:Number(p.qty),capital:Number(size),pnl:Number(netPnl),pnl_pct:Number(size?((netPnl/size)*100):0),gross_pnl:Number(grossPnl),entry_cost:Number(entryCost),exit_cost:Number(exitCost),cost_total:Number(costTotal),net_pnl:Number(netPnl),net_pnl_pct:Number(size?((netPnl/size)*100):0),entry_price_text:price(p.entry),exit_price_text:price(exit),duration_ms:Math.max(0,now()-p.openedAt),reason}
     }]);
-    positions=positions.filter(x=>x!==p);
   }
 
   function manageOpenPositions(){
