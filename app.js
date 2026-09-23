@@ -389,7 +389,7 @@ async function refreshDatabaseStatus(){
       if(cloudHealth) cloudHealth.textContent=connected?"HEALTHY":"OFFLINE";
       if(cloudDetail) cloudDetail.textContent=connected
         ? "Supabase connected · secondary store · SQLite remains authoritative"
-        : (cloudData.reason||"Supabase cloud database unavailable");
+        : (cloudData.error||cloudData.reason||"Supabase cloud database unavailable");
     }
     const set=(id,v)=>{const x=$(id);if(x)x.textContent=v;};
     set("#dbg-cloud-size",Number.isFinite(cloudMb)?cloudMb.toFixed(1)+" MB":"—");
