@@ -11,6 +11,7 @@ let marketHistory = [];
 let marketWindow = "24h";
 let chartMetric = "price";
 let apiReachable = false;
+let databaseStatusInFlight = false;
 
 function shortMint(m) { if (!m) return "—"; return m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5); }
 function pct(v) { return Math.round(Math.max(0,Math.min(1,Number(v)||0))*100); }
@@ -356,10 +357,20 @@ function renderSnapshot(data) {
 
 async function api(path,options={}){const response=await fetch(API_BASE+path,{cache:"no-store",...options,headers:{"Accept":"application/json",...(options.headers||{})}});if(!response.ok)throw new Error(response.status+" "+response.statusText);return response.json();}
 async function refreshDatabaseStatus(){
+  if(databaseStatusInFlight)return;
+  databaseStatusInFlight=true;
   const el=$("#db-status"), textEl=$("#db-status-text");
   const cloud=$("#cloud-db-status"), cloudHealth=$("#cloud-db-health"), cloudDetail=$("#cloud-db-detail");
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),5000);
   try{
-    const data=await api("/supabase/status");
+    const response=await fetch(API_BASE+"/supabase/status",{
+      cache:"no-store",
+      signal:controller.signal,
+      headers:{Accept:"application/json"}
+    });
+    if(!response.ok)throw new Error(response.status+" "+response.statusText);
+    const data=await response.json();
     const sqlite=data.sqlite||{};
     const cloudData=data.cloud||{};
     const size=Number(sqlite.db_size_mb);
@@ -377,25 +388,32 @@ async function refreshDatabaseStatus(){
       }
     }
 
-    const cloudBytes=Number(cloudData.database_bytes||0);
+    const cloudBytes=Number(cloudData.database_bytes);
     const cloudMb=Number(cloudData.database_mb);
     const cloudShare=Number(cloudData.database_percent_of_500mb);
-    const headroomMb=Math.max(0,500-(Number.isFinite(cloudMb)?cloudMb:cloudBytes/1048576));
     const connected=cloudData.available===true && cloudData.configured===true;
+    const effectiveCloudMb=Number.isFinite(cloudMb)
+      ? cloudMb
+      : (Number.isFinite(cloudBytes)?cloudBytes/1048576:NaN);
+    const headroomMb=Number.isFinite(effectiveCloudMb)?Math.max(0,500-effectiveCloudMb):NaN;
+    const derivedGuard=Number.isFinite(cloudBytes)
+      ? (cloudBytes>=450*1048576?"HARD STOP · >=450 MB":cloudBytes>=400*1048576?"WARNING · >=400 MB":"OK · <400 MB")
+      : "BLOCKED · storage check unavailable";
+
     if(cloud){
       cloud.className="cloud-db-status "+(connected?"healthy":"offline");
-      if(cloudHealth) cloudHealth.textContent=connected?"HEALTHY":"OFFLINE";
-      if(cloudDetail) cloudDetail.textContent=connected
-        ? "Supabase connected · secondary store · SQLite remains authoritative"
-        : (cloudData.error||cloudData.reason||"Supabase cloud database unavailable");
+      if(cloudHealth)cloudHealth.textContent=connected?"HEALTHY":"OFFLINE";
+      if(cloudDetail)cloudDetail.textContent=connected
+        ?"Supabase connected · secondary store · SQLite remains authoritative"
+        :(cloudData.error||cloudData.reason||"Supabase cloud database unavailable");
     }
     const set=(id,v)=>{const x=$(id);if(x)x.textContent=v;};
-    set("#dbg-cloud-size",Number.isFinite(cloudMb)?cloudMb.toFixed(1)+" MB":"—");
-    set("#dbg-cloud-share",Number.isFinite(cloudShare)?cloudShare.toFixed(1)+"%":"—");
-    set("#dbg-cloud-headroom",connected?headroomMb.toFixed(1)+" MB":"—");
+    set("#dbg-cloud-size",Number.isFinite(effectiveCloudMb)?effectiveCloudMb.toFixed(1)+" MB":"—");
+    set("#dbg-cloud-share",Number.isFinite(cloudShare)?cloudShare.toFixed(1)+"%":(Number.isFinite(effectiveCloudMb)?((effectiveCloudMb/500)*100).toFixed(1)+"%":"—"));
+    set("#dbg-cloud-headroom",connected&&Number.isFinite(headroomMb)?headroomMb.toFixed(1)+" MB":"—");
     set("#dbg-cloud-snapshots",connected?((Number(cloudData.market_snapshots_bytes)||0)/1048576).toFixed(2)+" MB":"—");
     set("#dbg-cloud-aggregates",connected?((Number(cloudData.market_aggregates_bytes)||0)/1048576).toFixed(2)+" MB":"—");
-    set("#dbg-cloud-guard",cloudData.storage_guard||"—");
+    set("#dbg-cloud-guard",cloudData.storage_guard||derivedGuard);
   }catch(error){
     if(el && textEl){
       el.className="db-status db-fallback";
@@ -404,9 +422,14 @@ async function refreshDatabaseStatus(){
     }
     if(cloud){
       cloud.className="cloud-db-status offline";
-      if(cloudHealth) cloudHealth.textContent="UNAVAILABLE";
-      if(cloudDetail) cloudDetail.textContent="Database health endpoint unavailable";
+      if(cloudHealth)cloudHealth.textContent=error.name==="AbortError"?"TIMEOUT":"UNAVAILABLE";
+      if(cloudDetail)cloudDetail.textContent=error.name==="AbortError"
+        ?"Cloud database health check timed out"
+        :"Database health endpoint unavailable";
     }
+  }finally{
+    clearTimeout(timeout);
+    databaseStatusInFlight=false;
   }
 }
 async function refresh(){
