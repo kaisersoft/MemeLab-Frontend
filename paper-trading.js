@@ -4,6 +4,7 @@
   let riskPct = 2;
   let capitalLimitPct = 20;
   let portfolioLimitPct = 50;
+  let minPositionCapital = 250;
   let profitTimeoutMinutes = 120;
   let portfolioTakeAllPct = 5;
   let portfolioCycleBaselineEquity = START_CAPITAL;
@@ -168,6 +169,8 @@
     const maxByPortfolio=remainingPortfolioCapital/Number(e.entry);
     qty=Math.min(qty,maxAffordable,maxByCapital,maxByPortfolio);
     if(!Number.isFinite(qty)||qty<=0) return false;
+    const finalCapital=qty*Number(e.entry);
+    if(finalCapital < Number(minPositionCapital)) return false;
     const actualRisk=qty*unitRisk;
     positions.push({
       mint:t.mint,symbol:t.symbol||t.name||"—",name:t.name||"",
@@ -303,7 +306,7 @@
       journal,
       state: {
         threshold, riskPct, capitalLimitPct, portfolioLimitPct,
-        profitTimeoutMinutes, portfolioTakeAllPct, portfolioCycleBaselineEquity,
+        minPositionCapital, profitTimeoutMinutes, portfolioTakeAllPct, portfolioCycleBaselineEquity,
         costModelEnabled, phantomFeePct, slippagePct, priceImpactPct,
         networkFeeUsd, priorityFeeUsd, paperRunning, sessionStartedAt, sessionElapsedMs
       }
@@ -327,6 +330,7 @@
       if(Number.isFinite(Number(state.riskPct))) riskPct=Number(state.riskPct);
       if(Number.isFinite(Number(state.capitalLimitPct))) capitalLimitPct=Number(state.capitalLimitPct);
       if(Number.isFinite(Number(state.portfolioLimitPct))) portfolioLimitPct=Number(state.portfolioLimitPct);
+      if(Number.isFinite(Number(state.minPositionCapital))) minPositionCapital=Number(state.minPositionCapital);
       if(Number.isFinite(Number(state.profitTimeoutMinutes))) profitTimeoutMinutes=Number(state.profitTimeoutMinutes);
       if(Number.isFinite(Number(state.portfolioTakeAllPct))) portfolioTakeAllPct=Number(state.portfolioTakeAllPct);
       if(Number.isFinite(Number(state.portfolioCycleBaselineEquity))) portfolioCycleBaselineEquity=Number(state.portfolioCycleBaselineEquity);
@@ -464,6 +468,7 @@
         if(Number.isFinite(Number(state.riskPct))) riskPct=Number(state.riskPct);
         if(Number.isFinite(Number(state.capitalLimitPct))) capitalLimitPct=Number(state.capitalLimitPct);
         if(Number.isFinite(Number(state.portfolioLimitPct))) portfolioLimitPct=Number(state.portfolioLimitPct);
+        if(Number.isFinite(Number(state.minPositionCapital))) minPositionCapital=Number(state.minPositionCapital);
         if(Number.isFinite(Number(state.profitTimeoutMinutes))) profitTimeoutMinutes=Number(state.profitTimeoutMinutes);
         if(Number.isFinite(Number(state.portfolioTakeAllPct))) portfolioTakeAllPct=Number(state.portfolioTakeAllPct);
         if(Number.isFinite(Number(state.portfolioCycleBaselineEquity))) portfolioCycleBaselineEquity=Number(state.portfolioCycleBaselineEquity);
@@ -484,6 +489,7 @@
       if(riskEl) riskEl.value=String(riskPct);
       if(capitalEl) capitalEl.value=String(capitalLimitPct);
       if(portfolioEl) portfolioEl.value=String(portfolioLimitPct);
+      if(minPositionEl) minPositionEl.value=String(minPositionCapital);
       if(timeoutEl) timeoutEl.value=String(profitTimeoutMinutes);
       if(takeAllEl) takeAllEl.value=String(portfolioTakeAllPct);
       journal=restoredJournal.map(p=>({
@@ -608,6 +614,8 @@
     if(capitalLimit)capitalLimit.addEventListener("change",()=>{capitalLimitPct=Number(capitalLimit.value)||20;renderAll();});
     const portfolioLimit=$("#paper-portfolio-limit");
     if(portfolioLimit)portfolioLimit.addEventListener("change",()=>{portfolioLimitPct=Number(portfolioLimit.value)||50;renderAll();});
+    const minPosition=$("#paper-min-position");
+    if(minPosition)minPosition.addEventListener("change",()=>{minPositionCapital=Number(minPosition.value)||250;renderAll();});
     const timeout=$("#paper-profit-timeout");
     if(timeout)timeout.addEventListener("change",()=>{profitTimeoutMinutes=Number(timeout.value)||0;renderAll();});
     const takeAll=$("#paper-take-all");
@@ -644,6 +652,6 @@
     setInterval(async ()=>{await refreshTradingPrices();if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){renderAll();}},5000);
     window.addEventListener("pagehide",()=>saveLocalPaperSnapshot());
   }
-  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,capitalLimitPct,portfolioLimitPct,profitTimeoutMinutes,portfolioTakeAllPct,portfolioCycleBaselineEquity,paperRunning,sessionStartedAt,sessionElapsedMs}),isRunning:()=>paperRunning,manualBuy,manualSell};
+  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,capitalLimitPct,portfolioLimitPct,minPositionCapital,profitTimeoutMinutes,portfolioTakeAllPct,portfolioCycleBaselineEquity,paperRunning,sessionStartedAt,sessionElapsedMs}),isRunning:()=>paperRunning,manualBuy,manualSell};
   init();
 })();
