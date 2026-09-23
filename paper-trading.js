@@ -197,7 +197,6 @@
   }
 
   function captureTradingState(){
-    if(!paperRunning) return;
     const ts=Date.now()/1000;
     const events=[{
       event_id:crypto.randomUUID(),
@@ -215,6 +214,10 @@
         paperRunning:Boolean(paperRunning)
       }
     }];
+    if(!paperRunning){
+      postTradingEvents(events);
+      return;
+    }
     for(const x of lastSignals){
       const t=x.t||{}, e=x.e||{}, s=e.s||{};
       events.push({
@@ -295,6 +298,13 @@
         paperRunning=Boolean(state.paperRunning);
       }
       positions=restoredPositions.map(p=>({...p,t:{mint:p.mint,symbol:p.symbol,name:p.name,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
+      const thresholdEl=$("#paper-threshold"), riskEl=$("#paper-risk"), capitalEl=$("#paper-capital-limit"), portfolioEl=$("#paper-portfolio-limit"), timeoutEl=$("#paper-profit-timeout"), takeAllEl=$("#paper-take-all");
+      if(thresholdEl) thresholdEl.value=String(threshold);
+      if(riskEl) riskEl.value=String(riskPct);
+      if(capitalEl) capitalEl.value=String(capitalLimitPct);
+      if(portfolioEl) portfolioEl.value=String(portfolioLimitPct);
+      if(timeoutEl) timeoutEl.value=String(profitTimeoutMinutes);
+      if(takeAllEl) takeAllEl.value=String(portfolioTakeAllPct);
       journal=restoredJournal.map(p=>({
         ...p,
         entryPriceText:typeof p.entryPriceText==="string"?p.entryPriceText:price(p.entry),
@@ -397,7 +407,7 @@
     const takeAll=$("#paper-take-all");
     if(takeAll)takeAll.addEventListener("change",()=>{portfolioTakeAllPct=Number(takeAll.value)||0;renderAll();});
     const startStop=$("#paper-start-stop");
-    if(startStop) startStop.addEventListener("click",()=>{paperRunning=!paperRunning;updatePaperControl();});
+    if(startStop) startStop.addEventListener("click",()=>{paperRunning=!paperRunning;updatePaperControl();renderAll();});
     document.querySelectorAll(".nav-btn[data-view]").forEach(btn=>btn.addEventListener("click",()=>{
       const view=btn.dataset.view;
       const paper=$("#paper-panel"), pnl=$("#pnl-panel");
