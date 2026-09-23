@@ -187,9 +187,11 @@
     if(!engineCandidates.length){body.innerHTML='<tr><td colspan="12" class="engine-empty">No MATURE / DECLINING candidates available.</td></tr>';return;}
     body.innerHTML=engineCandidates.map((t,i)=>{
       const e=engineSignal(t), s=e.s, selected=t.mint===engineSelectedMint;
+      const computedCore=coreScores(t)?.core;
+      const core=engineNum(t.core_score) ?? engineNum(computedCore);
       return '<tr data-engine-mint="'+t.mint+'" class="'+(selected?"selected":"")+'">'+
         '<td>'+(i+1)+'</td><td><span class="engine-token">'+(t.symbol||"—")+'</span><br><span class="engine-symbol">'+(t.name||"")+'</span></td>'+
-        '<td>'+(engineNum(t.core_score)!=null?Math.round(t.core_score):"—")+'</td><td>'+engineUsd(s.price)+'</td><td>'+engineUsd(s.flow)+'</td><td>'+engineUsd(s.volume)+'</td>'+
+        '<td>'+(core!=null?Math.round(core):"—")+'</td><td>'+engineUsd(s.price)+'</td><td>'+engineUsd(s.flow)+'</td><td>'+engineUsd(s.volume)+'</td>'+
         '<td>'+(s.traders==null?"—":s.traders.toLocaleString("de-DE"))+'</td><td>'+enginePct(s.momentum)+'</td><td>'+enginePct(s.volatility)+'</td><td>'+enginePct(s.activity)+'</td>'+
         '<td class="engine-signal-cell '+e.signal.toLowerCase()+'">'+e.signal+'</td><td>'+e.strength+'</td></tr>';
     }).join("");
