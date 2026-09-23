@@ -385,6 +385,10 @@
       const state=data?.state||{};
       const restoredPositions=Array.isArray(data?.positions)?data.positions:[];
       const restoredJournal=Array.isArray(data?.journal)?data.journal:[];
+      const localRaw=(()=>{try{return localStorage.getItem(PAPER_STORAGE_KEY);}catch(_err){return null;}})();
+      if(!Object.keys(state).length && restoredPositions.length===0 && restoredJournal.length===0 && localRaw){
+        if(restoreLocalPaperSnapshot()) return true;
+      }
       if(Object.keys(state).length){
         if(Number.isFinite(Number(state.threshold))) threshold=Number(state.threshold);
         if(Number.isFinite(Number(state.riskPct))) riskPct=Number(state.riskPct);
