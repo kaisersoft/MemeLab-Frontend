@@ -141,12 +141,22 @@
       const current=currentPrice(p);
       if(current!=null) closePaperPosition(p,current,"PORTFOLIO TAKE ALL");
     }
+    const cyclePnl=portfolioCyclePnl();
+    postTradingEvents([{
+      event_id:crypto.randomUUID(),
+      observed_at:Date.now()/1000,
+      event_type:"PORTFOLIO_TAKE_ALL",
+      position_id:null,
+      payload:{cycle_pnl:Number(cyclePnl),cycle_pnl_pct:Number(target),closed_positions:open.length,equity:Number(currentEquity())}
+    }]);
     portfolioCycleBaselineEquity=currentEquity();
     return true;
   }
 
   function executePaperCycle(){
+    const hadPositions=positions.length>0;
     manageOpenPositions();
+    if(hadPositions && positions.length===0) portfolioCycleBaselineEquity=currentEquity();
     if(!paperRunning) return;
     if(takeAllPortfolio()) return;
     const rows=signalRows();
