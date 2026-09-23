@@ -4,6 +4,7 @@
   let positions = [];
   let journal = [];
   let lastSignals = [];
+  let paperRunning = false;
   const $ = s => document.querySelector(s);
   const usd = v => Number.isFinite(Number(v)) ? "$"+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—";
   const pct = v => Number.isFinite(Number(v)) ? (Number(v)>=0?"+":"")+Number(v).toFixed(2)+"%" : "—";
@@ -21,6 +22,15 @@
       const e=engine?.signal?.(t);
       return {t,e,index:i};
     });
+  }
+
+  function updatePaperControl(){
+    const status=$("#paper-status");
+    const btn=$("#paper-start-stop");
+    if(btn){btn.textContent=paperRunning?"STOP PAPER":"START PAPER";btn.classList.toggle("running",paperRunning);}
+    if(status) status.textContent=paperRunning
+      ? "PAPER ENGINE RUNNING · new trades may be opened when BUY signals meet the configured threshold."
+      : "PAPER ENGINE STOPPED · signals are monitored, but no new paper trades will be opened.";
   }
 
   function renderSignals(){
@@ -67,6 +77,8 @@
   function init(){
     const sel=$("#paper-threshold");
     if(sel)sel.addEventListener("change",()=>{threshold=Number(sel.value)||3;renderSignals();});
+    const startStop=$("#paper-start-stop");
+    if(startStop) startStop.addEventListener("click",()=>{paperRunning=!paperRunning;updatePaperControl();});
     document.querySelectorAll(".nav-btn[data-view]").forEach(btn=>btn.addEventListener("click",()=>{
       const view=btn.dataset.view;
       const paper=$("#paper-panel"), pnl=$("#pnl-panel");
@@ -76,8 +88,9 @@
     }));
     window.addEventListener("memelab:jupiter-data",renderAll);
     renderAll();
+    updatePaperControl();
     setInterval(()=>{if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){renderAll();}},5000);
   }
-  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold})};
+  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,paperRunning}),isRunning:()=>paperRunning};
   init();
 })();
