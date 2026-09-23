@@ -21,6 +21,8 @@
   let journal = [];
   let lastSignals = [];
   let paperRunning = false;
+  let sessionStartedAt = null;
+  let sessionElapsedMs = 0;
   const $ = s => document.querySelector(s);
   const usd = v => Number.isFinite(Number(v)) ? "$"+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—";
   const pct = v => Number.isFinite(Number(v)) ? (Number(v)>=0?"+":"")+Number(v).toFixed(2)+"%" : "—";
@@ -253,7 +255,9 @@
         priceImpactPct:Number(priceImpactPct),
         networkFeeUsd:Number(networkFeeUsd),
         priorityFeeUsd:Number(priorityFeeUsd),
-        paperRunning:Boolean(paperRunning)
+        paperRunning:Boolean(paperRunning),
+        sessionStartedAt:Number(sessionStartedAt)||null,
+        sessionElapsedMs:Number(sessionElapsedMs)||0
       }
     }];
     if(!paperRunning){
@@ -346,6 +350,9 @@
         if(Number.isFinite(Number(state.networkFeeUsd))) networkFeeUsd=Number(state.networkFeeUsd);
         if(Number.isFinite(Number(state.priorityFeeUsd))) priorityFeeUsd=Number(state.priorityFeeUsd);
         paperRunning=Boolean(state.paperRunning);
+        sessionStartedAt=Number.isFinite(Number(state.sessionStartedAt)) ? Number(state.sessionStartedAt) : null;
+        sessionElapsedMs=Number.isFinite(Number(state.sessionElapsedMs)) ? Number(state.sessionElapsedMs) : 0;
+        if(paperRunning && !sessionStartedAt) sessionStartedAt=now();
       }
       positions=restoredPositions.map(p=>({...p,t:{mint:p.mint,symbol:p.symbol,name:p.name,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
       const thresholdEl=$("#paper-threshold"), riskEl=$("#paper-risk"), capitalEl=$("#paper-capital-limit"), portfolioEl=$("#paper-portfolio-limit"), timeoutEl=$("#paper-profit-timeout"), takeAllEl=$("#paper-take-all");
@@ -369,6 +376,18 @@
     }
   }
 
+  function sessionDurationMs(){
+    return sessionElapsedMs + (paperRunning && sessionStartedAt ? Math.max(0,now()-sessionStartedAt) : 0);
+  }
+  function formatSessionDuration(ms){
+    const total=Math.floor(Math.max(0,Number(ms)||0)/1000);
+    const h=Math.floor(total/3600), m=Math.floor((total%3600)/60), sec=total%60;
+    return [h,m,sec].map((v,i)=>i===0?String(v).padStart(2,"0"):String(v).padStart(2,"0")).join(":");
+  }
+  function renderSession(){
+    const el=$("#paper-session");
+    if(el) el.textContent=formatSessionDuration(sessionDurationMs());
+  }
   function updatePaperControl(){
     const status=$("#paper-status");
     const btn=$("#paper-start-stop");
@@ -376,6 +395,7 @@
     if(status) status.textContent=paperRunning
       ? "PAPER ENGINE RUNNING · new trades may be opened when BUY signals meet the configured threshold."
       : "PAPER ENGINE STOPPED · signals are monitored, but no new paper trades will be opened.";
+    renderSession();
   }
 
   function renderSignals(){
@@ -463,7 +483,19 @@
     const takeAll=$("#paper-take-all");
     if(takeAll)takeAll.addEventListener("change",()=>{portfolioTakeAllPct=Number(takeAll.value)||0;renderAll();});
     const startStop=$("#paper-start-stop");
-    if(startStop) startStop.addEventListener("click",()=>{paperRunning=!paperRunning;updatePaperControl();renderAll();});
+    if(startStop) startStop.addEventListener("click",()=>{
+      if(paperRunning){
+        sessionElapsedMs=sessionDurationMs();
+        sessionStartedAt=null;
+        paperRunning=false;
+      }else{
+        sessionStartedAt=now();
+        sessionElapsedMs=0;
+        paperRunning=true;
+      }
+      updatePaperControl();
+      renderAll();
+    });
     document.querySelectorAll(".nav-btn[data-view]").forEach(btn=>btn.addEventListener("click",()=>{
       const view=btn.dataset.view;
       const paper=$("#paper-panel"), pnl=$("#pnl-panel");
