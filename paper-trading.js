@@ -25,6 +25,8 @@
   let previousTradingPrices = new Map();
   let tradingPriceDirections = new Map();
   let tradingPriceRefreshInFlight = false;
+  let tradingPriceFeedStatus = "INIT";
+  let tradingPriceLastUpdateAt = 0;
   let sessionStartedAt = null;
   let sessionElapsedMs = 0;
   const $ = s => document.querySelector(s);
@@ -102,7 +104,7 @@
     try{
       const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
       const response=await fetch(apiBase+"/trading/prices?mints="+encodeURIComponent(unique.join(",")),{cache:"no-store",headers:{Accept:"application/json"}});
-      if(!response.ok) return false;
+      if(!response.ok){ tradingPriceFeedStatus="ERROR"; return false; }
       const data=await response.json();
       const prices=data?.prices||{};
       const observedAt=Date.now()/1000;
@@ -132,8 +134,12 @@
           if(candidate._engineHistory.length>120) candidate._engineHistory=candidate._engineHistory.slice(-120);
         }
       }
-      return Object.keys(prices).length>0;
+      const count=Object.keys(prices).length;
+      tradingPriceFeedStatus=count>0?"LIVE":"NO_DATA";
+      if(count>0) tradingPriceLastUpdateAt=Date.now();
+      return count>0;
     }catch(err){
+      tradingPriceFeedStatus="ERROR";
       console.debug("Trading price refresh:",err);
       return false;
     }finally{
