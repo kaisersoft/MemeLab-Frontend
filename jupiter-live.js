@@ -528,6 +528,11 @@
     positionHistory=Array.isArray(e.detail?.points)?e.detail.points:[];
     render();
   });
+  window.MEMELAB_ENGINE={
+    getCandidates:()=>engineMatureCandidates(),
+    signal:(t)=>engineSignal(t),
+    isRunning:()=>!!engineTimer
+  };
   window.MEMELAB_JUPITER={refresh:load,active:true};
   load();
   setInterval(load,5000);
