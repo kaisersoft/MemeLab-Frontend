@@ -4,6 +4,9 @@
   let riskPct = 2;
   let capitalLimitPct = 20;
   let portfolioLimitPct = 50;
+  let profitTimeoutMinutes = 120;
+  let portfolioTakeAllPct = 5;
+  let portfolioCycleBaselineEquity = START_CAPITAL;
   let positions = [];
   let journal = [];
   let lastSignals = [];
@@ -22,6 +25,13 @@
   const SL_R = 1;
 
   function realizedPnl(){ return journal.reduce((s,p)=>s+Number(p.pnl||0),0); }
+  function openPnl(){ return positions.reduce((s,p)=>s+((currentPrice(p)||p.entry)-p.entry)*p.qty,0); }
+  function currentEquity(){ return START_CAPITAL+realizedPnl()+openPnl(); }
+  function portfolioCyclePnl(){ return currentEquity()-portfolioCycleBaselineEquity; }
+  function portfolioCyclePnlPct(){
+    const base=Number(portfolioCycleBaselineEquity)||START_CAPITAL;
+    return base>0?(portfolioCyclePnl()/base)*100:0;
+  }
   function investedCapital(){ return positions.reduce((s,p)=>s+(Number(p.entry)||0)*(Number(p.qty)||0),0); }
   function availableCash(){ return Math.max(0,START_CAPITAL+realizedPnl()-investedCapital()); }
   function liveToken(mint){
@@ -110,13 +120,35 @@
       if(current==null) continue;
       if(current<=p.stop){ closePaperPosition(p,p.stop,"STOP LOSS"); continue; }
       if(current>=p.take){ closePaperPosition(p,p.take,"TAKE PROFIT"); continue; }
+      const timeout=Number(profitTimeoutMinutes);
+      const ageMinutes=(now()-p.openedAt)/60000;
+      const pnl=(current-p.entry)*p.qty;
+      if(timeout>0 && ageMinutes>=timeout && pnl>0){
+        closePaperPosition(p,current,"PROFIT TIMEOUT");
+        continue;
+      }
       p.t=p.t;
     }
+  }
+
+  function takeAllPortfolio(){
+    if(!positions.length) return false;
+    const target=Number(portfolioTakeAllPct);
+    if(!Number.isFinite(target)||target<=0) return false;
+    if(portfolioCyclePnlPct()<target) return false;
+    const open=[...positions];
+    for(const p of open){
+      const current=currentPrice(p);
+      if(current!=null) closePaperPosition(p,current,"PORTFOLIO TAKE ALL");
+    }
+    portfolioCycleBaselineEquity=currentEquity();
+    return true;
   }
 
   function executePaperCycle(){
     manageOpenPositions();
     if(!paperRunning) return;
+    if(takeAllPortfolio()) return;
     const rows=signalRows();
     for(const x of rows) openPaperPosition(x);
   }
@@ -241,9 +273,11 @@
     $("#paper-position-count").textContent=String(positions.length);
     const invested=investedCapital();
     const cash=availableCash();
-    const unrealized=positions.reduce((s,p)=>s+((currentPrice(p)||p.entry)-p.entry)*p.qty,0);
+    const unrealized=openPnl();
     const openPnlEl=$("#paper-open-pnl");
     if(openPnlEl){openPnlEl.textContent="Unrealized P&L · "+usd(unrealized);openPnlEl.classList.toggle("paper-positive",unrealized>=0);openPnlEl.classList.toggle("paper-negative",unrealized<0);}
+    const portfolioPnlEl=$("#paper-portfolio-pnl");
+    if(portfolioPnlEl){const pp=portfolioCyclePnlPct();portfolioPnlEl.textContent="Portfolio P&L · "+pct(pp);portfolioPnlEl.classList.toggle("paper-positive",pp>=0);portfolioPnlEl.classList.toggle("paper-negative",pp<0);}
     const cashEl=$("#paper-cash"), investedEl=$("#paper-invested"), cashDetail=$("#paper-cash-detail"), investedDetail=$("#paper-invested-detail");
     if(cashEl) cashEl.textContent=usd(cash);
     if(investedEl) investedEl.textContent=usd(invested);
@@ -265,8 +299,8 @@
   }
 
   function renderPnl(){
-    const realized=journal.reduce((s,p)=>s+p.pnl,0);
-    const open=positions.reduce((s,p)=>s+((currentPrice(p)||p.entry)-p.entry)*p.qty,0);
+    const realized=realizedPnl();
+    const open=openPnl();
     $("#pnl-start").textContent=usd(START_CAPITAL);
     $("#pnl-equity").textContent=usd(START_CAPITAL+realized+open);
     $("#pnl-cash").textContent=usd(availableCash());
@@ -275,6 +309,10 @@
     $("#pnl-open").textContent=usd(open);
     $("#pnl-trades").textContent=String(journal.length);
     $("#pnl-winrate").textContent=journal.length?((journal.filter(x=>x.pnl>0).length/journal.length)*100).toFixed(1)+"%":"—";
+    const cycleEl=$("#pnl-cycle-pnl");
+    if(cycleEl){const pp=portfolioCyclePnlPct();cycleEl.textContent=pct(pp);cycleEl.classList.toggle("paper-positive",pp>=0);cycleEl.classList.toggle("paper-negative",pp<0);}
+    const targetEl=$("#pnl-cycle-target");
+    if(targetEl)targetEl.textContent=pct(portfolioTakeAllPct);
   }
 
   function renderAll(){
@@ -295,6 +333,10 @@
     if(capitalLimit)capitalLimit.addEventListener("change",()=>{capitalLimitPct=Number(capitalLimit.value)||20;renderAll();});
     const portfolioLimit=$("#paper-portfolio-limit");
     if(portfolioLimit)portfolioLimit.addEventListener("change",()=>{portfolioLimitPct=Number(portfolioLimit.value)||50;renderAll();});
+    const timeout=$("#paper-profit-timeout");
+    if(timeout)timeout.addEventListener("change",()=>{profitTimeoutMinutes=Number(timeout.value)||0;renderAll();});
+    const takeAll=$("#paper-take-all");
+    if(takeAll)takeAll.addEventListener("change",()=>{portfolioTakeAllPct=Number(takeAll.value)||0;renderAll();});
     const startStop=$("#paper-start-stop");
     if(startStop) startStop.addEventListener("click",()=>{paperRunning=!paperRunning;updatePaperControl();});
     document.querySelectorAll(".nav-btn[data-view]").forEach(btn=>btn.addEventListener("click",()=>{
@@ -309,6 +351,6 @@
     updatePaperControl();
     setInterval(()=>{if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){renderAll();}},5000);
   }
-  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,capitalLimitPct,portfolioLimitPct,paperRunning}),isRunning:()=>paperRunning,manualBuy,manualSell};
+  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,capitalLimitPct,portfolioLimitPct,profitTimeoutMinutes,portfolioTakeAllPct,portfolioCycleBaselineEquity,paperRunning}),isRunning:()=>paperRunning,manualBuy,manualSell};
   init();
 })();
