@@ -3,6 +3,7 @@
   let threshold = 3;
   let riskPct = 2;
   let capitalLimitPct = 20;
+  let portfolioLimitPct = 50;
   let positions = [];
   let journal = [];
   let lastSignals = [];
@@ -50,7 +51,10 @@
     const maxAffordable=availableCash()/Number(e.entry);
     const maxCapital=equity*(Number(capitalLimitPct)/100);
     const maxByCapital=maxCapital/Number(e.entry);
-    qty=Math.min(qty,maxAffordable,maxByCapital);
+    const portfolioCapitalLimit=equity*(Number(portfolioLimitPct)/100);
+    const remainingPortfolioCapital=Math.max(0,portfolioCapitalLimit-investedCapital());
+    const maxByPortfolio=remainingPortfolioCapital/Number(e.entry);
+    qty=Math.min(qty,maxAffordable,maxByCapital,maxByPortfolio);
     if(!Number.isFinite(qty)||qty<=0) return false;
     const actualRisk=qty*unitRisk;
     positions.push({
@@ -264,6 +268,8 @@
     if(risk)risk.addEventListener("change",()=>{riskPct=Number(risk.value)||2;renderSignals();});
     const capitalLimit=$("#paper-capital-limit");
     if(capitalLimit)capitalLimit.addEventListener("change",()=>{capitalLimitPct=Number(capitalLimit.value)||20;renderAll();});
+    const portfolioLimit=$("#paper-portfolio-limit");
+    if(portfolioLimit)portfolioLimit.addEventListener("change",()=>{portfolioLimitPct=Number(portfolioLimit.value)||50;renderAll();});
     const startStop=$("#paper-start-stop");
     if(startStop) startStop.addEventListener("click",()=>{paperRunning=!paperRunning;updatePaperControl();});
     document.querySelectorAll(".nav-btn[data-view]").forEach(btn=>btn.addEventListener("click",()=>{
@@ -278,6 +284,6 @@
     updatePaperControl();
     setInterval(()=>{if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){renderAll();}},5000);
   }
-  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,capitalLimitPct,paperRunning}),isRunning:()=>paperRunning};
+  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,capitalLimitPct,portfolioLimitPct,paperRunning}),isRunning:()=>paperRunning};
   init();
 })();
