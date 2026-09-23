@@ -112,11 +112,18 @@
   function renderPositions(){
     const body=$("#paper-position-body"); if(!body)return;
     $("#paper-position-count").textContent=String(positions.length);
+    const invested=investedCapital();
+    const cash=availableCash();
+    const cashEl=$("#paper-cash"), investedEl=$("#paper-invested"), cashDetail=$("#paper-cash-detail"), investedDetail=$("#paper-invested-detail");
+    if(cashEl) cashEl.textContent=usd(cash);
+    if(investedEl) investedEl.textContent=usd(invested);
+    if(cashDetail) cashDetail.textContent="Unallocated · "+(((START_CAPITAL+realizedPnl())>0)?((cash/(START_CAPITAL+realizedPnl()))*100).toFixed(1):"0.0")+"%";
+    if(investedDetail) investedDetail.textContent=positions.length+" open position"+(positions.length===1?"":"s");
     body.innerHTML=positions.length?positions.map(p=>{
       const current=Number(p.t?.price_usd)||p.entry;
       const pnl=(current-p.entry)*p.qty;
-      return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td>'+price(current)+'</td><td>'+p.qty.toFixed(4)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td>OPEN</td></tr>';
-    }).join(""):'<tr><td colspan="9" class="paper-empty">No open paper positions.</td></tr>';
+      return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td>'+price(current)+'</td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td>OPEN</td></tr>';
+    }).join(""):'<tr><td colspan="10" class="paper-empty">No open paper positions.</td></tr>';
   }
 
   function renderJournal(){
