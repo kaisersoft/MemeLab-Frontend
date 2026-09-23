@@ -21,6 +21,8 @@
   let journal = [];
   let lastSignals = [];
   let paperRunning = false;
+  let liveTradingPrices = new Map();
+  let tradingPriceRefreshInFlight = false;
   let sessionStartedAt = null;
   let sessionElapsedMs = 0;
   const $ = s => document.querySelector(s);
@@ -71,11 +73,62 @@
     return list.find(t=>t?.mint===mint)||null;
   }
   function currentPrice(p){
+    const livePrice=Number(liveTradingPrices.get(p.mint));
+    if(Number.isFinite(livePrice)&&livePrice>0){
+      if(!p.t) p.t={mint:p.mint,symbol:p.symbol,name:p.name};
+      p.t.price_usd=livePrice;
+      return livePrice;
+    }
     const live=liveToken(p.mint);
     const n=Number(live?.price_usd);
     if(Number.isFinite(n)&&n>0){p.t=live;return n;}
     const fallback=Number(p.t?.price_usd);
     return Number.isFinite(fallback)&&fallback>0?fallback:Number(p.entry)||null;
+  }
+
+  async function refreshTradingPrices(){
+    if(tradingPriceRefreshInFlight) return false;
+    const engine=window.MEMELAB_ENGINE;
+    const candidateList=engine?.getCandidates?.()||[];
+    const mints=[
+      ...positions.map(p=>p.mint),
+      ...candidateList.map(t=>t?.mint)
+    ].filter(Boolean);
+    const unique=[...new Set(mints)].slice(0,50);
+    if(!unique.length) return false;
+    tradingPriceRefreshInFlight=true;
+    try{
+      const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+      const response=await fetch(apiBase+"/trading/prices?mints="+encodeURIComponent(unique.join(",")),{cache:"no-store",headers:{Accept:"application/json"}});
+      if(!response.ok) return false;
+      const data=await response.json();
+      const prices=data?.prices||{};
+      const observedAt=Date.now()/1000;
+      for(const [mint,item] of Object.entries(prices)){
+        const usdPrice=Number(item?.usdPrice);
+        if(!Number.isFinite(usdPrice)||usdPrice<=0) continue;
+        liveTradingPrices.set(mint,usdPrice);
+        const token=liveToken(mint);
+        if(token){
+          token.price_usd=usdPrice;
+          token._tradingPriceObservedAt=observedAt;
+        }
+        const candidate=candidateList.find(t=>t?.mint===mint);
+        if(candidate){
+          candidate.price_usd=usdPrice;
+          candidate._tradingPriceObservedAt=observedAt;
+          candidate._engineHistory=Array.isArray(candidate._engineHistory)?candidate._engineHistory:[];
+          candidate._engineHistory.push({observed_at:observedAt,price_usd:usdPrice});
+          if(candidate._engineHistory.length>120) candidate._engineHistory=candidate._engineHistory.slice(-120);
+        }
+      }
+      return Object.keys(prices).length>0;
+    }catch(err){
+      console.debug("Trading price refresh:",err);
+      return false;
+    }finally{
+      tradingPriceRefreshInFlight=false;
+    }
   }
 
   function openPaperPosition(x, options={}){
@@ -564,11 +617,12 @@
     window.addEventListener("memelab:jupiter-data",renderAll);
     const restored=await restoreTradingState();
     if(!restored) restoreLocalPaperSnapshot();
+    await refreshTradingPrices();
     renderAll();
     updatePaperControl();
     renderSession();
     setInterval(renderSession,1000);
-    setInterval(()=>{if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){renderAll();}},5000);
+    setInterval(async ()=>{await refreshTradingPrices();if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){renderAll();}},5000);
     window.addEventListener("pagehide",()=>saveLocalPaperSnapshot());
   }
   window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,capitalLimitPct,portfolioLimitPct,profitTimeoutMinutes,portfolioTakeAllPct,portfolioCycleBaselineEquity,paperRunning,sessionStartedAt,sessionElapsedMs}),isRunning:()=>paperRunning,manualBuy,manualSell};
