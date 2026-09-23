@@ -102,6 +102,79 @@
     });
   }
 
+  function postTradingEvents(events){
+    if(!events.length) return;
+    const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+    fetch(apiBase+"/trading/events",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Accept":"application/json"},
+      body:JSON.stringify({events})
+    }).catch(()=>{});
+  }
+
+  function captureTradingState(){
+    if(!paperRunning) return;
+    const ts=Date.now()/1000;
+    const events=[];
+    for(const x of lastSignals){
+      const t=x.t||{}, e=x.e||{}, s=e.s||{};
+      events.push({
+        event_id:crypto.randomUUID(),
+        observed_at:ts,
+        event_type:"MARKET_STATE",
+        mint:t.mint,
+        payload:{
+          symbol:t.symbol||t.name||null,
+          price_usd:Number(t.price_usd)||null,
+          liquidity:Number(t.liquidity)||null,
+          stats_24h:t.stats_24h||null,
+          lifecycle:t.lifecycle||null,
+          core_score:Number(t.core_score)||null,
+          signal:e.signal||null,
+          strength:Number(e.strength)||null
+        }
+      });
+      events.push({
+        event_id:crypto.randomUUID(),
+        observed_at:ts,
+        event_type:"SIGNAL",
+        mint:t.mint,
+        payload:{
+          signal:e.signal||null,
+          strength:Number(e.strength)||null,
+          entry:Number(e.entry)||null,
+          stop:Number(e.stop)||null,
+          take:Number(e.take)||null,
+          reasons:e.reasons||[],
+          core_score:Number(t.core_score)||null,
+          market:s
+        }
+      });
+    }
+    for(const p of positions){
+      const current=currentPrice(p);
+      events.push({
+        event_id:crypto.randomUUID(),
+        observed_at:ts,
+        event_type:"POSITION_STATE",
+        mint:p.mint,
+        position_id:p.positionId||p.mint,
+        payload:{
+          symbol:p.symbol,
+          entry:Number(p.entry),
+          current:Number(current)||null,
+          qty:Number(p.qty),
+          capital:Number(p.size),
+          stop:Number(p.stop),
+          take:Number(p.take),
+          unrealized_pnl:Number(current&&p.qty?(current-p.entry)*p.qty:0),
+          age_seconds:Math.max(0,(Date.now()-p.openedAt)/1000)
+        }
+      });
+    }
+    postTradingEvents(events);
+  }
+
   function updatePaperControl(){
     const status=$("#paper-status");
     const btn=$("#paper-start-stop");
@@ -165,6 +238,7 @@
     renderPositions();
     renderJournal();
     renderPnl();
+    captureTradingState();
   }
 
   function init(){
