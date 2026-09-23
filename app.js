@@ -267,9 +267,6 @@ function renderMarketContext(market) {
   const selected=$("#score-token");
   if(selected && !selected.textContent) selected.textContent="—";
   const universe=market?.meme_universe||{};
-  // Solscan is a monthly market-size benchmark, not a live feed. Keep the
-  // verified initial benchmark visible even while an older backend process
-  // has not yet loaded the local cache.
   const count=Number(universe.count);
   const effectiveCount=Number.isFinite(count)?count:20752933;
   const countEl=$("#meme-universe-count");
@@ -329,7 +326,7 @@ function renderLifecycleOverview(tokens){
   if(legend){
     legend.innerHTML=stages.map(s=>{
       const count=counts[s.key], pct=total?count/total*100:0;
-      return '<span><i class="lifecycle-dot '+s.cls+'"></i><b>'+s.label+'</b><em>'+count.toLocaleString("de-DE")+' · '+pct.toFixed(1)+'%</em></span>';
+      return '<span><i class="lifecycle-dot '+s.cls+'"></i><b>'+s.label+'</b><em>'+count.toLocaleString("de-DE")+' · '+pct.toFixed(1)+"%</em></span>";
     }).join("");
   }
 }
@@ -339,7 +336,6 @@ function renderSnapshot(data) {
   renderBuildInfo(data?.runtime?.build);
   const tokens=Array.isArray(data?.tokens)?data.tokens:[];
   renderLifecycleOverview(window.MEMELAB_JUPITER_TOKENS || tokens);
-  // Discovery is owned exclusively by jupiter-live.js. The snapshot must never render token cards.
   renderMarketContext(data?.market_size);
   if(!tokens.length)return;
   if(window.MEMELAB_JUPITER && window.MEMELAB_JUPITER.active){
@@ -362,21 +358,23 @@ async function api(path,options={}){const response=await fetch(API_BASE+path,{ca
 async function refreshDatabaseStatus(){
   const el=$("#db-status"), textEl=$("#db-status-text");
   const cloud=$("#cloud-db-status"), cloudHealth=$("#cloud-db-health"), cloudDetail=$("#cloud-db-detail");
-  if(!el||!textEl)return;
   try{
     const data=await api("/supabase/status");
     const sqlite=data.sqlite||{};
     const cloudData=data.cloud||{};
     const size=Number(sqlite.db_size_mb);
     const sizeLabel=Number.isFinite(size)?size.toFixed(1)+" MB":"—";
-    if(data.active_store==="sqlite"){
-      el.className="db-status db-sqlite";
-      textEl.textContent="DB · SQLite ACTIVE · "+sizeLabel;
-      el.title="Local SQLite is authoritative. Supabase is the cloud secondary store.";
-    }else{
-      el.className="db-status db-supabase";
-      textEl.textContent="DB · SUPABASE ACTIVE · "+sizeLabel;
-      el.title="Supabase is the active database.";
+
+    if(el && textEl){
+      if(data.active_store==="sqlite"){
+        el.className="db-status db-sqlite";
+        textEl.textContent="DB · SQLite ACTIVE · "+sizeLabel;
+        el.title="Local SQLite is authoritative. Supabase is the cloud secondary store.";
+      }else{
+        el.className="db-status db-supabase";
+        textEl.textContent="DB · SUPABASE ACTIVE · "+sizeLabel;
+        el.title="Supabase is the active database.";
+      }
     }
 
     const cloudBytes=Number(cloudData.database_bytes||0);
@@ -399,9 +397,11 @@ async function refreshDatabaseStatus(){
     set("#dbg-cloud-aggregates",connected?((Number(cloudData.market_aggregates_bytes)||0)/1048576).toFixed(2)+" MB":"—");
     set("#dbg-cloud-guard",cloudData.storage_guard||"—");
   }catch(error){
-    el.className="db-status db-fallback";
-    textEl.textContent="DB · SQLite FALLBACK";
-    el.title="Database status unavailable. SQLite remains the authoritative store.";
+    if(el && textEl){
+      el.className="db-status db-fallback";
+      textEl.textContent="DB · SQLite FALLBACK";
+      el.title="Database status unavailable. SQLite remains the authoritative store.";
+    }
     if(cloud){
       cloud.className="cloud-db-status offline";
       if(cloudHealth) cloudHealth.textContent="UNAVAILABLE";
@@ -409,7 +409,6 @@ async function refreshDatabaseStatus(){
     }
   }
 }
-
 async function refresh(){
   try{
     apiReachable=true;
