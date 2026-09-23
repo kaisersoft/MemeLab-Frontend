@@ -389,6 +389,8 @@
     const unrealized=openPnl();
     const openPnlEl=$("#paper-open-pnl");
     if(openPnlEl){openPnlEl.textContent="Unrealized P&L · "+usd(unrealized);openPnlEl.classList.toggle("paper-positive",unrealized>=0);openPnlEl.classList.toggle("paper-negative",unrealized<0);}
+    const paperCostsEl=$("#paper-costs");
+    if(paperCostsEl) paperCostsEl.textContent=usd(totalEstimatedCosts());
     const portfolioPnlEl=$("#paper-portfolio-pnl");
     if(portfolioPnlEl){const pp=portfolioCyclePnlPct();portfolioPnlEl.textContent="Portfolio P&L · "+pct(pp);portfolioPnlEl.classList.toggle("paper-positive",pp>=0);portfolioPnlEl.classList.toggle("paper-negative",pp<0);}
     const cashEl=$("#paper-cash"), investedEl=$("#paper-invested"), cashDetail=$("#paper-cash-detail"), investedDetail=$("#paper-invested-detail");
