@@ -154,3 +154,15 @@ h2{font-size:20px;margin:0 0 5px}
 .pnl-equity-panel{padding:18px 20px;margin-top:14px}.pnl-equity-wrap{height:300px;border:1px solid #203542;border-radius:12px;background:#09151d;overflow:hidden}.pnl-equity-wrap svg{width:100%;height:100%;display:block}.equity-grid{stroke:#1d303b;stroke-width:1}.equity-baseline{stroke:#496273;stroke-width:1;stroke-dasharray:5 5}.equity-line{fill:none;stroke:#78c9a6;stroke-width:3;vector-effect:non-scaling-stroke}.equity-point{fill:#0b1820;stroke:#78c9a6;stroke-width:2;vector-effect:non-scaling-stroke}.equity-axis,.equity-label{fill:#718694;font:10px ui-monospace,SFMono-Regular,Menlo,monospace}.equity-label{fill:#8ca0ac}@media(max-width:700px){.pnl-equity-wrap{height:240px}}
 
 .equity-line{fill:none;stroke-width:3;vector-effect:non-scaling-stroke}.equity-profit{stroke:#78c9a6}.equity-loss{stroke:#d58d82}.equity-profit-point{stroke:#78c9a6}.equity-loss-point{stroke:#d58d82}
+
+
+.topbar-status{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.db-status{display:inline-flex;align-items:center;gap:7px;border:1px solid #304552;background:#0b1821;color:#8fa8b8;border-radius:999px;padding:10px 13px;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;white-space:nowrap}
+.db-status i{width:8px;height:8px;border-radius:50%;background:#8293a2;box-shadow:0 0 8px rgba(130,147,162,.35)}
+.db-status.db-sqlite{border-color:#31536a;background:#0b1b25;color:#a9c9dc}
+.db-status.db-sqlite i{background:#83c7e8;box-shadow:0 0 9px rgba(131,199,232,.45)}
+.db-status.db-supabase{border-color:#246b4f;background:#09261d;color:#71d9b0}
+.db-status.db-supabase i{background:#6dd8af;box-shadow:0 0 9px rgba(109,216,175,.5)}
+.db-status.db-fallback{border-color:#8a6425;background:#2a2110;color:#e6b24e}
+.db-status.db-fallback i{background:#e6b24e;box-shadow:0 0 9px rgba(230,178,78,.5)}
+@media(max-width:900px){.topbar-status{justify-content:flex-start;margin-top:14px}}
