@@ -36,10 +36,11 @@
     return Number.isFinite(fallback)&&fallback>0?fallback:Number(p.entry)||null;
   }
 
-  function openPaperPosition(x){
-    if(!paperRunning) return false;
+  function openPaperPosition(x, options={}){
+    const manual=!!options.manual;
+    if(!paperRunning && !manual) return false;
     const t=x.t, e=x.e||{};
-    if(e.signal!=="BUY" || Number(e.strength)<Number(threshold)) return false;
+    if((!manual && e.signal!=="BUY") || (!manual && Number(e.strength)<Number(threshold))) return false;
     if(e.entry==null || e.stop==null || e.take==null || Number(e.entry)<=0 || Number(e.stop)>=Number(e.entry)) return false;
     const existing=positions.some(p=>p.mint===t.mint);
     if(existing) return false;
@@ -69,7 +70,7 @@
       event_type:"POSITION_OPEN",
       mint:t.mint,
       position_id:positions[positions.length-1].positionId,
-      payload:{symbol:t.symbol||t.name||null,entry:Number(e.entry),stop:Number(e.stop),take:Number(e.take),qty:Number(qty),capital:Number(qty*Number(e.entry)),risk:Number(actualRisk)}
+      payload:{symbol:t.symbol||t.name||null,entry:Number(e.entry),stop:Number(e.stop),take:Number(e.take),qty:Number(qty),capital:Number(qty*Number(e.entry)),risk:Number(actualRisk),reason:manual?"MANUAL_BUY":"SIGNAL"}
     }]);
     return true;
   }
@@ -111,6 +112,19 @@
     if(!paperRunning) return;
     const rows=signalRows();
     for(const x of rows) openPaperPosition(x);
+  }
+
+  function manualBuy(t){
+    if(!t?.mint) return false;
+    if(positions.some(p=>p.mint===t.mint)) return false;
+    const entry=Number(t.price_usd);
+    if(!Number.isFinite(entry)||entry<=0) return false;
+    const engine=window.MEMELAB_ENGINE;
+    const engineSignal=engine?.signal?.(t)||{};
+    const volatility=Number(engineSignal?.s?.volatility);
+    const riskDistance=Math.max(0.015,Math.min(0.08,(Number.isFinite(volatility)&&volatility>0?volatility/1000:0.025)));
+    const e={signal:"BUY",strength:100,entry,stop:entry*(1-riskDistance),take:entry*(1+riskDistance*TP_R),rr:TP_R,reasons:["MANUAL BUY"]};
+    return openPaperPosition({t,e},{manual:true});
   }
 
   function signalRows(){
@@ -220,6 +234,9 @@
     $("#paper-position-count").textContent=String(positions.length);
     const invested=investedCapital();
     const cash=availableCash();
+    const unrealized=positions.reduce((s,p)=>s+((currentPrice(p)||p.entry)-p.entry)*p.qty,0);
+    const openPnlEl=$("#paper-open-pnl");
+    if(openPnlEl){openPnlEl.textContent="Unrealized P&L · "+usd(unrealized);openPnlEl.classList.toggle("paper-positive",unrealized>=0);openPnlEl.classList.toggle("paper-negative",unrealized<0);}
     const cashEl=$("#paper-cash"), investedEl=$("#paper-invested"), cashDetail=$("#paper-cash-detail"), investedDetail=$("#paper-invested-detail");
     if(cashEl) cashEl.textContent=usd(cash);
     if(investedEl) investedEl.textContent=usd(invested);
@@ -284,6 +301,6 @@
     updatePaperControl();
     setInterval(()=>{if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){renderAll();}},5000);
   }
-  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,capitalLimitPct,portfolioLimitPct,paperRunning}),isRunning:()=>paperRunning};
+  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,capitalLimitPct,portfolioLimitPct,paperRunning}),isRunning:()=>paperRunning,manualBuy};
   init();
 })();
