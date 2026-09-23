@@ -198,7 +198,7 @@
         <div class="panel paper-header">
           <div class="panel-head">
             <div><h2>Paper Trading</h2><span>Virtual execution · LONG only · no broker / wallet connection</span></div>
-            <div class="paper-capital"><span>Virtual Capital</span><b id="paper-capital">$10,000.00</b></div>
+            <div class="paper-capital"><span>Virtual Capital</span><b id="paper-capital">$10,000.00</b><small>Starting Capital</small></div><div class="paper-capital"><span>Available Cash</span><b id="paper-cash">$10,000.00</b><small id="paper-cash-detail">Unallocated</small></div><div class="paper-capital"><span>Capital in Positions</span><b id="paper-invested">$0.00</b><small id="paper-invested-detail">0 open positions</small></div>
           </div>
           <div class="paper-controls">
             <div class="paper-control paper-run-control"><span>Paper Engine</span><button id="paper-start-stop" class="paper-start-stop" type="button">START PAPER</button></div>
@@ -218,7 +218,7 @@
 
         <section class="panel paper-watch">
           <div class="panel-head"><div><h2>Open Positions</h2><span>Currently held virtual positions</span></div><span class="asset-tag" id="paper-position-count">0</span></div>
-          <div class="paper-table-wrap"><table class="paper-table"><thead><tr><th>Token</th><th>Entry</th><th>Current</th><th>Qty</th><th>Stop Loss</th><th>Take Profit</th><th>Unrealized P&amp;L</th><th>Age</th><th>Status</th></tr></thead><tbody id="paper-position-body"></tbody></table></div>
+          <div class="paper-table-wrap"><table class="paper-table"><thead><tr><th>Token</th><th>Entry</th><th>Current</th><th>Qty</th><th>Capital</th><th>Stop Loss</th><th>Take Profit</th><th>Unrealized P&amp;L</th><th>Age</th><th>Status</th></tr></thead><tbody id="paper-position-body"></tbody></table></div>
         </section>
 
         <section class="panel paper-watch">
