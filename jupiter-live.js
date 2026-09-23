@@ -4,6 +4,8 @@
   const apiBase = window.MEMELAB_API_URL || "http://127.0.0.1:8765/api";
   let tokens = [];
   let ingestCount = 0;
+  let discoveryRunning = false;
+  let discoveryPollTimer = null;
   let selectedMint = null;
   let lifecycleFilter = "DISCOVERED";
   const LIFECYCLE_STAGES = ["DISCOVERED","EMERGING","ACTIVE","MATURE","DECLINING","INACTIVE","ARCHIVED"];
@@ -476,6 +478,7 @@
     });
     renderUniverseTable(filteredTokens);
   }
+  function renderDiscoveryState(){const state=$("#discovery-state"),button=$("#discovery-toggle"),scan=$("#scan-time");if(state){state.textContent=discoveryRunning?"RUNNING":"OFF";state.classList.toggle("running",discoveryRunning);}if(button){button.textContent=discoveryRunning?"STOP DISCOVERY":"START DISCOVERY";button.setAttribute("aria-pressed",discoveryRunning?"true":"false");button.classList.toggle("running",discoveryRunning);}if(scan&&!discoveryRunning&&window.MEMELAB_JUPITER_DATA?.feed!=="discovery_scope")scan.textContent="Persistent dataset · discovery off";}
   async function load() {
     try {
       const r=await fetch(apiBase+"/jupiter/universe",{cache:"no-store",headers:{Accept:"application/json"}});
@@ -485,6 +488,8 @@
       window.MEMELAB_JUPITER_TOKENS=tokens;
       ingestCount=Number(data.ingest_count)||0;
       window.MEMELAB_JUPITER_DATA=data;
+      if(typeof data.discovery_running === "boolean") discoveryRunning=data.discovery_running;
+      renderDiscoveryState();
       window.dispatchEvent(new CustomEvent("memelab:jupiter-data",{detail:data}));
       render();
       if(!document.getElementById("engine-panel")?.hidden) engineRender();
@@ -528,12 +533,15 @@
     positionHistory=Array.isArray(e.detail?.points)?e.detail.points:[];
     render();
   });
+  async function refreshDiscoveryState(){try{const r=await fetch(apiBase+"/discovery/status",{cache:"no-store",headers:{Accept:"application/json"}});if(!r.ok)throw new Error(r.status+" "+r.statusText);const data=await r.json();discoveryRunning=!!data.running;renderDiscoveryState();if(discoveryRunning){await load();if(!discoveryPollTimer)discoveryPollTimer=setInterval(load,5000);}else{if(discoveryPollTimer)clearInterval(discoveryPollTimer);discoveryPollTimer=null;await load();}}catch(e){console.debug("Discovery status:",e);}}
+  async function toggleDiscovery(){const action=discoveryRunning?"stop":"start";try{const r=await fetch(apiBase+"/discovery/"+action,{method:"POST",cache:"no-store",headers:{Accept:"application/json"}});if(!r.ok)throw new Error(r.status+" "+r.statusText);discoveryRunning=action==="start";renderDiscoveryState();if(discoveryRunning){await load();if(!discoveryPollTimer)discoveryPollTimer=setInterval(load,5000);}else{if(discoveryPollTimer)clearInterval(discoveryPollTimer);discoveryPollTimer=null;await load();}}catch(e){console.error("Discovery toggle:",e);}}
+  const discoveryToggle=$("#discovery-toggle");if(discoveryToggle)discoveryToggle.addEventListener("click",toggleDiscovery);renderDiscoveryState();refreshDiscoveryState();
+
   window.MEMELAB_ENGINE={
     getCandidates:()=>engineMatureCandidates(),
     signal:(t)=>engineSignal(t),
     isRunning:()=>!!engineTimer
   };
   window.MEMELAB_JUPITER={refresh:load,active:true};
-  load();
-  setInterval(load,5000);
+
 })();
