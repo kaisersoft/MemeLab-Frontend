@@ -576,6 +576,39 @@
     if(pnlBody)pnlBody.innerHTML=journal.length?journal.slice().reverse().map(p=>'<tr><td>'+p.id+'</td><td><strong>'+p.symbol+'</strong></td><td>BUY</td><td>'+p.entryPriceText+'</td><td>'+p.exitPriceText+'</td><td>'+p.reason+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+usd(p.netPnl??p.pnl)+'</td><td>'+pct(p.netPnlPct??p.pnlPct)+'</td></tr>').join(""):'<tr><td colspan="8" class="paper-empty">No closed trades recorded.</td></tr>';
   }
 
+  function renderEquityChart(){
+    const svg=$("#pnl-equity-chart");
+    if(!svg) return;
+    const points=[{label:"START",equity:START_CAPITAL}];
+    let equity=START_CAPITAL;
+    for(const trade of journal){
+      equity+=Number(trade.netPnl??trade.pnl??0);
+      points.push({label:trade.id,equity});
+    }
+    if(positions.length){
+      points.push({label:"CURRENT",equity:currentEquity()});
+    }
+    const W=1000,H=300,L=68,R=24,T=20,B=42;
+    const plotW=W-L-R,plotH=H-T-B;
+    const values=points.map(p=>Number(p.equity));
+    let min=Math.min(...values),max=Math.max(...values);
+    if(!Number.isFinite(min)||!Number.isFinite(max)){svg.innerHTML="";return;}
+    const range=Math.max(max-min,1);
+    const pad=Math.max(range*0.12,25);
+    min-=pad;max+=pad;
+    const x=i=>L+(points.length===1?plotW/2:(i/(points.length-1))*plotW);
+    const y=v=>T+(1-(v-min)/(max-min))*plotH;
+    const grid=[];
+    for(let n=0;n<5;n++){
+      const v=min+(max-min)*(n/4), yy=y(v);
+      grid.push('<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+(W-R)+'" y2="'+yy.toFixed(1)+'" class="equity-grid"/><text x="'+(L-10)+'" y="'+(yy+4).toFixed(1)+'" class="equity-axis" text-anchor="end">'+usd(v)+'</text>');
+    }
+    const path=points.map((p,k)=>(k?"L":"M")+x(k).toFixed(1)+" "+y(p.equity).toFixed(1)).join(" ");
+    const circles=points.map((p,k)=>'<circle cx="'+x(k).toFixed(1)+'" cy="'+y(p.equity).toFixed(1)+'" r="4" class="equity-point"><title>'+p.label+" · "+usd(p.equity)+'</title></circle>').join("");
+    const labels=points.map((p,k)=>{if(points.length>8 && k>0 && k<points.length-1 && k%2!==0)return "";return '<text x="'+x(k).toFixed(1)+'" y="'+(H-12)+'" class="equity-label" text-anchor="middle">'+p.label+'</text>';}).join("");
+    svg.innerHTML=grid.join("")+'<line x1="'+L+'" y1="'+y(START_CAPITAL).toFixed(1)+'" x2="'+(W-R)+'" y2="'+y(START_CAPITAL).toFixed(1)+'" class="equity-baseline"/><path d="'+path+'" class="equity-line"/>'+circles+labels;
+  }
+
   function renderPnl(){
     const realized=realizedPnl();
     const open=openPnl();
@@ -591,6 +624,7 @@
     $("#pnl-winrate").textContent=journal.length?((journal.filter(x=>Number(x.netPnl??x.pnl)>0).length/journal.length)*100).toFixed(1)+"%":"—";
     const cycleEl=$("#pnl-cycle-pnl");
     if(cycleEl){const pp=portfolioCyclePnlPct();cycleEl.textContent=pct(pp);cycleEl.classList.toggle("paper-positive",pp>=0);cycleEl.classList.toggle("paper-negative",pp<0);}
+    renderEquityChart();
     const targetEl=$("#pnl-cycle-target");
     if(targetEl)targetEl.textContent=pct(portfolioTakeAllPct);
   }
