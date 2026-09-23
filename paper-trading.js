@@ -75,6 +75,13 @@
     return true;
   }
 
+  function manualSell(p){
+    const current=currentPrice(p);
+    if(current==null) return false;
+    closePaperPosition(p,current,"MANUAL SELL");
+    return true;
+  }
+
   function closePaperPosition(p, exitPrice, reason){
     const exit=Number(exitPrice);
     if(!Number.isFinite(exit)||exit<=0) return;
@@ -245,8 +252,9 @@
     body.innerHTML=positions.length?positions.map(p=>{
       const current=currentPrice(p)||p.entry;
       const pnl=(current-p.entry)*p.qty;
-      return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td>'+price(current)+'</td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td>OPEN</td></tr>';
+      return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td>'+price(current)+'</td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td><button type="button" class="paper-sell-now" data-position-id="'+(p.positionId||'')+'">SELL NOW</button></td></tr>';
     }).join(""):'<tr><td colspan="10" class="paper-empty">No open paper positions.</td></tr>';
+    body.querySelectorAll(".paper-sell-now").forEach(btn=>btn.addEventListener("click",()=>{const p=positions.find(x=>(x.positionId||"")===btn.dataset.positionId);if(p&&manualSell(p))renderAll();}));
   }
 
   function renderJournal(){
@@ -301,6 +309,6 @@
     updatePaperControl();
     setInterval(()=>{if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){renderAll();}},5000);
   }
-  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,capitalLimitPct,portfolioLimitPct,paperRunning}),isRunning:()=>paperRunning,manualBuy};
+  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,capitalLimitPct,portfolioLimitPct,paperRunning}),isRunning:()=>paperRunning,manualBuy,manualSell};
   init();
 })();
