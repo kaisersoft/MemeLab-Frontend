@@ -397,7 +397,7 @@ async function refreshDatabaseStatus(){
     set("#dbg-cloud-headroom",connected?headroomMb.toFixed(1)+" MB":"—");
     set("#dbg-cloud-snapshots",connected?((Number(cloudData.market_snapshots_bytes)||0)/1048576).toFixed(2)+" MB":"—");
     set("#dbg-cloud-aggregates",connected?((Number(cloudData.market_aggregates_bytes)||0)/1048576).toFixed(2)+" MB":"—");
-    set("#dbg-cloud-guard",data.storage_guard||"—");
+    set("#dbg-cloud-guard",cloudData.storage_guard||"—");
   }catch(error){
     el.className="db-status db-fallback";
     textEl.textContent="DB · SQLite FALLBACK";
