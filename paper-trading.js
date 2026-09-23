@@ -125,12 +125,18 @@
   function closePaperPosition(p, exitPrice, reason){
     const exit=Number(exitPrice);
     if(!Number.isFinite(exit)||exit<=0) return;
-    const pnl=(exit-p.entry)*p.qty;
+    const grossPnl=(exit-p.entry)*p.qty;
+    const entryCost=estimatedEntryCost(p);
+    const exitCost=estimatedExitCost(p,exit);
+    const costTotal=entryCost+exitCost;
+    const netPnl=grossPnl-costTotal;
     const size=p.entry*p.qty;
     journal.push({
       id:"PT-"+String(journal.length+1).padStart(4,"0"),
       mint:p.mint,symbol:p.symbol,entryPriceText:price(p.entry),exitPriceText:price(exit),
-      reason,size,pnl,pnlPct:size?((pnl/size)*100):0,
+      reason,size,pnl:grossPnl,grossPnl,entryCost,exitCost,costTotal,netPnl,
+      pnlPct:size?((grossPnl/size)*100):0,
+      netPnlPct:size?((netPnl/size)*100):0,
       durationMs:Math.max(0,now()-p.openedAt),entry:p.entry,exit,qty:p.qty
     });
     postTradingEvents([{
@@ -305,7 +311,9 @@
           capital:Number(p.size),
           stop:Number(p.stop),
           take:Number(p.take),
-          unrealized_pnl:Number(current&&p.qty?(current-p.entry)*p.qty:0),
+          unrealized_pnl:Number(current&&p.qty?positionNetPnl(p,current):0),
+          unrealized_gross_pnl:Number(current&&p.qty?positionGrossPnl(p,current):0),
+          estimated_costs:Number(current&&p.qty?(estimatedEntryCost(p)+estimatedExitCost(p,current)):0),
           age_seconds:Math.max(0,(Date.now()-p.openedAt)/1000)
         }
       });
