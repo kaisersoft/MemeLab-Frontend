@@ -7,6 +7,16 @@
   let profitTimeoutMinutes = 120;
   let portfolioTakeAllPct = 5;
   let portfolioCycleBaselineEquity = START_CAPITAL;
+
+  // Cost Model v1 — transparent estimates, intentionally configurable.
+  // Phantom currently documents a 0.85% fee on most swaps; network and price-impact costs vary by execution.
+  let costModelEnabled = true;
+  let phantomFeePct = 0.85;       // per side
+  let slippagePct = 0.25;         // estimated per side
+  let priceImpactPct = 0.25;      // estimated per side
+  let networkFeeUsd = 0.001;      // estimated per transaction
+  let priorityFeeUsd = 0.00;      // estimated per transaction
+
   let positions = [];
   let journal = [];
   let lastSignals = [];
@@ -24,9 +34,26 @@
   const TP_R = 2;
   const SL_R = 1;
 
-  function realizedPnl(){ return journal.reduce((s,p)=>s+Number(p.pnl||0),0); }
-  function openPnl(){ return positions.reduce((s,p)=>s+((currentPrice(p)||p.entry)-p.entry)*p.qty,0); }
+  function estimatedEntryCost(p){
+    const notional=Number(p?.entry||0)*Number(p?.qty||0);
+    if(!costModelEnabled || !Number.isFinite(notional)) return 0;
+    return notional*(phantomFeePct+slippagePct+priceImpactPct)/100 + networkFeeUsd + priorityFeeUsd;
+  }
+  function estimatedExitCost(p, exitPrice){
+    const notional=Number(exitPrice||0)*Number(p?.qty||0);
+    if(!costModelEnabled || !Number.isFinite(notional)) return 0;
+    return notional*(phantomFeePct+slippagePct+priceImpactPct)/100 + networkFeeUsd + priorityFeeUsd;
+  }
+  function positionGrossPnl(p, exitPrice){ return (Number(exitPrice)-Number(p.entry))*Number(p.qty||0); }
+  function positionNetPnl(p, exitPrice){ return positionGrossPnl(p,exitPrice)-estimatedEntryCost(p)-estimatedExitCost(p,exitPrice); }
+  function realizedPnl(){ return journal.reduce((s,p)=>s+Number(p.netPnl??p.pnl??0),0); }
+  function openPnl(){ return positions.reduce((s,p)=>{const current=currentPrice(p)||p.entry;return s+positionNetPnl(p,current);},0); }
   function currentEquity(){ return START_CAPITAL+realizedPnl()+openPnl(); }
+  function totalEstimatedCosts(){
+    const closed=journal.reduce((s,p)=>s+Number(p.costTotal||0),0);
+    const open=positions.reduce((s,p)=>{const current=currentPrice(p)||p.entry;return s+estimatedEntryCost(p)+estimatedExitCost(p,current);},0);
+    return closed+open;
+  }
   function portfolioCyclePnl(){ return currentEquity()-portfolioCycleBaselineEquity; }
   function portfolioCyclePnlPct(){
     const base=Number(portfolioCycleBaselineEquity)||START_CAPITAL;
@@ -109,7 +136,7 @@
       event_type:"POSITION_CLOSE",
       mint:p.mint,
       position_id:p.positionId||p.mint,
-      payload:{symbol:p.symbol,entry:Number(p.entry),exit:Number(exit),qty:Number(p.qty),capital:Number(size),pnl:Number(pnl),pnl_pct:Number(size?((pnl/size)*100):0),entry_price_text:price(p.entry),exit_price_text:price(exit),duration_ms:Math.max(0,now()-p.openedAt),reason}
+      payload:{symbol:p.symbol,entry:Number(p.entry),exit:Number(exit),qty:Number(p.qty),capital:Number(size),pnl:Number(pnl),pnl_pct:Number(size?((pnl/size)*100):0),gross_pnl:Number(pnl),entry_cost:Number(estimatedEntryCost(p)),exit_cost:Number(estimatedExitCost(p,exit)),cost_total:Number(estimatedEntryCost(p)+estimatedExitCost(p,exit)),net_pnl:Number(pnl-estimatedEntryCost(p)-estimatedExitCost(p,exit)),net_pnl_pct:Number(size?((pnl-estimatedEntryCost(p)-estimatedExitCost(p,exit))/size*100):0),entry_price_text:price(p.entry),exit_price_text:price(exit),duration_ms:Math.max(0,now()-p.openedAt),reason}
     }]);
     positions=positions.filter(x=>x!==p);
   }
@@ -211,6 +238,12 @@
         profitTimeoutMinutes:Number(profitTimeoutMinutes),
         portfolioTakeAllPct:Number(portfolioTakeAllPct),
         portfolioCycleBaselineEquity:Number(portfolioCycleBaselineEquity),
+        costModelEnabled:Boolean(costModelEnabled),
+        phantomFeePct:Number(phantomFeePct),
+        slippagePct:Number(slippagePct),
+        priceImpactPct:Number(priceImpactPct),
+        networkFeeUsd:Number(networkFeeUsd),
+        priorityFeeUsd:Number(priorityFeeUsd),
         paperRunning:Boolean(paperRunning)
       }
     }];
@@ -295,6 +328,12 @@
         if(Number.isFinite(Number(state.profitTimeoutMinutes))) profitTimeoutMinutes=Number(state.profitTimeoutMinutes);
         if(Number.isFinite(Number(state.portfolioTakeAllPct))) portfolioTakeAllPct=Number(state.portfolioTakeAllPct);
         if(Number.isFinite(Number(state.portfolioCycleBaselineEquity))) portfolioCycleBaselineEquity=Number(state.portfolioCycleBaselineEquity);
+        if(typeof state.costModelEnabled==="boolean") costModelEnabled=state.costModelEnabled;
+        if(Number.isFinite(Number(state.phantomFeePct))) phantomFeePct=Number(state.phantomFeePct);
+        if(Number.isFinite(Number(state.slippagePct))) slippagePct=Number(state.slippagePct);
+        if(Number.isFinite(Number(state.priceImpactPct))) priceImpactPct=Number(state.priceImpactPct);
+        if(Number.isFinite(Number(state.networkFeeUsd))) networkFeeUsd=Number(state.networkFeeUsd);
+        if(Number.isFinite(Number(state.priorityFeeUsd))) priorityFeeUsd=Number(state.priorityFeeUsd);
         paperRunning=Boolean(state.paperRunning);
       }
       positions=restoredPositions.map(p=>({...p,t:{mint:p.mint,symbol:p.symbol,name:p.name,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
@@ -307,6 +346,8 @@
       if(takeAllEl) takeAllEl.value=String(portfolioTakeAllPct);
       journal=restoredJournal.map(p=>({
         ...p,
+        netPnl:Number(p.netPnl??p.pnl??0),
+        costTotal:Number(p.costTotal||0),
         entryPriceText:typeof p.entryPriceText==="string"?p.entryPriceText:price(p.entry),
         exitPriceText:typeof p.exitPriceText==="string"?p.exitPriceText:price(p.exit),
         durationMs:Number(p.durationMs)||0
@@ -362,20 +403,22 @@
 
   function renderJournal(){
     const body=$("#paper-journal-body"), pnlBody=$("#pnl-history-body");
-    const html=journal.length?journal.slice().reverse().map(p=>'<tr><td>'+p.id+'</td><td><strong>'+p.symbol+'</strong></td><td>'+p.entryPriceText+'</td><td>'+p.exitPriceText+'</td><td>'+p.reason+'</td><td>'+usd(p.size)+'</td><td class="'+(p.pnl>=0?"paper-positive":"paper-negative")+'">'+usd(p.pnl)+'</td><td class="'+(p.pnl>=0?"paper-positive":"paper-negative")+'">'+pct(p.pnlPct)+'</td><td>'+Math.round(p.durationMs/60000)+'m</td></tr>').join(""):'<tr><td colspan="9" class="paper-empty">No closed paper trades yet.</td></tr>';
+    const html=journal.length?journal.slice().reverse().map(p=>'<tr><td>'+p.id+'</td><td><strong>'+p.symbol+'</strong></td><td>'+p.entryPriceText+'</td><td>'+p.exitPriceText+'</td><td>'+p.reason+'</td><td>'+usd(p.size)+'</td><td class="'+(p.grossPnl>=0?"paper-positive":"paper-negative")+'">'+usd(p.grossPnl??p.pnl)+'</td><td class="paper-negative">-'+usd(p.costTotal||0)+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+usd(p.netPnl??p.pnl)+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+pct(p.netPnlPct??p.pnlPct)+'</td><td>'+Math.round(p.durationMs/60000)+'m</td></tr>').join(""):'<tr><td colspan="11" class="paper-empty">No closed paper trades yet.</td></tr>';
     if(body){body.innerHTML=html;$("#paper-journal-count").textContent=String(journal.length);}
-    if(pnlBody)pnlBody.innerHTML=journal.length?journal.slice().reverse().map(p=>'<tr><td>'+p.id+'</td><td><strong>'+p.symbol+'</strong></td><td>BUY</td><td>'+p.entryPriceText+'</td><td>'+p.exitPriceText+'</td><td>'+p.reason+'</td><td class="'+(p.pnl>=0?"paper-positive":"paper-negative")+'">'+usd(p.pnl)+'</td><td>'+pct(p.pnlPct)+'</td></tr>').join(""):'<tr><td colspan="8" class="paper-empty">No closed trades recorded.</td></tr>';
+    if(pnlBody)pnlBody.innerHTML=journal.length?journal.slice().reverse().map(p=>'<tr><td>'+p.id+'</td><td><strong>'+p.symbol+'</strong></td><td>BUY</td><td>'+p.entryPriceText+'</td><td>'+p.exitPriceText+'</td><td>'+p.reason+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+usd(p.netPnl??p.pnl)+'</td><td>'+pct(p.netPnlPct??p.pnlPct)+'</td></tr>').join(""):'<tr><td colspan="8" class="paper-empty">No closed trades recorded.</td></tr>';
   }
 
   function renderPnl(){
     const realized=realizedPnl();
     const open=openPnl();
+    const costs=totalEstimatedCosts();
     $("#pnl-start").textContent=usd(START_CAPITAL);
     $("#pnl-equity").textContent=usd(START_CAPITAL+realized+open);
     $("#pnl-cash").textContent=usd(availableCash());
     $("#pnl-invested").textContent=usd(investedCapital());
     $("#pnl-realized").textContent=usd(realized);
     $("#pnl-open").textContent=usd(open);
+    const costEl=$("#pnl-costs"); if(costEl) costEl.textContent=usd(costs);
     $("#pnl-trades").textContent=String(journal.length);
     $("#pnl-winrate").textContent=journal.length?((journal.filter(x=>x.pnl>0).length/journal.length)*100).toFixed(1)+"%":"—";
     const cycleEl=$("#pnl-cycle-pnl");
