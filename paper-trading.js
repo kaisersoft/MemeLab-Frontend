@@ -603,10 +603,16 @@
       const v=min+(max-min)*(n/4), yy=y(v);
       grid.push('<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+(W-R)+'" y2="'+yy.toFixed(1)+'" class="equity-grid"/><text x="'+(L-10)+'" y="'+(yy+4).toFixed(1)+'" class="equity-axis" text-anchor="end">'+usd(v)+'</text>');
     }
-    const path=points.map((p,k)=>(k?"L":"M")+x(k).toFixed(1)+" "+y(p.equity).toFixed(1)).join(" ");
-    const circles=points.map((p,k)=>'<circle cx="'+x(k).toFixed(1)+'" cy="'+y(p.equity).toFixed(1)+'" r="4" class="equity-point"><title>'+p.label+" · "+usd(p.equity)+'</title></circle>').join("");
+    const paths=[];
+    for(let k=1;k<points.length;k++){
+      const segment=[points[k-1],points[k]];
+      const d="M"+x(k-1).toFixed(1)+" "+y(segment[0].equity).toFixed(1)+" L"+x(k).toFixed(1)+" "+y(segment[1].equity).toFixed(1);
+      const cls=segment[1].equity>=START_CAPITAL?"equity-line equity-profit":"equity-line equity-loss";
+      paths.push('<path d="'+d+'" class="'+cls+'"/>');
+    }
+    const circles=points.map((p,k)=>'<circle cx="'+x(k).toFixed(1)+'" cy="'+y(p.equity).toFixed(1)+'" r="4" class="equity-point '+(p.equity>=START_CAPITAL?"equity-profit-point":"equity-loss-point")+'"><title>'+p.label+" · "+usd(p.equity)+'</title></circle>').join("");
     const labels=points.map((p,k)=>{if(points.length>8 && k>0 && k<points.length-1 && k%2!==0)return "";return '<text x="'+x(k).toFixed(1)+'" y="'+(H-12)+'" class="equity-label" text-anchor="middle">'+p.label+'</text>';}).join("");
-    svg.innerHTML=grid.join("")+'<line x1="'+L+'" y1="'+y(START_CAPITAL).toFixed(1)+'" x2="'+(W-R)+'" y2="'+y(START_CAPITAL).toFixed(1)+'" class="equity-baseline"/><path d="'+path+'" class="equity-line"/>'+circles+labels;
+    svg.innerHTML=grid.join("")+'<line x1="'+L+'" y1="'+y(START_CAPITAL).toFixed(1)+'" x2="'+(W-R)+'" y2="'+y(START_CAPITAL).toFixed(1)+'" class="equity-baseline"/>'+paths.join("")+circles+labels;
   }
 
   function renderPnl(){
