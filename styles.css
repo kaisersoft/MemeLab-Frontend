@@ -166,3 +166,16 @@ h2{font-size:20px;margin:0 0 5px}
 .db-status.db-fallback{border-color:#8a6425;background:#2a2110;color:#e6b24e}
 .db-status.db-fallback i{background:#e6b24e;box-shadow:0 0 9px rgba(230,178,78,.5)}
 @media(max-width:900px){.topbar-status{justify-content:flex-start;margin-top:14px}}
+
+.cloud-db-head{margin-top:12px;border-top:1px solid #1b303c;padding-top:12px}
+.cloud-db-status{display:flex;align-items:center;gap:8px;margin-top:10px;padding:10px 12px;border:1px solid #304552;border-radius:9px;background:#08131a;font:11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}
+.cloud-db-status i{width:8px;height:8px;border-radius:50%;background:#8293a2;box-shadow:0 0 8px rgba(130,147,162,.35)}
+.cloud-db-status b{font-size:10px;letter-spacing:.08em;color:#a9bac5}
+.cloud-db-status span{color:#657b87;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cloud-db-status.healthy{border-color:#246b4f;background:#092019}
+.cloud-db-status.healthy i{background:#6dd8af;box-shadow:0 0 9px rgba(109,216,175,.5)}
+.cloud-db-status.healthy b{color:#71d9b0}
+.cloud-db-status.offline{border-color:#765525;background:#211b10}
+.cloud-db-status.offline i{background:#d9a84e;box-shadow:0 0 8px rgba(217,168,78,.4)}
+.cloud-db-status.offline b{color:#e6b24e}
+.cloud-db-grid{margin-top:8px}
