@@ -137,3 +137,5 @@ h2{font-size:20px;margin:0 0 5px}
 @media(max-width:900px){.paper-controls{grid-template-columns:1fr 1fr}.pnl-grid{grid-template-columns:1fr}.pnl-cards{grid-template-columns:repeat(2,1fr)}}@media(max-width:560px){.paper-controls{grid-template-columns:1fr}.pnl-cards,.pnl-rules{grid-template-columns:1fr}.paper-capital{align-items:flex-start}}
 
 .paper-run-control{border-color:#355564}.paper-start-stop{min-width:118px;padding:7px 11px;border:1px solid #476574;border-radius:7px;background:#0b1820;color:#d5e4ea;font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;cursor:pointer}.paper-start-stop:hover{background:#10232d}.paper-start-stop.running{border-color:#4d806d;color:#9bd1b7;background:#10251f}
+
+.paper-header .panel-head{align-items:center}.paper-capital{min-width:145px}.paper-capital small{color:#5f7482;font:9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}.paper-capital b{white-space:nowrap}.paper-header .panel-head{flex-wrap:wrap}.paper-header .panel-head>div{min-width:130px}@media(max-width:900px){.paper-header .panel-head{align-items:flex-start}.paper-capital{align-items:flex-start}}
