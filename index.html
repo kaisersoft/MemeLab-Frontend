@@ -6,7 +6,7 @@
   <title>MemeLab — On-chain Market Intelligence</title>
   <meta name="description" content="MemeLab frontend prototype — on-chain market intelligence, lifecycle and risk engine.">
   <link rel="icon" href="./assets/memelab-logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=20260923-198">
+  <link rel="stylesheet" href="./styles.css?v=20260924-201">
   <link rel="stylesheet" href="./position-intelligence.css">
 </head>
 <body>
@@ -130,7 +130,7 @@
             <div><span>Watchlist scan</span><b id="dbg-watch-scan">—</b></div>
           </div>
           <div class="diagnostics-top3"><span>Current Top 3 EMERGING</span><b id="dbg-top3">—</b></div>
-          <div class="diagnostics-head storage-debug-head"><strong>Storage / DB Health</strong><span>lifecycle-aware retention</span></div>
+          <div class="diagnostics-head storage-debug-head"><strong>Storage / DB Health</strong><span>local + cloud database telemetry</span></div>
           <div class="diagnostics-grid">
             <div><span>DB size</span><b id="dbg-db-size">—</b></div>
             <div><span>Raw 30s</span><b id="dbg-db-raw">—</b></div>
@@ -145,6 +145,16 @@
             <div><span>Low-priority &gt; 15m</span><b id="dbg-db-oldraw-low">—</b></div>
             <div><span>Last HK raw deleted</span><b id="dbg-db-hk-deleted">—</b></div>
             <div><span>HK backlog before</span><b id="dbg-db-hk-backlog">—</b></div>
+          </div>
+          <div class="diagnostics-head cloud-db-head"><strong>Cloud DB · Supabase</strong><span>secondary store · 500 MB safety limit</span></div>
+          <div class="cloud-db-status" id="cloud-db-status"><i></i><b id="cloud-db-health">checking…</b><span id="cloud-db-detail">Cloud database health loading…</span></div>
+          <div class="diagnostics-grid cloud-db-grid">
+            <div><span>Cloud DB size</span><b id="dbg-cloud-size">—</b></div>
+            <div><span>Usage of 500 MB</span><b id="dbg-cloud-share">—</b></div>
+            <div><span>Cloud headroom</span><b id="dbg-cloud-headroom">—</b></div>
+            <div><span>Cloud snapshots</span><b id="dbg-cloud-snapshots">—</b></div>
+            <div><span>Cloud aggregates</span><b id="dbg-cloud-aggregates">—</b></div>
+            <div><span>Storage guard</span><b id="dbg-cloud-guard">—</b></div>
           </div>
         </div>
       </section>
