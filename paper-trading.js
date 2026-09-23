@@ -60,7 +60,10 @@
     return base>0?(portfolioCyclePnl()/base)*100:0;
   }
   function investedCapital(){ return positions.reduce((s,p)=>s+(Number(p.entry)||0)*(Number(p.qty)||0),0); }
-  function availableCash(){ return Math.max(0,START_CAPITAL+realizedPnl()-investedCapital()); }
+  function availableCash(){
+    const openEntryCosts=positions.reduce((s,p)=>s+estimatedEntryCost(p),0);
+    return Math.max(0,START_CAPITAL+realizedPnl()-investedCapital()-openEntryCosts);
+  }
   function liveToken(mint){
     const list=window.MEMELAB_JUPITER_TOKENS||[];
     return list.find(t=>t?.mint===mint)||null;
@@ -395,7 +398,7 @@
     if(investedDetail) investedDetail.textContent=positions.length+" open position"+(positions.length===1?"":"s");
     body.innerHTML=positions.length?positions.map(p=>{
       const current=currentPrice(p)||p.entry;
-      const pnl=(current-p.entry)*p.qty;
+      const pnl=positionNetPnl(p,current);
       return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td>'+price(current)+'</td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td><button type="button" class="paper-sell-now" data-position-id="'+(p.positionId||'')+'">SELL NOW</button></td></tr>';
     }).join(""):'<tr><td colspan="10" class="paper-empty">No open paper positions.</td></tr>';
     body.querySelectorAll(".paper-sell-now").forEach(btn=>btn.addEventListener("click",()=>{const p=positions.find(x=>(x.positionId||"")===btn.dataset.positionId);if(p&&manualSell(p))renderAll();}));
@@ -420,7 +423,7 @@
     $("#pnl-open").textContent=usd(open);
     const costEl=$("#pnl-costs"); if(costEl) costEl.textContent=usd(costs);
     $("#pnl-trades").textContent=String(journal.length);
-    $("#pnl-winrate").textContent=journal.length?((journal.filter(x=>x.pnl>0).length/journal.length)*100).toFixed(1)+"%":"—";
+    $("#pnl-winrate").textContent=journal.length?((journal.filter(x=>Number(x.netPnl??x.pnl)>0).length/journal.length)*100).toFixed(1)+"%":"—";
     const cycleEl=$("#pnl-cycle-pnl");
     if(cycleEl){const pp=portfolioCyclePnlPct();cycleEl.textContent=pct(pp);cycleEl.classList.toggle("paper-positive",pp>=0);cycleEl.classList.toggle("paper-negative",pp<0);}
     const targetEl=$("#pnl-cycle-target");
