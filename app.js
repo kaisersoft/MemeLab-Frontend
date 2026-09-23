@@ -361,25 +361,52 @@ function renderSnapshot(data) {
 async function api(path,options={}){const response=await fetch(API_BASE+path,{cache:"no-store",...options,headers:{"Accept":"application/json",...(options.headers||{})}});if(!response.ok)throw new Error(response.status+" "+response.statusText);return response.json();}
 async function refreshDatabaseStatus(){
   const el=$("#db-status"), textEl=$("#db-status-text");
+  const cloud=$("#cloud-db-status"), cloudHealth=$("#cloud-db-health"), cloudDetail=$("#cloud-db-detail");
   if(!el||!textEl)return;
   try{
     const data=await api("/supabase/status");
     const sqlite=data.sqlite||{};
+    const cloudData=data.cloud||{};
     const size=Number(sqlite.db_size_mb);
     const sizeLabel=Number.isFinite(size)?size.toFixed(1)+" MB":"—";
     if(data.active_store==="sqlite"){
       el.className="db-status db-sqlite";
       textEl.textContent="DB · SQLite ACTIVE · "+sizeLabel;
-      el.title="Active database: SQLite. Supabase "+(data.connected?"connected / standby":"not connected / fallback ready")+".";
+      el.title="Local SQLite is authoritative. Supabase is the cloud secondary store.";
     }else{
       el.className="db-status db-supabase";
       textEl.textContent="DB · SUPABASE ACTIVE · "+sizeLabel;
-      el.title="Active database: Supabase.";
+      el.title="Supabase is the active database.";
     }
+
+    const cloudBytes=Number(cloudData.database_bytes||0);
+    const cloudMb=Number(cloudData.database_mb);
+    const cloudShare=Number(cloudData.database_percent_of_500mb);
+    const headroomMb=Math.max(0,500-(Number.isFinite(cloudMb)?cloudMb:cloudBytes/1048576));
+    const connected=cloudData.available===true && cloudData.configured===true;
+    if(cloud){
+      cloud.className="cloud-db-status "+(connected?"healthy":"offline");
+      if(cloudHealth) cloudHealth.textContent=connected?"HEALTHY":"OFFLINE";
+      if(cloudDetail) cloudDetail.textContent=connected
+        ? "Supabase connected · secondary store · SQLite remains authoritative"
+        : (cloudData.reason||"Supabase cloud database unavailable");
+    }
+    const set=(id,v)=>{const x=$(id);if(x)x.textContent=v;};
+    set("#dbg-cloud-size",Number.isFinite(cloudMb)?cloudMb.toFixed(1)+" MB":"—");
+    set("#dbg-cloud-share",Number.isFinite(cloudShare)?cloudShare.toFixed(1)+"%":"—");
+    set("#dbg-cloud-headroom",connected?headroomMb.toFixed(1)+" MB":"—");
+    set("#dbg-cloud-snapshots",connected?formatCount((Number(cloudData.market_snapshots_bytes)||0)/1024):"—");
+    set("#dbg-cloud-aggregates",connected?formatCount((Number(cloudData.market_aggregates_bytes)||0)/1024):"—");
+    set("#dbg-cloud-guard",data.storage_guard||"—");
   }catch(error){
     el.className="db-status db-fallback";
     textEl.textContent="DB · SQLite FALLBACK";
-    el.title="Supabase status unavailable. SQLite remains the authoritative fallback.";
+    el.title="Database status unavailable. SQLite remains the authoritative store.";
+    if(cloud){
+      cloud.className="cloud-db-status offline";
+      if(cloudHealth) cloudHealth.textContent="UNAVAILABLE";
+      if(cloudDetail) cloudDetail.textContent="Database health endpoint unavailable";
+    }
   }
 }
 
