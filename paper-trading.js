@@ -2,6 +2,7 @@
   const START_CAPITAL = 10000;
   let threshold = 3;
   let riskPct = 2;
+  let capitalLimitPct = 20;
   let positions = [];
   let journal = [];
   let lastSignals = [];
@@ -47,7 +48,9 @@
     if(riskAmount<=0 || unitRisk<=0) return false;
     let qty=riskAmount/unitRisk;
     const maxAffordable=availableCash()/Number(e.entry);
-    qty=Math.min(qty,maxAffordable);
+    const maxCapital=equity*(Number(capitalLimitPct)/100);
+    const maxByCapital=maxCapital/Number(e.entry);
+    qty=Math.min(qty,maxAffordable,maxByCapital);
     if(!Number.isFinite(qty)||qty<=0) return false;
     const actualRisk=qty*unitRisk;
     positions.push({
@@ -169,6 +172,8 @@
     if(sel)sel.addEventListener("change",()=>{threshold=Number(sel.value)||3;renderSignals();});
     const risk=$("#paper-risk");
     if(risk)risk.addEventListener("change",()=>{riskPct=Number(risk.value)||2;renderSignals();});
+    const capitalLimit=$("#paper-capital-limit");
+    if(capitalLimit)capitalLimit.addEventListener("change",()=>{capitalLimitPct=Number(capitalLimit.value)||20;renderAll();});
     const startStop=$("#paper-start-stop");
     if(startStop) startStop.addEventListener("click",()=>{paperRunning=!paperRunning;updatePaperControl();});
     document.querySelectorAll(".nav-btn[data-view]").forEach(btn=>btn.addEventListener("click",()=>{
@@ -183,6 +188,6 @@
     updatePaperControl();
     setInterval(()=>{if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){renderAll();}},5000);
   }
-  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,paperRunning}),isRunning:()=>paperRunning};
+  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,threshold,riskPct,capitalLimitPct,paperRunning}),isRunning:()=>paperRunning};
   init();
 })();
