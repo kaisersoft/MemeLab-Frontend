@@ -10,7 +10,7 @@
   let portfolioCycleBaselineEquity = START_CAPITAL;
 
   // Cost Model V2 — Jupiter quote-only execution simulation.
-  // V1 remains available as an explicit fallback when Jupiter cannot quote.
+  // V1 is used only when V2 is explicitly disabled.
   let costModelVersion = "V2";
   let costModelEnabled = true;
   let phantomFeePct = 0.85;
@@ -80,7 +80,12 @@
         outputDecimals:String(outputDecimals)
       }).toString();
       const response=await fetch(url,{cache:"no-store",headers:{Accept:"application/json"}});
-      if(!response.ok) return null;
+      if(!response.ok){
+        let detail="HTTP "+response.status;
+        try{ const body=await response.text(); if(body) detail+=" · "+body.slice(0,240); }catch(_err){}
+        console.warn("Jupiter V2 quote failed:",detail);
+        return null;
+      }
       const data=await response.json();
       const q=data?.quote;
       if(!q || q.executed===true || q.transaction_present===true) return null;
