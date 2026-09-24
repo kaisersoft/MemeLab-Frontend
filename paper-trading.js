@@ -183,6 +183,26 @@
     return (raw/10**Number(quote?.output_decimals||quote?.input_decimals||0))*Number(referenceUsdPerInputUnit||0);
   }
 
+  async function persistJupiterTest(stage, data){
+    try{
+      const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+      await fetch(apiBase+"/trading/events",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","Accept":"application/json"},
+        body:JSON.stringify({events:[{
+          event_id:crypto.randomUUID(),
+          observed_at:Date.now()/1000,
+          event_type:"JUPITER_EXECUTION_TEST",
+          mint:data.mint||null,
+          position_id:null,
+          payload:{stage,real_execution:true,provider:"jupiter",signature:data.signature||null,platform_fee_usd:Number(data.platformFeeUsd||0),network_fee_usd:Number(data.networkFeeUsd||0),total_cost_usd:Number(data.totalCostUsd||0),quoted_fee_bps:data.quotedFeeBps??null,fee_mint:data.feeMint||null,qty_raw:data.qtyRaw||null}
+        }]})
+      });
+    }catch(err){
+      console.warn("Jupiter execution test persistence failed:",err);
+    }
+  }
+
   function refreshJupiterTestButton(){
     const btn=$("#jupiter-exec-test");
     if(!btn) return;
@@ -205,6 +225,7 @@
       const network=Number(receipt.fee_usd)||0;
       const total=platform+network;
       jupiterTest={...jupiterTest,stage:"CLOSED",exitSignature:execution.execution.signature,exitPlatformFeeUsd:platform,exitNetworkFeeUsd:network,exitTotalCostUsd:total};
+      await persistJupiterTest("EXIT",{mint:token.mint,signature:execution.execution.signature,platformFeeUsd:platform,networkFeeUsd:network,totalCostUsd:total,quotedFeeBps:quote.quoted_fee_bps,feeMint:quote.fee_mint,qtyRaw:jupiterTest.qtyRaw});
       jupiterStatus("EXIT complete · real costs $"+total.toFixed(6)+" · tx "+execution.execution.signature.slice(0,10)+"…");
     }else{
       const solPrice=solUsdPrice();
@@ -219,6 +240,7 @@
       const network=Number(receipt.fee_usd)||0;
       const total=platform+network;
       jupiterTest={stage:"BOUGHT",mint:token.mint,decimals:Number(token.decimals),symbol:token.symbol||token.name||"TEST",qtyRaw:actualQtyRaw,entrySignature:execution.execution.signature,entryPlatformFeeUsd:platform,entryNetworkFeeUsd:network,entryTotalCostUsd:total};
+      await persistJupiterTest("ENTRY",{mint:token.mint,signature:execution.execution.signature,platformFeeUsd:platform,networkFeeUsd:network,totalCostUsd:total,quotedFeeBps:quote.quoted_fee_bps,feeMint:quote.fee_mint,qtyRaw:actualQtyRaw});
       jupiterStatus("BUY complete · real costs $"+total.toFixed(6)+" · "+(token.symbol||"token")+" received · tx "+execution.execution.signature.slice(0,10)+"…");
     }
     refreshJupiterTestButton();
