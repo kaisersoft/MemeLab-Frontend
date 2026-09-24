@@ -47,13 +47,15 @@
   const SL_R = 1;
 
   function estimatedEntryCost(p){
+    if(p?.costModel==="V2") return 0;
     const notional=Number(p?.entry||0)*Number(p?.qty||0);
     if(!costModelEnabled || !Number.isFinite(notional)) return 0;
     return notional*(phantomFeePct+slippagePct+priceImpactPct)/100 + networkFeeUsd + priorityFeeUsd;
   }
   function estimatedExitCost(p, exitPrice){
+    if(p?.costModel==="V2") return 0;
     const notional=Number(exitPrice||0)*Number(p?.qty||0);
-    if(!costModelEnabled || costModelVersion==="V2" || !Number.isFinite(notional)) return 0;
+    if(!costModelEnabled || !Number.isFinite(notional)) return 0;
     return notional*(phantomFeePct+slippagePct+priceImpactPct)/100 + networkFeeUsd + priorityFeeUsd;
   }
   function positionGrossPnl(p, exitPrice){
@@ -690,19 +692,20 @@
     body.innerHTML=positions.length?positions.map(p=>{
       const current=currentPrice(p)||p.entry;
       const grossPnl=positionGrossPnl(p,current);
-      const estimatedCosts=estimatedEntryCost(p)+estimatedExitCost(p,current);
-      const pnl=grossPnl-estimatedCosts;
+      const isV2=p.costModel==="V2";
+      const estimatedCosts=isV2?null:(estimatedEntryCost(p)+estimatedExitCost(p,current));
+      const pnl=isV2?grossPnl:(grossPnl-estimatedCosts);
       const direction=tradingPriceDirections.get(p.mint)||"flat";
       const arrow=direction==="up"?"↑":direction==="down"?"↓":"→";
       const arrowClass="price-direction "+direction;
-      return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td class="paper-current-price">'+price(current)+' <span class="'+arrowClass+'" title="Last 5s price change">'+arrow+'</span></td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(grossPnl>=0?"paper-positive":"paper-negative")+'">'+usd(grossPnl)+'</td><td class="paper-negative">'+usd(estimatedCosts)+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td><button type="button" class="paper-sell-now" data-position-id="'+(p.positionId||'')+'">SELL NOW</button></td></tr>';
+      return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td class="paper-current-price">'+price(current)+' <span class="'+arrowClass+'" title="Last 5s price change">'+arrow+'</span></td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(grossPnl>=0?"paper-positive":"paper-negative")+'">'+usd(grossPnl)+'</td><td class="paper-negative">'+(isV2?(v2FeeLabel(p)||"JUP QUOTE"):"V1 "+usd(estimatedCosts))+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+(isV2?"JUP MARK":usd(pnl))+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td><button type="button" class="paper-sell-now" data-position-id="'+(p.positionId||'')+'">SELL NOW</button></td></tr>';
     }).join(""):'<tr><td colspan="10" class="paper-empty">No open paper positions.</td></tr>';
     body.querySelectorAll(".paper-sell-now").forEach(btn=>btn.addEventListener("click",()=>{const p=positions.find(x=>(x.positionId||"")===btn.dataset.positionId);if(p){manualSell(p).then(()=>renderAll());}}));
   }
 
   function renderJournal(){
     const body=$("#paper-journal-body"), pnlBody=$("#pnl-history-body");
-    const html=journal.length?journal.slice().reverse().map(p=>'<tr><td>'+p.id+'</td><td><strong>'+p.symbol+'</strong></td><td>'+p.entryPriceText+'</td><td>'+p.exitPriceText+'</td><td>'+p.reason+'</td><td>'+usd(p.size)+'</td><td class="'+(p.grossPnl>=0?"paper-positive":"paper-negative")+'">'+usd(p.grossPnl??p.pnl)+'</td><td class="paper-negative">-'+usd(p.costTotal||0)+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+usd(p.netPnl??p.pnl)+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+pct(p.netPnlPct??p.pnlPct)+'</td><td>'+Math.round(p.durationMs/60000)+'m</td></tr>').join(""):'<tr><td colspan="11" class="paper-empty">No closed paper trades yet.</td></tr>';
+    const html=journal.length?journal.slice().reverse().map(p=>'<tr><td>'+p.id+'</td><td><strong>'+p.symbol+'</strong></td><td>'+p.entryPriceText+'</td><td>'+p.exitPriceText+'</td><td>'+p.reason+'</td><td>'+usd(p.size)+'</td><td class="'+(p.grossPnl>=0?"paper-positive":"paper-negative")+'">'+usd(p.grossPnl??p.pnl)+'</td><td class="paper-negative">'+(p.costModel==="V2"?(v2FeeLabel(p)||"JUP QUOTE"):"V1 -"+usd(p.costTotal||0))+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+usd(p.netPnl??p.pnl)+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+pct(p.netPnlPct??p.pnlPct)+'</td><td>'+Math.round(p.durationMs/60000)+'m</td></tr>').join(""):'<tr><td colspan="11" class="paper-empty">No closed paper trades yet.</td></tr>';
     if(body){body.innerHTML=html;$("#paper-journal-count").textContent=String(journal.length);} const totalNetPnl=journal.reduce((s,p)=>s+Number(p.netPnl??p.pnl??0),0); const totalNetPct=START_CAPITAL>0?(totalNetPnl/START_CAPITAL)*100:0; const totalPnlEl=$("#pnl-journal-total-pnl"); const totalPctEl=$("#pnl-journal-total-pct"); if(totalPnlEl){totalPnlEl.textContent=usd(totalNetPnl); totalPnlEl.classList.toggle("paper-positive",totalNetPnl>=0); totalPnlEl.classList.toggle("paper-negative",totalNetPnl<0);} if(totalPctEl){totalPctEl.textContent=pct(totalNetPct); totalPctEl.classList.toggle("paper-positive",totalNetPct>=0); totalPctEl.classList.toggle("paper-negative",totalNetPct<0);}
     if(pnlBody)pnlBody.innerHTML=journal.length?journal.slice().reverse().map(p=>'<tr><td>'+p.id+'</td><td><strong>'+p.symbol+'</strong></td><td>BUY</td><td>'+p.entryPriceText+'</td><td>'+p.exitPriceText+'</td><td>'+p.reason+'</td><td class="'+((p.grossPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+usd(p.grossPnl??p.pnl)+'</td><td class="paper-negative">-'+usd(p.costTotal||0)+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+usd(p.netPnl??p.pnl)+'</td><td>'+pct(p.netPnlPct??p.pnlPct)+'</td></tr>').join(""):'<tr><td colspan="10" class="paper-empty">No closed trades recorded.</td></tr>';
   }
