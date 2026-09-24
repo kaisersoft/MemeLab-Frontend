@@ -54,12 +54,13 @@
     const clientOutputUsd=Number(quote?.client_output_usd);
     const quotedSwapUsd=Number(quote?.swap_usd_value);
     const clientSwapUsd=Number(quote?.client_swap_usd_value);
+    const persistedEntryCapital=Number(quote?.client_entry_capital_usd);
     const platformRaw=Number(quote?.platform_fee_amount_raw);
     const platformBps=Number(quote?.platform_fee_bps);
     const feeBps=Number(quote?.quoted_fee_bps);
     let swapUsdValue=null, swapUsdSource=null;
     for(const [value,source] of [
-      [quotedSwapUsd,"jupiter.swapUsdValue"],[clientSwapUsd,"client.quoteNotional"],
+      [quotedSwapUsd,"jupiter.swapUsdValue"],[clientSwapUsd,"client.quoteNotional"],[persistedEntryCapital,"position.entryCapital"],
       [clientInputUsd,"client.inputUsd"],[inputUsd,"jupiter.inUsdValue"],
       [clientOutputUsd,"client.outputUsd"],[outputUsd,"jupiter.outUsdValue"]
     ]){ if(Number.isFinite(value)&&value>0){swapUsdValue=value;swapUsdSource=source;break;} }
@@ -148,6 +149,7 @@
     if(!quote || !Number.isFinite(Number(quote.output_amount)) || Number(quote.output_amount)<=0) return null;
     quote.client_input_usd=Number(capitalUsd);
     quote.client_swap_usd_value=Number(capitalUsd);
+    quote.client_entry_capital_usd=Number(capitalUsd);
     const qty=Number(quote.output_amount);
     if(!Number.isFinite(qty)||qty<=0) return null;
     return {quote,qty,capitalUsd,effectiveEntry:capitalUsd/qty,solAmount,cost:jupiterQuoteCosts(quote)};
@@ -190,7 +192,7 @@
         +' · priceImpact='+(q.price_impact??"—")+' · slippageBps='+(q.slippage_bps??"—")+' · gasless='+(q.gasless??"—")
         +' · baseSource='+(cost.swapUsdSource||"—")+' · platformRaw='+n(cost.rawPlatformFeeAmount)
         +' · platformUSD='+m(cost.platformUsd)+' · inUSD='+m(q.input_usd)+' · outUSD='+m(q.output_usd)
-        +' · clientInUSD='+m(q.client_input_usd)+' · clientNotional='+m(q.client_swap_usd_value)
+        +' · clientInUSD='+m(q.client_input_usd)+' · clientNotional='+m(q.client_swap_usd_value||q.client_entry_capital_usd)
         +' · sigLamports='+n(q.signature_fee_lamports)+' · priorityLamports='+n(q.prioritization_fee_lamports)
         +' · rentLamports='+n(q.rent_fee_lamports)+' · total='+m(cost.total)+'</div>';
     };
