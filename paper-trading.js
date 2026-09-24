@@ -185,6 +185,9 @@
       return '<div class="paper-v2-debug"><strong>'+label+'</strong>'
         +' · feeBps='+n(q.quoted_fee_bps)+' · platformBps='+n(q.platform_fee_bps)
         +' · feeMint='+(q.fee_mint||"—")+' · quoteBase='+m(cost.swapUsdValue)
+        +' · router='+(q.router||"—")+' · requestId='+(q.request_id||"—")
+        +' · inRaw='+n(q.input_amount_raw)+' · outRaw='+n(q.output_amount_raw)
+        +' · priceImpact='+(q.price_impact??"—")+' · slippageBps='+(q.slippage_bps??"—")+' · gasless='+(q.gasless??"—")
         +' · baseSource='+(cost.swapUsdSource||"—")+' · platformRaw='+n(cost.rawPlatformFeeAmount)
         +' · platformUSD='+m(cost.platformUsd)+' · inUSD='+m(q.input_usd)+' · outUSD='+m(q.output_usd)
         +' · clientInUSD='+m(q.client_input_usd)+' · clientNotional='+m(q.client_swap_usd_value)
@@ -747,7 +750,7 @@
       const grossPnl=positionGrossPnl(p,current);
       const isV2=p.costModel==="V2";
       const estimatedCosts=isV2?null:(estimatedEntryCost(p)+estimatedExitCost(p,current));
-      const pnl=isV2?(grossPnl-Number(p.v2EntryCost?.total||0)):(grossPnl-estimatedCosts);
+      const pnl=isV2?(grossPnl-Number(p.v2EntryCost?.networkUsd||0)):(grossPnl-estimatedCosts);
       const direction=tradingPriceDirections.get(p.mint)||"flat";
       const arrow=direction==="up"?"↑":direction==="down"?"↓":"→";
       const arrowClass="price-direction "+direction;
