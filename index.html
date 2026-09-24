@@ -217,8 +217,9 @@
             <div class="paper-control"><span>Max. risk / position</span><select id="paper-risk"><option value="0.5">0.5%</option><option value="1">1.0%</option><option value="1.5">1.5%</option><option value="2" selected>2.0%</option><option value="3">3.0%</option></select></div><div class="paper-control"><span>Max. capital / position</span><select id="paper-capital-limit"><option value="10">10%</option><option value="20" selected>20%</option><option value="25">25%</option><option value="33">33%</option><option value="50">50%</option></select></div><div class="paper-control"><span>Max. portfolio allocation</span><select id="paper-portfolio-limit"><option value="25">25%</option><option value="33">33%</option><option value="50" selected>50%</option><option value="66">66%</option><option value="75">75%</option><option value="100">100%</option></select></div><div class="paper-control"><span>Min. position size</span><select id="paper-min-position"><option value="100">$100</option><option value="250" selected>$250</option><option value="500">$500</option><option value="1000">$1,000</option></select></div><div class="paper-control"><span>Profit timeout</span><select id="paper-profit-timeout"><option value="0">OFF</option><option value="30">30 min</option><option value="60">60 min</option><option value="90">90 min</option><option value="120" selected>2 h</option><option value="240">4 h</option><option value="480">8 h</option><option value="720">12 h</option><option value="1440">24 h</option></select></div><div class="paper-control"><span>Portfolio Take All</span><select id="paper-take-all"><option value="2">+2%</option><option value="3">+3%</option><option value="5" selected>+5%</option><option value="7.5">+7.5%</option><option value="10">+10%</option></select></div>
             <div class="paper-control"><span>Positions / token</span><b>1 max</b></div>
             <div class="paper-control"><span>Risk model</span><b>TP 2R · SL 1R</b></div>
-             <div class="paper-control paper-config-note"><span>Risk limits</span><b>Configured · editable later</b></div><div class="paper-control paper-config-note"><span>Cost Model</span><b>ESTIMATE · Phantom 0.85%/side + execution assumptions</b></div>
+             <div class="paper-control paper-config-note"><span>Risk limits</span><b>Configured · editable later</b></div><div class="paper-control paper-config-note"><span>Cost Model</span><b>JUPITER V2 · REAL EXECUTION TEST</b></div><div class="paper-control"><span>Wallet</span><button id="jupiter-wallet" class="paper-start-stop" type="button">CONNECT PHANTOM</button></div><div class="paper-control"><span>Jupiter test</span><button id="jupiter-exec-test" class="paper-start-stop" type="button">TEST $1 TRADE</button></div>
           </div>
+          <div class="paper-status" id="jupiter-exec-status">JUPITER EXECUTION TEST · wallet not connected · no real order can run</div>
           <div class="paper-status" id="paper-status">PAPER ENGINE READY · execution will follow Engine signals once threshold rules are enabled.</div>
         </div>
 
@@ -389,6 +390,7 @@
   <script src="./app.js?v=20260924-205"></script>
   <script src="./jupiter-live.js?v=20260923-199"></script>
   <script src="./watchlist.js?v=20260923-191"></script>
-  <script src="./paper-trading.js?v=20260923-198"></script>
+  <script src="https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
+  <script src="./paper-trading.js?v=20260924-210"></script>
 </body>
 </html>
