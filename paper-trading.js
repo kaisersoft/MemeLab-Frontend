@@ -881,6 +881,8 @@
     if(timeout)timeout.addEventListener("change",()=>{profitTimeoutMinutes=Number(timeout.value)||0;renderAll();});
     const takeAll=$("#paper-take-all");
     if(takeAll)takeAll.addEventListener("change",()=>{portfolioTakeAllPct=Number(takeAll.value)||0;renderAll();});
+    const resetBtn=$("#paper-reset");
+    if(resetBtn) resetBtn.addEventListener("click",resetPaperTrading);
     const startStop=$("#paper-start-stop");
     if(startStop) startStop.addEventListener("click",()=>{
       if(paperRunning){
