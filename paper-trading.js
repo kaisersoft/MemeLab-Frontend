@@ -554,6 +554,7 @@
     if(!confirm("ACHTUNG: Journal, Positionen, Kapital und die Supabase-Testdaten werden vollständig gelöscht. Nur Token-/Markt-/Discovery-Daten bleiben erhalten. Fortfahren?")) return;
     const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
     try{
+      tradingResetInFlight=true;
       paperRunning=false;
       paperResetGeneration++;
       updatePaperControl();
@@ -568,6 +569,8 @@
       alert("Paper Trading wurde zurückgesetzt. Neues Startkapital: "+usd(capital));
     }catch(err){
       alert("Reset fehlgeschlagen: "+(err?.message||err));
+    }finally{
+      tradingResetInFlight=false;
     }
   }
 
@@ -599,7 +602,7 @@
   }
 
   async function postTradingEvents(events){
-    if(!events.length) return true;
+    if(!events.length || tradingResetInFlight) return false;
     saveLocalPaperSnapshot();
     const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
     try{
@@ -638,10 +641,10 @@
         sessionElapsedMs:Number(sessionElapsedMs)||0
       }
     }];
-    if(!paperRunning){
-      postTradingEvents(events);
-      return;
-    }
+    // A stopped engine must not recreate paper-trading rows immediately after
+    // a RESET. Local storage remains the stopped-state persistence mechanism;
+    // Supabase is kept clean until paper trading is started again.
+    if(!paperRunning || tradingResetInFlight) return;
     for(const x of lastSignals){
       const t=x.t||{}, e=x.e||{}, s=e.s||{};
       events.push({
