@@ -272,6 +272,7 @@
         entry:Number(entry),stop:Number(stop),take:Number(take),qty:Number(finalQty),
         capital:Number(finalCapital),risk:Number(actualRisk),opened_at_ms:position.openedAt,
         reason:manual?"MANUAL_BUY":"SIGNAL",
+        token_decimals:Number(t.decimals),
         cost_model:position.costModel,
         v2_execution:position.v2EntryQuote ? {
           provider:"jupiter",mode:"quote_only",executed:false,
@@ -592,6 +593,7 @@
         if(Number.isFinite(Number(state.profitTimeoutMinutes))) profitTimeoutMinutes=Number(state.profitTimeoutMinutes);
         if(Number.isFinite(Number(state.portfolioTakeAllPct))) portfolioTakeAllPct=Number(state.portfolioTakeAllPct);
         if(Number.isFinite(Number(state.portfolioCycleBaselineEquity))) portfolioCycleBaselineEquity=Number(state.portfolioCycleBaselineEquity);
+        if(typeof state.costModelVersion==="string") costModelVersion=state.costModelVersion;
         if(typeof state.costModelEnabled==="boolean") costModelEnabled=state.costModelEnabled;
         if(Number.isFinite(Number(state.phantomFeePct))) phantomFeePct=Number(state.phantomFeePct);
         if(Number.isFinite(Number(state.slippagePct))) slippagePct=Number(state.slippagePct);
@@ -603,7 +605,7 @@
         sessionElapsedMs=Number.isFinite(Number(state.sessionElapsedMs)) ? Number(state.sessionElapsedMs) : 0;
         if(paperRunning && !sessionStartedAt) sessionStartedAt=now();
       }
-      positions=restoredPositions.map(p=>({...p,t:{mint:p.mint,symbol:p.symbol,name:p.name,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
+      positions=restoredPositions.map(p=>({...p,t:{mint:p.mint,symbol:p.symbol,name:p.name,decimals:p.tokenDecimals,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
       const thresholdEl=$("#paper-threshold"), riskEl=$("#paper-risk"), capitalEl=$("#paper-capital-limit"), portfolioEl=$("#paper-portfolio-limit"), timeoutEl=$("#paper-profit-timeout"), takeAllEl=$("#paper-take-all");
       if(thresholdEl) thresholdEl.value=String(threshold);
       if(riskEl) riskEl.value=String(riskPct);
