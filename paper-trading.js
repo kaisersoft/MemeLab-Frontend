@@ -48,7 +48,7 @@
 
   function estimatedEntryCost(p){
     const notional=Number(p?.entry||0)*Number(p?.qty||0);
-    if(!costModelEnabled || costModelVersion==="V2" || !Number.isFinite(notional)) return 0;
+    if(!costModelEnabled || !Number.isFinite(notional)) return 0;
     return notional*(phantomFeePct+slippagePct+priceImpactPct)/100 + networkFeeUsd + priorityFeeUsd;
   }
   function estimatedExitCost(p, exitPrice){
@@ -248,10 +248,9 @@
     let entry=Number(e.entry), finalQty=qty, v2=null;
     if(costModelVersion==="V2" && costModelEnabled){
       v2=await quoteEntryV2(finalCapital,t);
-      if(v2){
-        finalQty=v2.qty;
-        entry=v2.effectiveEntry;
-      }
+      if(!v2) return false;
+      finalQty=v2.qty;
+      entry=v2.effectiveEntry;
     }
 
     const stopRatio=Number(e.stop)/Number(e.entry);
@@ -315,16 +314,15 @@
     let netPnl=grossPnl-costTotal;
     let v2Exit=null;
 
-    if(p.costModel==="V2" && costModelVersion==="V2" && costModelEnabled){
+    if(p.costModel==="V2"){
       v2Exit=await quoteExitV2(p);
-      if(v2Exit){
-        const entryCapital=Number(p.entryCapital||p.size||p.entry*p.qty);
-        grossPnl=Number(v2Exit.exitUsd)-entryCapital;
-        entryCost=0;
-        exitCost=0;
-        costTotal=0;
-        netPnl=grossPnl;
-      }
+      if(!v2Exit) return;
+      const entryCapital=Number(p.entryCapital||p.size||p.entry*p.qty);
+      grossPnl=Number(v2Exit.exitUsd)-entryCapital;
+      entryCost=0;
+      exitCost=0;
+      costTotal=0;
+      netPnl=grossPnl;
     }
 
     const size=Number(p.entryCapital||p.size||p.entry*p.qty);
@@ -452,7 +450,7 @@
       const data=JSON.parse(raw);
       if(!data || !Array.isArray(data.positions) || !Array.isArray(data.journal)) return false;
       const state=data.state||{};
-      positions=data.positions.map(p=>({...p,t:p.t||{mint:p.mint,symbol:p.symbol,name:p.name,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
+      positions=data.positions.map(p=>({...p,costModel:p.costModel==="V2"&&p.v2EntryQuote?"V2":"V1",t:p.t||{mint:p.mint,symbol:p.symbol,name:p.name,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
       journal=data.journal;
       if(Number.isFinite(Number(state.threshold))) threshold=Number(state.threshold);
       if(Number.isFinite(Number(state.riskPct))) riskPct=Number(state.riskPct);
@@ -614,7 +612,7 @@
         sessionElapsedMs=Number.isFinite(Number(state.sessionElapsedMs)) ? Number(state.sessionElapsedMs) : 0;
         if(paperRunning && !sessionStartedAt) sessionStartedAt=now();
       }
-      positions=restoredPositions.map(p=>({...p,t:{mint:p.mint,symbol:p.symbol,name:p.name,decimals:p.tokenDecimals,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
+      positions=restoredPositions.map(p=>({...p,costModel:p.costModel==="V2"&&p.v2EntryQuote?"V2":"V1",t:{mint:p.mint,symbol:p.symbol,name:p.name,decimals:p.tokenDecimals,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
       const thresholdEl=$("#paper-threshold"), riskEl=$("#paper-risk"), capitalEl=$("#paper-capital-limit"), portfolioEl=$("#paper-portfolio-limit"), timeoutEl=$("#paper-profit-timeout"), takeAllEl=$("#paper-take-all");
       if(thresholdEl) thresholdEl.value=String(threshold);
       if(riskEl) riskEl.value=String(riskPct);
