@@ -9,6 +9,8 @@
   let profitTimeoutMinutes = 120;
   let portfolioTakeAllPct = 5;
   let portfolioCycleBaselineEquity = startingCapital;
+  let stopLossCooldownMinutes = 15;
+  const stopLossGuards = new Map();
 
   // Cost Model V2 — Jupiter quote-only execution simulation.
   // V1 is used only when V2 is explicitly disabled.
@@ -41,6 +43,19 @@
   };
   const now=()=>Date.now();
   const MAX_POSITIONS_PER_TOKEN = 1;
+
+  function stopLossGuardBlocksEntry(mint, signal){
+    const guard=stopLossGuards.get(mint);
+    if(!guard) return false;
+    if(signal!=="BUY") guard.rearmed=true;
+    const cooldownUntil=Number(guard.cooldownUntil)||0;
+    const rearmed=Boolean(guard.rearmed);
+    if(now()>=cooldownUntil && rearmed){
+      stopLossGuards.delete(mint);
+      return false;
+    }
+    return true;
+  }
   const TP_R = 2;
   const SL_R = 1;
 
@@ -296,6 +311,7 @@
     if((!manual && e.signal!=="BUY") || (!manual && Number(e.strength)<Number(threshold))) return false;
     if(e.entry==null || e.stop==null || e.take==null || Number(e.entry)<=0 || Number(e.stop)>=Number(e.entry)) return false;
     if(positions.some(p=>p.mint===t.mint)) return false;
+    if(stopLossGuardBlocksEntry(t.mint, e.signal==="BUY"?"BUY":e.signal||null)) return false;
 
     const equity=startingCapital+realizedPnl()+positions.reduce((s,p)=>s+(currentPrice(p)-p.entry)*p.qty,0);
     const riskAmount=Math.max(0,equity*(Number(riskPct)/100));
@@ -439,6 +455,15 @@
     if(!persisted) return false;
     journal.push(journalEntry);
     positions=positions.filter(x=>x!==p);
+    if(reason==="STOP LOSS"){
+      const stoppedAt=now();
+      const cooldownMs=Math.max(5,Math.min(1440,Number(stopLossCooldownMinutes)||15))*60*1000;
+      stopLossGuards.set(p.mint,{
+        stoppedAt,
+        cooldownUntil:stoppedAt+cooldownMs,
+        rearmed:false
+      });
+    }
     saveLocalPaperSnapshot();
     return true;
   }
@@ -536,7 +561,8 @@
       state: {
         startingCapital, threshold, riskPct, capitalLimitPct, portfolioLimitPct,
         minPositionCapital, profitTimeoutMinutes, portfolioTakeAllPct, portfolioCycleBaselineEquity,
-
+        stopLossCooldownMinutes,
+        stopLossGuards:[...stopLossGuards.entries()],
       }
     };
   }
@@ -563,6 +589,7 @@
       if(!response.ok || result.status!=="ok") throw new Error(result.error||("HTTP "+response.status));
       localStorage.removeItem(PAPER_STORAGE_KEY);
       positions=[]; journal=[]; startingCapital=capital; portfolioCycleBaselineEquity=capital;
+      stopLossGuards.clear();
       lastSignals=[]; sessionStartedAt=null; sessionElapsedMs=0; paperRunning=false;
       liveTradingPrices.clear(); previousTradingPrices.clear(); tradingPriceDirections.clear();
       renderSignals(); renderPositions(); renderJournal(); renderPnl(); updatePaperControl(); renderSession();
@@ -592,6 +619,20 @@
       if(Number.isFinite(Number(state.profitTimeoutMinutes))) profitTimeoutMinutes=Number(state.profitTimeoutMinutes);
       if(Number.isFinite(Number(state.portfolioTakeAllPct))) portfolioTakeAllPct=Number(state.portfolioTakeAllPct);
       if(Number.isFinite(Number(state.portfolioCycleBaselineEquity))) portfolioCycleBaselineEquity=Number(state.portfolioCycleBaselineEquity);
+      if(Number.isFinite(Number(state.stopLossCooldownMinutes))) stopLossCooldownMinutes=Math.max(5,Math.min(1440,Number(state.stopLossCooldownMinutes)));
+      stopLossGuards.clear();
+      if(Array.isArray(state.stopLossGuards)){
+        for(const item of state.stopLossGuards){
+          if(!Array.isArray(item)||item.length!==2) continue;
+          const mint=item[0], guard=item[1]||{};
+          if(typeof mint!=="string"||!mint) continue;
+          stopLossGuards.set(mint,{
+            stoppedAt:Number(guard.stoppedAt)||0,
+            cooldownUntil:Number(guard.cooldownUntil)||0,
+            rearmed:Boolean(guard.rearmed)
+          });
+        }
+      }
       if(typeof state.costModelVersion==="string") costModelVersion=state.costModelVersion;
       if(typeof state.costModelEnabled==="boolean") costModelEnabled=state.costModelEnabled;
       paperRunning=Boolean(state.paperRunning);
@@ -924,6 +965,8 @@
     if(timeout)timeout.addEventListener("change",()=>{profitTimeoutMinutes=Number(timeout.value)||0;renderAll();});
     const takeAll=$("#paper-take-all");
     if(takeAll)takeAll.addEventListener("change",()=>{portfolioTakeAllPct=Number(takeAll.value)||0;renderAll();});
+    const slCooldown=$("#paper-sl-cooldown");
+    if(slCooldown)slCooldown.addEventListener("change",()=>{stopLossCooldownMinutes=Math.max(5,Math.min(1440,Number(slCooldown.value)||15));saveLocalPaperSnapshot();});
     const resetBtn=$("#paper-reset");
     if(resetBtn) resetBtn.addEventListener("click",resetPaperTrading);
     const startStop=$("#paper-start-stop");
@@ -952,6 +995,8 @@
     const restored=await restoreTradingState();
     if(!restored) restoreLocalPaperSnapshot();
     await refreshTradingPrices();
+    const slCooldown=$("#paper-sl-cooldown");
+    if(slCooldown)slCooldown.value=String(Math.max(5,Math.min(1440,Number(stopLossCooldownMinutes)||15)));
     await renderAll();
     updatePaperControl();
     renderSession();
