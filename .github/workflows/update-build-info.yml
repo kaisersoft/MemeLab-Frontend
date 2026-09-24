@@ -1,6 +1,11 @@
 name: Update MemeLab build info
 
 on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - build-info.js
   workflow_dispatch:
 
 permissions:
@@ -21,7 +26,8 @@ jobs:
           cat > build-info.js <<EOF
           window.MEMELAB_BUILD = {
             version: "V0.01",
-            build: "\${GITHUB_RUN_NUMBER}",
+            build: "${GITHUB_RUN_NUMBER}",
+            commit: "${GITHUB_SHA:0:8}",
             builtAt: "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           };
           EOF
