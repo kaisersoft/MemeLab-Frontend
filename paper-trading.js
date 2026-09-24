@@ -355,6 +355,9 @@
           quoted_fee_bps:v2.quote.quoted_fee_bps,fee_mint:v2.quote.fee_mint,
           platform_fee_amount:v2.quote.platform_fee_amount,
           platform_fee_bps:v2.quote.platform_fee_bps,
+          client_input_usd:v2.quote.client_input_usd,
+          client_swap_usd_value:v2.quote.client_swap_usd_value,
+          client_entry_capital_usd:v2.quote.client_entry_capital_usd,
           signature_fee_lamports:v2.quote.signature_fee_lamports,
           prioritization_fee_lamports:v2.quote.prioritization_fee_lamports,
           rent_fee_lamports:v2.quote.rent_fee_lamports,
@@ -753,10 +756,13 @@
       const isV2=p.costModel==="V2";
       const estimatedCosts=isV2?null:(estimatedEntryCost(p)+estimatedExitCost(p,current));
       const pnl=isV2?(grossPnl-Number(p.v2EntryCost?.networkUsd||0)):(grossPnl-estimatedCosts);
+      const displayEntryQuote=isV2&&p.v2EntryQuote ? {...p.v2EntryQuote,client_entry_capital_usd:Number(p.v2EntryQuote.client_entry_capital_usd||p.entryCapital||p.size||0)} : null;
+      const displayEntryCost=isV2 ? jupiterQuoteCosts(displayEntryQuote||{}) : null;
+      const displayPosition=isV2 ? {...p,v2EntryQuote:displayEntryQuote,v2EntryCost:displayEntryCost} : p;
       const direction=tradingPriceDirections.get(p.mint)||"flat";
       const arrow=direction==="up"?"↑":direction==="down"?"↓":"→";
       const arrowClass="price-direction "+direction;
-      return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td class="paper-current-price">'+price(current)+' <span class="'+arrowClass+'" title="Last 5s price change">'+arrow+'</span></td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(grossPnl>=0?"paper-positive":"paper-negative")+'">'+usd(grossPnl)+'</td><td class="paper-negative">'+(isV2?(v2FeeLabel(p)||"JUP QUOTE"):"V1 "+usd(estimatedCosts))+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td><button type="button" class="paper-sell-now" data-position-id="'+(p.positionId||'')+'">SELL NOW</button></td></tr>';
+      return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td class="paper-current-price">'+price(current)+' <span class="'+arrowClass+'" title="Last 5s price change">'+arrow+'</span></td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(grossPnl>=0?"paper-positive":"paper-negative")+'">'+usd(grossPnl)+'</td><td class="paper-negative">'+(isV2?(v2FeeLabel(displayPosition)||"JUP QUOTE"):"V1 "+usd(estimatedCosts))+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td><button type="button" class="paper-sell-now" data-position-id="'+(p.positionId||'')+'">SELL NOW</button></td></tr>';
     }).join(""):'<tr><td colspan="10" class="paper-empty">No open paper positions.</td></tr>';
     body.querySelectorAll(".paper-sell-now").forEach(btn=>btn.addEventListener("click",()=>{const p=positions.find(x=>(x.positionId||"")===btn.dataset.positionId);if(p){manualSell(p).then(()=>renderAll());}}));
   }
