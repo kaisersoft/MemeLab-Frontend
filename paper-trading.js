@@ -677,6 +677,8 @@
         portfolioTakeAllPct:Number(portfolioTakeAllPct),
         portfolioCycleBaselineEquity:Number(portfolioCycleBaselineEquity),
         startingCapital:Number(startingCapital),
+        stopLossCooldownMinutes:Number(stopLossCooldownMinutes),
+        stopLossGuards:[...stopLossGuards.entries()],
 
         sessionStartedAt:Number(sessionStartedAt)||null,
         sessionElapsedMs:Number(sessionElapsedMs)||0
@@ -771,6 +773,20 @@
         if(Number.isFinite(Number(state.profitTimeoutMinutes))) profitTimeoutMinutes=Number(state.profitTimeoutMinutes);
         if(Number.isFinite(Number(state.portfolioTakeAllPct))) portfolioTakeAllPct=Number(state.portfolioTakeAllPct);
         if(Number.isFinite(Number(state.portfolioCycleBaselineEquity))) portfolioCycleBaselineEquity=Number(state.portfolioCycleBaselineEquity);
+        if(Number.isFinite(Number(state.stopLossCooldownMinutes))) stopLossCooldownMinutes=Math.max(5,Math.min(1440,Number(state.stopLossCooldownMinutes)));
+        stopLossGuards.clear();
+        if(Array.isArray(state.stopLossGuards)){
+          for(const item of state.stopLossGuards){
+            if(!Array.isArray(item)||item.length!==2) continue;
+            const mint=item[0], guard=item[1]||{};
+            if(typeof mint!=="string"||!mint) continue;
+            stopLossGuards.set(mint,{
+              stoppedAt:Number(guard.stoppedAt)||0,
+              cooldownUntil:Number(guard.cooldownUntil)||0,
+              rearmed:Boolean(guard.rearmed)
+            });
+          }
+        }
         if(typeof state.costModelVersion==="string") costModelVersion=state.costModelVersion;
         if(typeof state.costModelEnabled==="boolean") costModelEnabled=state.costModelEnabled;
         paperRunning=Boolean(state.paperRunning);
