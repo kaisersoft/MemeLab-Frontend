@@ -101,7 +101,7 @@
     const solAmount=Number(capitalUsd)/solPrice;
     const solRaw=Math.floor(solAmount*10**SOL_DECIMALS);
     const quote=await jupiterOrderQuote(SOL_MINT,token.mint,solRaw,SOL_DECIMALS,decimals);
-    if(!quote || !Number(quote.output_amount)>0) return null;
+    if(!quote || !Number.isFinite(Number(quote.output_amount)) || Number(quote.output_amount)<=0) return null;
     const qty=Number(quote.output_amount);
     if(!Number.isFinite(qty)||qty<=0) return null;
     return {quote,qty,capitalUsd,effectiveEntry:capitalUsd/qty,solAmount};
@@ -360,7 +360,7 @@
     }
   }
 
-  function takeAllPortfolio(){
+  async function takeAllPortfolio(){
     if(!positions.length) return false;
     const target=Number(portfolioTakeAllPct);
     if(!Number.isFinite(target)||target<=0) return false;
@@ -368,7 +368,7 @@
     const open=[...positions];
     for(const p of open){
       const current=currentPrice(p);
-      if(current!=null) closePaperPosition(p,current,"PORTFOLIO TAKE ALL");
+      if(current!=null) await closePaperPosition(p,current,"PORTFOLIO TAKE ALL");
     }
     const cyclePnl=portfolioCyclePnl();
     const cyclePnlPct=portfolioCyclePnlPct();
@@ -388,7 +388,7 @@
     await manageOpenPositions();
     if(hadPositions && positions.length===0) portfolioCycleBaselineEquity=currentEquity();
     if(!paperRunning) return;
-    if(takeAllPortfolio()) return;
+    if(await takeAllPortfolio()) return;
     const rows=signalRows();
     for(const x of rows) await openPaperPosition(x);
   }
