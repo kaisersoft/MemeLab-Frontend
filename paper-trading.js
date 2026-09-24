@@ -948,6 +948,7 @@
       if(view==="paper"||view==="pnl")renderAll();
     }));
     window.addEventListener("memelab:jupiter-data",renderAll);
+    window.addEventListener("memelab:engine-universe-changed",renderSignals);
     const restored=await restoreTradingState();
     if(!restored) restoreLocalPaperSnapshot();
     await refreshTradingPrices();
