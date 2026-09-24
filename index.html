@@ -174,9 +174,9 @@
             <div class="engine-status"><i id="engine-status-dot"></i><b id="engine-status">READY</b></div>
           </div>
           <div class="engine-controls">
-            <div class="engine-control"><span>Universe</span><b>Top 10 Mature</b></div>
+            <div class="engine-control"><span>Universe</span><select id="engine-watchlist-size" aria-label="Trading Engine watchlist size"><option value="10">Top 10 Mature</option><option value="25" selected>Top 25 Mature</option><option value="50">Top 50 Mature</option></select></div>
             <div class="engine-control"><span>Scan</span><select id="engine-interval"><option value="1000">1s</option><option value="5000" selected>5s</option><option value="10000">10s</option><option value="30000">30s</option><option value="60000">60s</option></select></div>
-            <div class="engine-control"><span>Cycle</span><b id="engine-cycle">0 / 10</b></div>
+            <div class="engine-control"><span>Cycle</span><b id="engine-cycle">0 / 25</b></div>
             <div class="engine-control"><span>Last scan</span><b id="engine-last-scan">—</b></div>
           </div>
         </div>
@@ -192,13 +192,13 @@
           </section>
           <section class="panel engine-process">
             <div class="panel-head"><div><h2>Engine Pipeline</h2><span>Prototype execution flow</span></div></div>
-            <div class="engine-pipeline"><span>Top 10</span><i>→</i><span>Indicators</span><i>→</i><span>Signal</span><i>→</i><span>Paper Position</span></div>
+            <div class="engine-pipeline"><span>Engine Universe</span><i>→</i><span>Indicators</span><i>→</i><span>Signal</span><i>→</i><span>Paper Position</span></div>
             <p>Signals are derived from currently available quantitative data. No wallet or broker execution is connected.</p>
           </section>
         </div>
 
         <section class="panel engine-shortlist">
-          <div class="panel-head"><div><h2>Trading Engine Shortlist</h2><span>Top 10 by current Core Score · sequential evaluation</span></div><span class="asset-tag" id="engine-candidate-count">0</span></div>
+          <div class="panel-head"><div><h2>Trading Engine Shortlist</h2><span>Selected universe by current Core Score · sequential evaluation</span></div><span class="asset-tag" id="engine-candidate-count">0</span></div>
           <div class="engine-table-wrap"><table class="engine-table"><thead><tr>
             <th>#</th><th>Token</th><th>Core</th><th>Price</th><th>Flow</th><th>Volume</th><th>Traders</th><th>Momentum</th><th>Volatility</th><th>Activity</th><th>Signal</th><th>Strength</th>
           </tr></thead><tbody id="engine-table-body"></tbody></table></div>
