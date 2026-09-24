@@ -787,12 +787,14 @@
   function renderSignals(){
     const body=$("#paper-signal-body"); if(!body)return;
     lastSignals=signalRows();
+    const universeEl=$("#paper-universe");
+    if(universeEl) universeEl.textContent="Top "+lastSignals.length+" Mature";
     $("#paper-signal-count")?.replaceChildren(document.createTextNode(String(lastSignals.length)));
     body.innerHTML=lastSignals.length ? lastSignals.map(x=>{
       const e=x.e||{},t=x.t;
       const eligible=e.signal==="BUY" && e.strength>=threshold;
       return '<tr class="'+(eligible?"paper-eligible":"")+'"><td>'+(x.index+1)+'</td><td><strong>'+(t.symbol||"—")+'</strong><small>'+(t.name||"")+'</small></td><td class="paper-signal '+String(e.signal||"").toLowerCase()+'">'+(e.signal||"—")+'</td><td>'+ (e.strength??"—") +'</td><td>'+price(e.entry)+'</td><td>'+price(e.stop)+'</td><td>'+price(e.take)+'</td><td>'+((Number(t.core_score)||0)||"—")+'</td><td>'+new Date().toLocaleTimeString()+'</td></tr>';
-    }).join("") : '<tr><td colspan="9" class="paper-empty">No Top 10 Mature candidates available.</td></tr>';
+    }).join("") : '<tr><td colspan="9" class="paper-empty">No Mature candidates available.</td></tr>';
   }
 
   function renderPositions(){
