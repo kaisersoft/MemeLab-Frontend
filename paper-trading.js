@@ -308,10 +308,11 @@
     const generation=paperResetGeneration;
     if(!paperRunning && !manual) return false;
     const t=x.t, e=x.e||{};
-    if((!manual && e.signal!=="BUY") || (!manual && Number(e.strength)<Number(threshold))) return false;
+    const signal=e.signal||null;
+    if(stopLossGuardBlocksEntry(t.mint, signal)) return false;
+    if((!manual && signal!=="BUY") || (!manual && Number(e.strength)<Number(threshold))) return false;
     if(e.entry==null || e.stop==null || e.take==null || Number(e.entry)<=0 || Number(e.stop)>=Number(e.entry)) return false;
     if(positions.some(p=>p.mint===t.mint)) return false;
-    if(stopLossGuardBlocksEntry(t.mint, e.signal==="BUY"?"BUY":e.signal||null)) return false;
 
     const equity=startingCapital+realizedPnl()+positions.reduce((s,p)=>s+(currentPrice(p)-p.entry)*p.qty,0);
     const riskAmount=Math.max(0,equity*(Number(riskPct)/100));
