@@ -125,6 +125,7 @@
   let engineTimer=null;
   let engineIntervalMs=5000;
   let engineCandidates=[];
+  let engineWatchlistSize=25;
   let engineCursor=0;
   let engineSelectedMint=null;
   let engineScannedAt=0;
@@ -176,7 +177,7 @@
     const permanent=mature.filter(t=>t?.permanent===true);
     const ranked=mature.map(t=>({t,core:engineNum(t?.core_score) ?? engineNum(coreScores(t)?.core)}))
       .sort((a,b)=>(b.core??-1)-(a.core??-1));
-    const regular=ranked.filter(x=>x.t?.permanent!==true).slice(0,Math.max(0,10-permanent.length)).map(x=>x.t);
+    const regular=ranked.filter(x=>x.t?.permanent!==true).slice(0,Math.max(0,engineWatchlistSize-permanent.length)).map(x=>x.t);
     return [...regular,...permanent];
   }
   function engineRender(){
@@ -245,6 +246,19 @@
   }
   function engineInit(){
     const select=$("#engine-interval");if(select)select.addEventListener("change",engineStart);
+    const universe=$("#engine-watchlist-size");
+    if(universe){
+      universe.value=String(engineWatchlistSize);
+      universe.addEventListener("change",()=>{
+        const next=Number(universe.value);
+        if(Number.isFinite(next)&&[10,25,50].includes(next)){
+          engineWatchlistSize=next;
+          engineCursor=0;
+          engineSelectedMint=null;
+          engineRender();
+        }
+      });
+    }
     engineRender();
     engineStart();
   }
