@@ -399,17 +399,17 @@
     let v2Exit=null;
 
     if(p.costModel==="V2"){
+      // V2 is quote-only execution/fee diagnostics. It must never replace the
+      // canonical paper-market exit price with a router-dependent swap valuation.
       v2Exit=await quoteExitV2(p);
-      if(!v2Exit) return;
-      const entryCapital=Number(p.entryCapital||p.size||p.entry*p.qty);
-      // Net P&L is explicitly gross P&L minus the V2 cost total shown in the UI.
-      // The quote economics remain visible in the cost fields; the journal must not
-      // show identical gross and net values when costs are known.
-      grossPnl=Number(v2Exit.exitUsd)-entryCapital;
-      entryCost=Number(p.v2EntryCost?.total||0);
-      exitCost=Number(v2Exit.cost?.total||0);
-      costTotal=entryCost+exitCost;
-      netPnl=grossPnl-costTotal;
+      if(v2Exit){
+        entryCost=Number(p.v2EntryCost?.total||0);
+        exitCost=Number(v2Exit.cost?.total||0);
+        costTotal=entryCost+exitCost;
+        netPnl=grossPnl-costTotal;
+      }
+      // A missing V2 quote must not block a paper position from closing.
+      // grossPnl and the displayed exit remain based on the canonical market exit.
     }
 
     const size=Number(p.entryCapital||p.size||p.entry*p.qty);
