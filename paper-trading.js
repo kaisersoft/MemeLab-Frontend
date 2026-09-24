@@ -50,20 +50,29 @@
     const outputAmount=Number(quote?.output_amount);
     const inputUsd=Number(quote?.input_usd);
     const outputUsd=Number(quote?.output_usd);
+    const clientInputUsd=Number(quote?.client_input_usd);
+    const clientOutputUsd=Number(quote?.client_output_usd);
+    const quotedSwapUsd=Number(quote?.swap_usd_value);
+    const clientSwapUsd=Number(quote?.client_swap_usd_value);
     const platformRaw=Number(quote?.platform_fee_amount_raw);
     const platformBps=Number(quote?.platform_fee_bps);
-    let platformUsd=0;
+    const feeBps=Number(quote?.quoted_fee_bps);
+    let swapUsdValue=null, swapUsdSource=null;
+    for(const [value,source] of [
+      [quotedSwapUsd,"jupiter.swapUsdValue"],[clientSwapUsd,"client.quoteNotional"],
+      [clientInputUsd,"client.inputUsd"],[inputUsd,"jupiter.inUsdValue"],
+      [clientOutputUsd,"client.outputUsd"],[outputUsd,"jupiter.outUsdValue"]
+    ]){ if(Number.isFinite(value)&&value>0){swapUsdValue=value;swapUsdSource=source;break;} }
+    let platformUsd=0, platformUsdSource="none";
     if(Number.isFinite(platformRaw)&&platformRaw>0){
       const decimals=feeMint===SOL_MINT?SOL_DECIMALS:(feeMint===inputMint?Number(quote?.input_decimals):Number(quote?.output_decimals));
       const units=platformRaw/(10**Number(decimals||0));
-      if(feeMint===SOL_MINT && Number.isFinite(solPrice)) platformUsd=units*solPrice;
-      else if(feeMint===inputMint && inputAmount>0 && Number.isFinite(inputUsd)) platformUsd=(units/inputAmount)*inputUsd;
-      else if(feeMint===outputMint && outputAmount>0 && Number.isFinite(outputUsd)) platformUsd=(units/outputAmount)*outputUsd;
+      if(feeMint===SOL_MINT&&Number.isFinite(solPrice)){platformUsd=units*solPrice;platformUsdSource="platformFee.amount·SOL";}
+      else if(feeMint===inputMint&&inputAmount>0&&Number.isFinite(inputUsd)){platformUsd=(units/inputAmount)*inputUsd;platformUsdSource="platformFee.amount·input";}
+      else if(feeMint===outputMint&&outputAmount>0&&Number.isFinite(outputUsd)){platformUsd=(units/outputAmount)*outputUsd;platformUsdSource="platformFee.amount·output";}
     }
-    if(platformUsd<=0 && Number.isFinite(platformBps) && platformBps>0){
-      const swapUsd=Number(quote?.swap_usd_value);
-      if(Number.isFinite(swapUsd)&&swapUsd>0) platformUsd=swapUsd*platformBps/10000;
-    }
+    if(platformUsd<=0&&Number.isFinite(platformBps)&&platformBps>0&&Number.isFinite(swapUsdValue)){platformUsd=swapUsdValue*platformBps/10000;platformUsdSource="platformFee.bps·quoteNotional";}
+    if(platformUsd<=0&&Number.isFinite(feeBps)&&feeBps>0&&Number.isFinite(swapUsdValue)){platformUsd=swapUsdValue*feeBps/10000;platformUsdSource="feeBps·quoteNotional";}
     const signatureLamports=Number(quote?.signature_fee_lamports);
     const priorityLamports=Number(quote?.prioritization_fee_lamports);
     const rentLamports=Number(quote?.rent_fee_lamports);
@@ -72,7 +81,13 @@
     const rentUsd=Number.isFinite(rentLamports)&&rentLamports>0&&Number.isFinite(solPrice)?rentLamports/1e9*solPrice:0;
     const networkUsd=signatureUsd+rentUsd;
     const total=platformUsd+networkUsd+priorityUsd;
-    return {platformUsd,signatureUsd,priorityUsd,rentUsd,networkUsd,total,platformBps:Number.isFinite(platformBps)?platformBps:null,feeBps:Number.isFinite(Number(quote?.quoted_fee_bps))?Number(quote.quoted_fee_bps):null};
+    return {platformUsd,signatureUsd,priorityUsd,rentUsd,networkUsd,total,
+      platformBps:Number.isFinite(platformBps)?platformBps:null,feeBps:Number.isFinite(feeBps)?feeBps:null,
+      swapUsdValue:Number.isFinite(swapUsdValue)?swapUsdValue:null,swapUsdSource,platformUsdSource,
+      rawPlatformFeeAmount:Number.isFinite(platformRaw)?platformRaw:null,feeMint:feeMint||null,
+      inputUsd:Number.isFinite(inputUsd)?inputUsd:null,outputUsd:Number.isFinite(outputUsd)?outputUsd:null,
+      clientInputUsd:Number.isFinite(clientInputUsd)?clientInputUsd:null,clientOutputUsd:Number.isFinite(clientOutputUsd)?clientOutputUsd:null,
+      signatureLamports:Number.isFinite(signatureLamports)?signatureLamports:null,priorityLamports:Number.isFinite(priorityLamports)?priorityLamports:null,rentLamports:Number.isFinite(rentLamports)?rentLamports:null};
   }
 
   function estimatedEntryCost(p){
@@ -131,6 +146,8 @@
     const solRaw=Math.floor(solAmount*10**SOL_DECIMALS);
     const quote=await jupiterOrderQuote(SOL_MINT,token.mint,solRaw,SOL_DECIMALS,decimals);
     if(!quote || !Number.isFinite(Number(quote.output_amount)) || Number(quote.output_amount)<=0) return null;
+    quote.client_input_usd=Number(capitalUsd);
+    quote.client_swap_usd_value=Number(capitalUsd);
     const qty=Number(quote.output_amount);
     if(!Number.isFinite(qty)||qty<=0) return null;
     return {quote,qty,capitalUsd,effectiveEntry:capitalUsd/qty,solAmount,cost:jupiterQuoteCosts(quote)};
@@ -145,6 +162,9 @@
     if(!quote || !Number.isFinite(Number(quote.output_amount))) return null;
     const solOut=Number(quote.output_amount);
     if(solOut<=0) return null;
+    const inputUsd=Math.max(0,Number(position.qty||0)*Number(currentPrice(position)||0));
+    quote.client_input_usd=inputUsd;
+    quote.client_swap_usd_value=inputUsd;
     return {quote,exitUsd:solOut*solPrice,solOut,cost:jupiterQuoteCosts(quote)};
   }
   function realizedPnl(){ return journal.reduce((s,p)=>s+Number(p.netPnl??p.pnl??0),0); }
@@ -157,15 +177,23 @@
   }
   function v2FeeLabel(p){
     if(p?.costModel!=="V2") return null;
-    const entryFee=p?.v2EntryQuote?.quoted_fee_bps;
-    const exitFee=p?.v2ExitQuote?.quoted_fee_bps;
-    const bps=Number.isFinite(Number(entryFee))&&Number.isFinite(Number(exitFee))
-      ? Number(entryFee)+"/"+Number(exitFee)+" bps"
-      : Number.isFinite(Number(entryFee)) ? Number(entryFee)+" bps"
-      : Number.isFinite(Number(exitFee)) ? Number(exitFee)+" bps" : "JUP";
-    const total=Number(p?.costTotal ?? (Number(p?.v2EntryCost?.total||0)+Number(p?.v2ExitCost?.total||0)));
-    return Number.isFinite(total) ? "JUP "+usd(total)+" · "+bps : "JUP · "+bps;
+    const renderQuote=(label,q,cost)=>{
+      if(!q&&!cost)return "";
+      q=q||{};cost=cost||{};
+      const n=v=>Number.isFinite(Number(v))?String(v):"—";
+      const m=v=>Number.isFinite(Number(v))?usd(v):"—";
+      return '<div class="paper-v2-debug"><strong>'+label+'</strong>'
+        +' · feeBps='+n(q.quoted_fee_bps)+' · platformBps='+n(q.platform_fee_bps)
+        +' · feeMint='+(q.fee_mint||"—")+' · quoteBase='+m(cost.swapUsdValue)
+        +' · baseSource='+(cost.swapUsdSource||"—")+' · platformRaw='+n(cost.rawPlatformFeeAmount)
+        +' · platformUSD='+m(cost.platformUsd)+' · inUSD='+m(q.input_usd)+' · outUSD='+m(q.output_usd)
+        +' · clientInUSD='+m(q.client_input_usd)+' · clientNotional='+m(q.client_swap_usd_value)
+        +' · sigLamports='+n(q.signature_fee_lamports)+' · priorityLamports='+n(q.prioritization_fee_lamports)
+        +' · rentLamports='+n(q.rent_fee_lamports)+' · total='+m(cost.total)+'</div>';
+    };
+    return renderQuote("ENTRY",p.v2EntryQuote,p.v2EntryCost)+renderQuote("EXIT",p.v2ExitQuote,p.v2ExitCost);
   }
+
   function portfolioCyclePnl(){ return currentEquity()-portfolioCycleBaselineEquity; }
   function portfolioCyclePnlPct(){
     const base=Number(portfolioCycleBaselineEquity)||START_CAPITAL;
@@ -719,11 +747,11 @@
       const grossPnl=positionGrossPnl(p,current);
       const isV2=p.costModel==="V2";
       const estimatedCosts=isV2?null:(estimatedEntryCost(p)+estimatedExitCost(p,current));
-      const pnl=isV2?grossPnl:(grossPnl-estimatedCosts);
+      const pnl=isV2?(grossPnl-Number(p.v2EntryCost?.total||0)):(grossPnl-estimatedCosts);
       const direction=tradingPriceDirections.get(p.mint)||"flat";
       const arrow=direction==="up"?"↑":direction==="down"?"↓":"→";
       const arrowClass="price-direction "+direction;
-      return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td class="paper-current-price">'+price(current)+' <span class="'+arrowClass+'" title="Last 5s price change">'+arrow+'</span></td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(grossPnl>=0?"paper-positive":"paper-negative")+'">'+usd(grossPnl)+'</td><td class="paper-negative">'+(isV2?(v2FeeLabel(p)||"JUP QUOTE"):"V1 "+usd(estimatedCosts))+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+(isV2?"JUP MARK":usd(pnl))+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td><button type="button" class="paper-sell-now" data-position-id="'+(p.positionId||'')+'">SELL NOW</button></td></tr>';
+      return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td class="paper-current-price">'+price(current)+' <span class="'+arrowClass+'" title="Last 5s price change">'+arrow+'</span></td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(grossPnl>=0?"paper-positive":"paper-negative")+'">'+usd(grossPnl)+'</td><td class="paper-negative">'+(isV2?(v2FeeLabel(p)||"JUP QUOTE"):"V1 "+usd(estimatedCosts))+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td><button type="button" class="paper-sell-now" data-position-id="'+(p.positionId||'')+'">SELL NOW</button></td></tr>';
     }).join(""):'<tr><td colspan="10" class="paper-empty">No open paper positions.</td></tr>';
     body.querySelectorAll(".paper-sell-now").forEach(btn=>btn.addEventListener("click",()=>{const p=positions.find(x=>(x.positionId||"")===btn.dataset.positionId);if(p){manualSell(p).then(()=>renderAll());}}));
   }
