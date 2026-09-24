@@ -126,6 +126,15 @@
     const open=positions.reduce((s,p)=>{const current=currentPrice(p)||p.entry;return s+estimatedEntryCost(p)+estimatedExitCost(p,current);},0);
     return closed+open;
   }
+  function v2FeeLabel(p){
+    if(p?.costModel!=="V2") return null;
+    const entryFee=p?.v2EntryQuote?.quoted_fee_bps;
+    const exitFee=p?.v2ExitQuote?.quoted_fee_bps;
+    if(Number.isFinite(Number(entryFee)) && Number.isFinite(Number(exitFee))) return "JUP "+Number(entryFee)+" / "+Number(exitFee)+" bps";
+    if(Number.isFinite(Number(entryFee))) return "JUP "+Number(entryFee)+" bps";
+    if(Number.isFinite(Number(exitFee))) return "JUP "+Number(exitFee)+" bps";
+    return "JUP quote";
+  }
   function portfolioCyclePnl(){ return currentEquity()-portfolioCycleBaselineEquity; }
   function portfolioCyclePnlPct(){
     const base=Number(portfolioCycleBaselineEquity)||START_CAPITAL;
