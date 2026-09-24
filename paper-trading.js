@@ -1,5 +1,6 @@
 (() => {
-  const START_CAPITAL = 10000;
+  const DEFAULT_startingCapital = 10000;
+  let startingCapital = DEFAULT_startingCapital;
   let threshold = 3;
   let riskPct = 2;
   let capitalLimitPct = 20;
@@ -7,7 +8,7 @@
   let minPositionCapital = 250;
   let profitTimeoutMinutes = 120;
   let portfolioTakeAllPct = 5;
-  let portfolioCycleBaselineEquity = START_CAPITAL;
+  let portfolioCycleBaselineEquity = startingCapital;
 
   // Cost Model V2 — Jupiter quote-only execution simulation.
   // V1 is used only when V2 is explicitly disabled.
@@ -171,7 +172,7 @@
   }
   function realizedPnl(){ return journal.reduce((s,p)=>s+Number(p.netPnl??p.pnl??0),0); }
   function openPnl(){ return positions.reduce((s,p)=>{const current=currentPrice(p)||p.entry;return s+positionNetPnl(p,current);},0); }
-  function currentEquity(){ return START_CAPITAL+realizedPnl()+openPnl(); }
+  function currentEquity(){ return startingCapital+realizedPnl()+openPnl(); }
   function totalEstimatedCosts(){
     const closed=journal.reduce((s,p)=>s+Number(p.costTotal||0),0);
     const open=positions.reduce((s,p)=>{const current=currentPrice(p)||p.entry;return s+estimatedEntryCost(p)+estimatedExitCost(p,current);},0);
@@ -201,13 +202,13 @@
 
   function portfolioCyclePnl(){ return currentEquity()-portfolioCycleBaselineEquity; }
   function portfolioCyclePnlPct(){
-    const base=Number(portfolioCycleBaselineEquity)||START_CAPITAL;
+    const base=Number(portfolioCycleBaselineEquity)||startingCapital;
     return base>0?(portfolioCyclePnl()/base)*100:0;
   }
   function investedCapital(){ return positions.reduce((s,p)=>s+(Number(p.entry)||0)*(Number(p.qty)||0),0); }
   function availableCash(){
     const openEntryCosts=positions.reduce((s,p)=>s+estimatedEntryCost(p),0);
-    return Math.max(0,START_CAPITAL+realizedPnl()-investedCapital()-openEntryCosts);
+    return Math.max(0,startingCapital+realizedPnl()-investedCapital()-openEntryCosts);
   }
   function liveToken(mint){
     const list=window.MEMELAB_JUPITER_TOKENS||[];
@@ -293,7 +294,7 @@
     if(e.entry==null || e.stop==null || e.take==null || Number(e.entry)<=0 || Number(e.stop)>=Number(e.entry)) return false;
     if(positions.some(p=>p.mint===t.mint)) return false;
 
-    const equity=START_CAPITAL+realizedPnl()+positions.reduce((s,p)=>s+(currentPrice(p)-p.entry)*p.qty,0);
+    const equity=startingCapital+realizedPnl()+positions.reduce((s,p)=>s+(currentPrice(p)-p.entry)*p.qty,0);
     const riskAmount=Math.max(0,equity*(Number(riskPct)/100));
     const unitRisk=Number(e.entry)-Number(e.stop);
     if(riskAmount<=0 || unitRisk<=0) return false;
@@ -511,7 +512,7 @@
       positions,
       journal,
       state: {
-        threshold, riskPct, capitalLimitPct, portfolioLimitPct,
+        startingCapital, threshold, riskPct, capitalLimitPct, portfolioLimitPct,
         minPositionCapital, profitTimeoutMinutes, portfolioTakeAllPct, portfolioCycleBaselineEquity,
 
       }
@@ -520,6 +521,28 @@
 
   function saveLocalPaperSnapshot(){
     try { localStorage.setItem(PAPER_STORAGE_KEY, JSON.stringify(localPaperSnapshot())); } catch(_err) {}
+  }
+
+  async function resetPaperTrading(){
+    if(paperRunning){ alert("Bitte den Paper Engine zuerst stoppen."); return; }
+    const raw=prompt("TEST RESET: Neues Startkapital in USD eingeben.", String(startingCapital));
+    if(raw===null) return;
+    const capital=Number(raw);
+    if(!Number.isFinite(capital)||capital<=0){ alert("Ungültiges Startkapital."); return; }
+    if(!confirm("ACHTUNG: Journal, Positionen, Kapital und die Supabase-Testdaten werden vollständig gelöscht. Nur Token-/Markt-/Discovery-Daten bleiben erhalten. Fortfahren?")) return;
+    const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+    try{
+      const response=await fetch(apiBase+"/trading/reset",{method:"POST",headers:{"Accept":"application/json"}});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok || result.status!=="ok") throw new Error(result.error||("HTTP "+response.status));
+      localStorage.removeItem(PAPER_STORAGE_KEY);
+      positions=[]; journal=[]; startingCapital=capital; portfolioCycleBaselineEquity=capital;
+      sessionStartedAt=null; sessionElapsedMs=0; paperRunning=false;
+      renderAll();
+      alert("Paper Trading wurde zurückgesetzt. Neues Startkapital: "+usd(capital));
+    }catch(err){
+      alert("Reset fehlgeschlagen: "+(err?.message||err));
+    }
   }
 
   function restoreLocalPaperSnapshot(){
@@ -531,6 +554,7 @@
       const state=data.state||{};
       positions=data.positions.map(p=>({...p,costModel:p.costModel==="V2"&&p.v2EntryQuote?"V2":"V1",t:p.t||{mint:p.mint,symbol:p.symbol,name:p.name,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
       journal=data.journal;
+      if(Number.isFinite(Number(state.startingCapital)) && Number(state.startingCapital)>0) startingCapital=Number(state.startingCapital);
       if(Number.isFinite(Number(state.threshold))) threshold=Number(state.threshold);
       if(Number.isFinite(Number(state.riskPct))) riskPct=Number(state.riskPct);
       if(Number.isFinite(Number(state.capitalLimitPct))) capitalLimitPct=Number(state.capitalLimitPct);
@@ -747,7 +771,7 @@
     const cashEl=$("#paper-cash"), investedEl=$("#paper-invested"), cashDetail=$("#paper-cash-detail"), investedDetail=$("#paper-invested-detail");
     if(cashEl) cashEl.textContent=usd(cash);
     if(investedEl) investedEl.textContent=usd(invested);
-    if(cashDetail) cashDetail.textContent="Unallocated · "+(((START_CAPITAL+realizedPnl())>0)?((cash/(START_CAPITAL+realizedPnl()))*100).toFixed(1):"0.0")+"%";
+    if(cashDetail) cashDetail.textContent="Unallocated · "+(((startingCapital+realizedPnl())>0)?((cash/(startingCapital+realizedPnl()))*100).toFixed(1):"0.0")+"%";
     if(investedDetail) investedDetail.textContent=positions.length+" open position"+(positions.length===1?"":"s");
     body.innerHTML=positions.length?positions.map(p=>{
       const current=currentPrice(p)||p.entry;
@@ -769,15 +793,15 @@
   function renderJournal(){
     const body=$("#paper-journal-body"), pnlBody=$("#pnl-history-body");
     const html=journal.length?journal.slice().reverse().map(p=>'<tr><td>'+p.id+'</td><td><strong>'+p.symbol+'</strong></td><td>'+p.entryPriceText+'</td><td>'+p.exitPriceText+'</td><td>'+p.reason+'</td><td>'+usd(p.size)+'</td><td class="'+(p.grossPnl>=0?"paper-positive":"paper-negative")+'">'+usd(p.grossPnl??p.pnl)+'</td><td class="paper-negative">'+(p.costModel==="V2"?(v2FeeLabel(p)||"JUP QUOTE"):"V1 -"+usd(p.costTotal||0))+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+usd(p.netPnl??p.pnl)+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+pct(p.netPnlPct??p.pnlPct)+'</td><td>'+Math.round(p.durationMs/60000)+'m</td></tr>').join(""):'<tr><td colspan="11" class="paper-empty">No closed paper trades yet.</td></tr>';
-    if(body){body.innerHTML=html;$("#paper-journal-count").textContent=String(journal.length);} const totalNetPnl=journal.reduce((s,p)=>s+Number(p.netPnl??p.pnl??0),0); const totalNetPct=START_CAPITAL>0?(totalNetPnl/START_CAPITAL)*100:0; const totalPnlEl=$("#pnl-journal-total-pnl"); const totalPctEl=$("#pnl-journal-total-pct"); if(totalPnlEl){totalPnlEl.textContent=usd(totalNetPnl); totalPnlEl.classList.toggle("paper-positive",totalNetPnl>=0); totalPnlEl.classList.toggle("paper-negative",totalNetPnl<0);} if(totalPctEl){totalPctEl.textContent=pct(totalNetPct); totalPctEl.classList.toggle("paper-positive",totalNetPct>=0); totalPctEl.classList.toggle("paper-negative",totalNetPct<0);}
+    if(body){body.innerHTML=html;$("#paper-journal-count").textContent=String(journal.length);} const totalNetPnl=journal.reduce((s,p)=>s+Number(p.netPnl??p.pnl??0),0); const totalNetPct=startingCapital>0?(totalNetPnl/startingCapital)*100:0; const totalPnlEl=$("#pnl-journal-total-pnl"); const totalPctEl=$("#pnl-journal-total-pct"); if(totalPnlEl){totalPnlEl.textContent=usd(totalNetPnl); totalPnlEl.classList.toggle("paper-positive",totalNetPnl>=0); totalPnlEl.classList.toggle("paper-negative",totalNetPnl<0);} if(totalPctEl){totalPctEl.textContent=pct(totalNetPct); totalPctEl.classList.toggle("paper-positive",totalNetPct>=0); totalPctEl.classList.toggle("paper-negative",totalNetPct<0);}
     if(pnlBody)pnlBody.innerHTML=journal.length?journal.slice().reverse().map(p=>'<tr><td>'+p.id+'</td><td><strong>'+p.symbol+'</strong></td><td>BUY</td><td>'+p.entryPriceText+'</td><td>'+p.exitPriceText+'</td><td>'+p.reason+'</td><td class="'+((p.grossPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+usd(p.grossPnl??p.pnl)+'</td><td class="paper-negative">-'+usd(p.costTotal||0)+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+usd(p.netPnl??p.pnl)+'</td><td>'+pct(p.netPnlPct??p.pnlPct)+'</td></tr>').join(""):'<tr><td colspan="10" class="paper-empty">No closed trades recorded.</td></tr>';
   }
 
   function renderEquityChart(){
     const svg=$("#pnl-equity-chart");
     if(!svg) return;
-    const points=[{label:"START",equity:START_CAPITAL}];
-    let equity=START_CAPITAL;
+    const points=[{label:"START",equity:startingCapital}];
+    let equity=startingCapital;
     for(const trade of journal){
       equity+=Number(trade.netPnl??trade.pnl??0);
       points.push({label:trade.id,equity});
@@ -804,20 +828,20 @@
     for(let k=1;k<points.length;k++){
       const segment=[points[k-1],points[k]];
       const d="M"+x(k-1).toFixed(1)+" "+y(segment[0].equity).toFixed(1)+" L"+x(k).toFixed(1)+" "+y(segment[1].equity).toFixed(1);
-      const cls=segment[1].equity>=START_CAPITAL?"equity-line equity-profit":"equity-line equity-loss";
+      const cls=segment[1].equity>=startingCapital?"equity-line equity-profit":"equity-line equity-loss";
       paths.push('<path d="'+d+'" class="'+cls+'"/>');
     }
-    const circles=points.map((p,k)=>'<circle cx="'+x(k).toFixed(1)+'" cy="'+y(p.equity).toFixed(1)+'" r="4" class="equity-point '+(p.equity>=START_CAPITAL?"equity-profit-point":"equity-loss-point")+'"><title>'+p.label+" · "+usd(p.equity)+'</title></circle>').join("");
+    const circles=points.map((p,k)=>'<circle cx="'+x(k).toFixed(1)+'" cy="'+y(p.equity).toFixed(1)+'" r="4" class="equity-point '+(p.equity>=startingCapital?"equity-profit-point":"equity-loss-point")+'"><title>'+p.label+" · "+usd(p.equity)+'</title></circle>').join("");
     const labels=points.map((p,k)=>{if(points.length>8 && k>0 && k<points.length-1 && k%2!==0)return "";return '<text x="'+x(k).toFixed(1)+'" y="'+(H-12)+'" class="equity-label" text-anchor="middle">'+p.label+'</text>';}).join("");
-    svg.innerHTML=grid.join("")+'<line x1="'+L+'" y1="'+y(START_CAPITAL).toFixed(1)+'" x2="'+(W-R)+'" y2="'+y(START_CAPITAL).toFixed(1)+'" class="equity-baseline"/>'+paths.join("")+circles+labels;
+    svg.innerHTML=grid.join("")+'<line x1="'+L+'" y1="'+y(startingCapital).toFixed(1)+'" x2="'+(W-R)+'" y2="'+y(startingCapital).toFixed(1)+'" class="equity-baseline"/>'+paths.join("")+circles+labels;
   }
 
   function renderPnl(){
     const realized=realizedPnl();
     const open=openPnl();
     const costs=totalEstimatedCosts();
-    $("#pnl-start").textContent=usd(START_CAPITAL);
-    $("#pnl-equity").textContent=usd(START_CAPITAL+realized+open);
+    $("#pnl-start").textContent=usd(startingCapital);
+    $("#pnl-equity").textContent=usd(startingCapital+realized+open);
     $("#pnl-cash").textContent=usd(availableCash());
     $("#pnl-invested").textContent=usd(investedCapital());
     $("#pnl-realized").textContent=usd(realized);
