@@ -159,10 +159,12 @@
     if(p?.costModel!=="V2") return null;
     const entryFee=p?.v2EntryQuote?.quoted_fee_bps;
     const exitFee=p?.v2ExitQuote?.quoted_fee_bps;
-    if(Number.isFinite(Number(entryFee)) && Number.isFinite(Number(exitFee))) return "JUP "+Number(entryFee)+" / "+Number(exitFee)+" bps";
-    if(Number.isFinite(Number(entryFee))) return "JUP "+Number(entryFee)+" bps";
-    if(Number.isFinite(Number(exitFee))) return "JUP "+Number(exitFee)+" bps";
-    return "JUP quote";
+    const bps=Number.isFinite(Number(entryFee))&&Number.isFinite(Number(exitFee))
+      ? Number(entryFee)+"/"+Number(exitFee)+" bps"
+      : Number.isFinite(Number(entryFee)) ? Number(entryFee)+" bps"
+      : Number.isFinite(Number(exitFee)) ? Number(exitFee)+" bps" : "JUP";
+    const total=Number(p?.costTotal ?? (Number(p?.v2EntryCost?.total||0)+Number(p?.v2ExitCost?.total||0)));
+    return Number.isFinite(total) ? "JUP "+usd(total)+" · "+bps : "JUP · "+bps;
   }
   function portfolioCyclePnl(){ return currentEquity()-portfolioCycleBaselineEquity; }
   function portfolioCyclePnlPct(){
