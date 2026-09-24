@@ -256,6 +256,7 @@
           engineCursor=0;
           engineSelectedMint=null;
           engineRender();
+          window.dispatchEvent(new CustomEvent("memelab:engine-universe-changed",{detail:{size:engineWatchlistSize}}));
         }
       });
     }
