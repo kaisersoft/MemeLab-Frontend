@@ -807,7 +807,7 @@
     if(paperCostsEl) paperCostsEl.textContent=usd(totalEstimatedCosts());
     const portfolioPnlEl=$("#paper-portfolio-pnl");
     if(portfolioPnlEl){const pp=portfolioCyclePnlPct();portfolioPnlEl.textContent="Portfolio P&L · "+pct(pp);portfolioPnlEl.classList.toggle("paper-positive",pp>=0);portfolioPnlEl.classList.toggle("paper-negative",pp<0);}
-    const cashEl=$("#paper-cash"), investedEl=$("#paper-invested"), cashDetail=$("#paper-cash-detail"), investedDetail=$("#paper-invested-detail");
+    const capitalEl=$("#paper-capital");\n    if(capitalEl) capitalEl.textContent=usd(startingCapital);\n    const cashEl=$("#paper-cash"), investedEl=$("#paper-invested"), cashDetail=$("#paper-cash-detail"), investedDetail=$("#paper-invested-detail");
     if(cashEl) cashEl.textContent=usd(cash);
     if(investedEl) investedEl.textContent=usd(invested);
     if(cashDetail) cashDetail.textContent="Unallocated · "+(((startingCapital+realizedPnl())>0)?((cash/(startingCapital+realizedPnl()))*100).toFixed(1):"0.0")+"%";
