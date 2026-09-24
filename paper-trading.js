@@ -632,11 +632,6 @@
         if(Number.isFinite(Number(state.portfolioCycleBaselineEquity))) portfolioCycleBaselineEquity=Number(state.portfolioCycleBaselineEquity);
         if(typeof state.costModelVersion==="string") costModelVersion=state.costModelVersion;
         if(typeof state.costModelEnabled==="boolean") costModelEnabled=state.costModelEnabled;
-        if(Number.isFinite(Number(state.phantomFeePct))) phantomFeePct=Number(state.phantomFeePct);
-        if(Number.isFinite(Number(state.slippagePct))) slippagePct=Number(state.slippagePct);
-        if(Number.isFinite(Number(state.priceImpactPct))) priceImpactPct=Number(state.priceImpactPct);
-        if(Number.isFinite(Number(state.networkFeeUsd))) networkFeeUsd=Number(state.networkFeeUsd);
-        if(Number.isFinite(Number(state.priorityFeeUsd))) priorityFeeUsd=Number(state.priorityFeeUsd);
         paperRunning=Boolean(state.paperRunning);
         sessionStartedAt=Number.isFinite(Number(state.sessionStartedAt)) ? Number(state.sessionStartedAt) : null;
         sessionElapsedMs=Number.isFinite(Number(state.sessionElapsedMs)) ? Number(state.sessionElapsedMs) : 0;
