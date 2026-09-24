@@ -124,6 +124,7 @@
 
   let engineTimer=null;
   let engineIntervalMs=5000;
+  let engineWatchlistSize=25;
   let engineCandidates=[];
   let engineCursor=0;
   let engineSelectedMint=null;
@@ -176,7 +177,7 @@
     const permanent=mature.filter(t=>t?.permanent===true);
     const ranked=mature.map(t=>({t,core:engineNum(t?.core_score) ?? engineNum(coreScores(t)?.core)}))
       .sort((a,b)=>(b.core??-1)-(a.core??-1));
-    const regular=ranked.filter(x=>x.t?.permanent!==true).slice(0,Math.max(0,10-permanent.length)).map(x=>x.t);
+    const regular=ranked.filter(x=>x.t?.permanent!==true).slice(0,Math.max(0,engineWatchlistSize-permanent.length)).map(x=>x.t);
     return [...regular,...permanent];
   }
   function engineRender(){
@@ -184,6 +185,7 @@
     if(!body)return;
     engineCandidates=engineMatureCandidates();
     if(count)count.textContent=String(engineCandidates.length);
+    const cycle=$("#engine-cycle"); if(cycle) cycle.textContent=(engineCandidates.length?"1":"0")+" / "+engineCandidates.length;
     if(!engineCandidates.length){body.innerHTML='<tr><td colspan="12" class="engine-empty">No MATURE / DECLINING candidates available.</td></tr>';return;}
     body.innerHTML=engineCandidates.map((t,i)=>{
       const e=engineSignal(t), s=e.s, selected=t.mint===engineSelectedMint;
@@ -244,7 +246,18 @@
     if(wrap)wrap.classList.remove("running");
   }
   function engineInit(){
-    const select=$("#engine-interval");if(select)select.addEventListener("change",engineStart);
+    const select=$("#engine-interval");if(select&&!select.dataset.bound){select.dataset.bound="1";select.addEventListener("change",engineStart);}
+    const sizeSelect=$("#engine-watchlist-size");
+    if(sizeSelect){
+      sizeSelect.value=String(engineWatchlistSize);
+      if(!sizeSelect.dataset.bound){
+        sizeSelect.dataset.bound="1";
+        sizeSelect.addEventListener("change",()=>{
+          const n=Number(sizeSelect.value);
+          if(Number.isInteger(n)&&n>=1&&n<=100){engineWatchlistSize=n;engineCursor=0;engineSelectedMint=null;engineRender();}
+        });
+      }
+    }
     engineRender();
     engineStart();
   }
@@ -543,6 +556,7 @@
 
   window.MEMELAB_ENGINE={
     getCandidates:()=>engineMatureCandidates(),
+    getWatchlistSize:()=>engineWatchlistSize,
     signal:(t)=>engineSignal(t),
     isRunning:()=>!!engineTimer
   };
