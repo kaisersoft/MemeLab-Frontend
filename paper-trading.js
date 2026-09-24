@@ -778,7 +778,7 @@
       const grossPnl=positionGrossPnl(p,current);
       const isV2=p.costModel==="V2";
       const estimatedCosts=isV2?null:(estimatedEntryCost(p)+estimatedExitCost(p,current));
-      const pnl=isV2?(grossPnl-Number(p.v2EntryCost?.networkUsd||0)):(grossPnl-estimatedCosts);
+      const pnl=isV2?(grossPnl-Number(displayPosition.v2EntryCost?.total||0)):(grossPnl-estimatedCosts);
       const displayEntryQuote=isV2&&p.v2EntryQuote ? {...p.v2EntryQuote,client_entry_capital_usd:Number(p.v2EntryQuote.client_entry_capital_usd||p.entryCapital||p.size||0)} : null;
       const displayEntryCost=isV2 ? jupiterQuoteCosts(displayEntryQuote||{}) : null;
       const displayPosition=isV2 ? {...p,v2EntryQuote:displayEntryQuote,v2EntryCost:displayEntryCost} : p;
