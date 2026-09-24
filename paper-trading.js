@@ -393,15 +393,14 @@
       v2Exit=await quoteExitV2(p);
       if(!v2Exit) return;
       const entryCapital=Number(p.entryCapital||p.size||p.entry*p.qty);
-      const networkCosts=Number(p.v2EntryCost?.networkUsd||0)+Number(v2Exit.cost?.networkUsd||0);
-      // Jupiter's outAmount already contains the quoted platform/DEX economics.
-      // Do not subtract platform fees a second time. Only separately quoted gas/rent
-      // costs are deducted from the final paper P&L.
+      // Net P&L is explicitly gross P&L minus the V2 cost total shown in the UI.
+      // The quote economics remain visible in the cost fields; the journal must not
+      // show identical gross and net values when costs are known.
       grossPnl=Number(v2Exit.exitUsd)-entryCapital;
       entryCost=Number(p.v2EntryCost?.total||0);
       exitCost=Number(v2Exit.cost?.total||0);
       costTotal=entryCost+exitCost;
-      netPnl=Number(v2Exit.exitUsd)-entryCapital-networkCosts;
+      netPnl=grossPnl-costTotal;
     }
 
     const size=Number(p.entryCapital||p.size||p.entry*p.qty);
