@@ -137,7 +137,7 @@
   async function jupiterTakerOrder(inputMint,outputMint,amountRaw,taker){
     const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
     const url=apiBase+"/jupiter/order?"+new URLSearchParams({
-      inputMint,outputMint,amount:String(Math.floor(Number(amountRaw))),taker
+      inputMint,outputMint,amount:String(amountRaw),taker
     }).toString();
     const response=await fetch(url,{cache:"no-store",headers:{Accept:"application/json"}});
     const data=await response.json().catch(()=>({}));
@@ -214,7 +214,7 @@
       jupiterStatus("entry order assembled · "+(token.symbol||token.name||"token")+" · waiting for Phantom signature");
       const execution=await executeJupiterTransaction(quote,wallet.provider);
       const receipt=await fetchJupiterReceipt(execution.execution.signature);
-      const actualQtyRaw=Number(execution.execution.output_amount_result||quote.output_amount_raw||0);
+      const actualQtyRaw=String(execution.execution.output_amount_result||quote.output_amount_raw||"0");
       const platform=feeUsdFromQuote(quote,receipt);
       const network=Number(receipt.fee_usd)||0;
       const total=platform+network;
