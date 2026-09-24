@@ -29,6 +29,8 @@
   let tradingPriceLastUpdateAt = 0;
   let sessionStartedAt = null;
   let sessionElapsedMs = 0;
+  let paperCycleInFlight = false;
+  let paperResetGeneration = 0;
   const $ = s => document.querySelector(s);
   const usd = v => Number.isFinite(Number(v)) ? "$"+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—";
   const pct = v => Number.isFinite(Number(v)) ? (Number(v)>=0?"+":"")+Number(v).toFixed(2)+"%" : "—";
@@ -288,6 +290,7 @@
 
   async function openPaperPosition(x, options={}){
     const manual=!!options.manual;
+    const generation=paperResetGeneration;
     if(!paperRunning && !manual) return false;
     const t=x.t, e=x.e||{};
     if((!manual && e.signal!=="BUY") || (!manual && Number(e.strength)<Number(threshold))) return false;
@@ -314,9 +317,12 @@
     if(costModelVersion==="V2" && costModelEnabled){
       v2=await quoteEntryV2(finalCapital,t);
       if(!v2) return false;
+      if(generation!==paperResetGeneration || (!paperRunning && !manual)) return false;
       finalQty=v2.qty;
       entry=v2.effectiveEntry;
     }
+
+    if(generation!==paperResetGeneration || (!paperRunning && !manual)) return false;
 
     const stopRatio=Number(e.stop)/Number(e.entry);
     const takeRatio=Number(e.take)/Number(e.entry);
@@ -333,9 +339,7 @@
       v2EntryQuote:v2?.quote||null,
       v2EntryCost:v2?.cost||null
     };
-    positions.push(position);
-
-    postTradingEvents([{
+    const persisted=await postTradingEvents([{
       event_id:crypto.randomUUID(),
       observed_at:Date.now()/1000,
       event_type:"POSITION_OPEN",
@@ -370,6 +374,10 @@
         } : null
       }
     }]);
+    if(!persisted) return false;
+    if(generation!==paperResetGeneration || (!paperRunning && !manual)) return false;
+    positions.push(position);
+    saveLocalPaperSnapshot();
     return true;
   }
 
@@ -405,7 +413,7 @@
     }
 
     const size=Number(p.entryCapital||p.size||p.entry*p.qty);
-    journal.push({
+    const journalEntry={
       id:"PT-"+String(journal.length+1).padStart(4,"0"),
       mint:p.mint,symbol:p.symbol,entryPriceText:price(p.entry),exitPriceText:price(exit),
       reason,size,pnl:grossPnl,grossPnl,entryCost,exitCost,costTotal,netPnl,
@@ -419,10 +427,8 @@
       v2ExitCost:v2Exit?.cost||null,
       v2NetworkFeeKnown:Boolean(p.v2EntryCost?.networkUsd!=null || v2Exit?.cost?.networkUsd!=null),
       v2PriorityFeeKnown:Boolean(p.v2EntryCost?.priorityUsd!=null || v2Exit?.cost?.priorityUsd!=null)
-    });
-    positions=positions.filter(x=>x!==p);
-    saveLocalPaperSnapshot();
-    postTradingEvents([{
+    };
+    const persisted=await postTradingEvents([{
       event_id:crypto.randomUUID(),
       observed_at:Date.now()/1000,
       event_type:"POSITION_CLOSE",
@@ -430,6 +436,11 @@
       position_id:p.positionId||p.mint,
       payload:{symbol:p.symbol,entry:Number(p.entry),exit:Number(exit),qty:Number(p.qty),capital:Number(size),opened_at_ms:Number(p.openedAt||0),pnl:Number(netPnl),cost_model:p.costModel||"V1",v2_execution:v2Exit ? {provider:"jupiter",mode:"quote_only",executed:false,request_id:v2Exit.quote.request_id,router:v2Exit.quote.router,input_mint:v2Exit.quote.input_mint,output_mint:v2Exit.quote.output_mint,input_amount:v2Exit.quote.input_amount,output_amount:v2Exit.quote.output_amount,quoted_fee_bps:v2Exit.quote.quoted_fee_bps,fee_mint:v2Exit.quote.fee_mint,platform_fee_amount:v2Exit.quote.platform_fee_amount,platform_fee_bps:v2Exit.quote.platform_fee_bps,network_fee_usd:null,priority_fee_usd:null} : null,pnl_pct:Number(size?((netPnl/size)*100):0),gross_pnl:Number(grossPnl),entry_cost:Number(entryCost),exit_cost:Number(exitCost),cost_total:Number(costTotal),net_pnl:Number(netPnl),net_pnl_pct:Number(size?((netPnl/size)*100):0),entry_price_text:price(p.entry),exit_price_text:price(exit),duration_ms:Math.max(0,now()-p.openedAt),reason}
     }]);
+    if(!persisted) return false;
+    journal.push(journalEntry);
+    positions=positions.filter(x=>x!==p);
+    saveLocalPaperSnapshot();
+    return true;
   }
 
   async function manageOpenPositions(){
@@ -473,13 +484,24 @@
   }
 
   async function executePaperCycle(){
-    const hadPositions=positions.length>0;
-    await manageOpenPositions();
-    if(hadPositions && positions.length===0) portfolioCycleBaselineEquity=currentEquity();
-    if(!paperRunning) return;
-    if(await takeAllPortfolio()) return;
-    const rows=signalRows();
-    for(const x of rows) await openPaperPosition(x);
+    if(paperCycleInFlight) return;
+    paperCycleInFlight=true;
+    const generation=paperResetGeneration;
+    try{
+      const hadPositions=positions.length>0;
+      await manageOpenPositions();
+      if(generation!==paperResetGeneration) return;
+      if(hadPositions && positions.length===0) portfolioCycleBaselineEquity=currentEquity();
+      if(!paperRunning) return;
+      if(await takeAllPortfolio()) return;
+      const rows=signalRows();
+      for(const x of rows){
+        if(!paperRunning || generation!==paperResetGeneration) break;
+        await openPaperPosition(x);
+      }
+    }finally{
+      paperCycleInFlight=false;
+    }
   }
 
   function manualBuy(t){
@@ -524,7 +546,7 @@
   }
 
   async function resetPaperTrading(){
-    if(paperRunning){ alert("Bitte den Paper Engine zuerst stoppen."); return; }
+    if(paperCycleInFlight && !confirm("Ein Trading-Zyklus ist noch aktiv. RESET stoppt ihn und verwirft den laufenden Zyklus. Fortfahren?")) return;
     const raw=prompt("TEST RESET: Neues Startkapital in USD eingeben.", String(startingCapital));
     if(raw===null) return;
     const capital=Number(raw);
@@ -532,13 +554,17 @@
     if(!confirm("ACHTUNG: Journal, Positionen, Kapital und die Supabase-Testdaten werden vollständig gelöscht. Nur Token-/Markt-/Discovery-Daten bleiben erhalten. Fortfahren?")) return;
     const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
     try{
+      paperRunning=false;
+      paperResetGeneration++;
+      updatePaperControl();
       const response=await fetch(apiBase+"/trading/reset",{method:"POST",headers:{"Accept":"application/json"}});
       const result=await response.json().catch(()=>({}));
       if(!response.ok || result.status!=="ok") throw new Error(result.error||("HTTP "+response.status));
       localStorage.removeItem(PAPER_STORAGE_KEY);
       positions=[]; journal=[]; startingCapital=capital; portfolioCycleBaselineEquity=capital;
-      sessionStartedAt=null; sessionElapsedMs=0; paperRunning=false;
-      renderAll();
+      lastSignals=[]; sessionStartedAt=null; sessionElapsedMs=0; paperRunning=false;
+      liveTradingPrices.clear(); previousTradingPrices.clear(); tradingPriceDirections.clear();
+      renderSignals(); renderPositions(); renderJournal(); renderPnl(); updatePaperControl(); renderSession();
       alert("Paper Trading wurde zurückgesetzt. Neues Startkapital: "+usd(capital));
     }catch(err){
       alert("Reset fehlgeschlagen: "+(err?.message||err));
@@ -572,15 +598,23 @@
     }catch(_err){ return false; }
   }
 
-  function postTradingEvents(events){
-    if(!events.length) return;
+  async function postTradingEvents(events){
+    if(!events.length) return true;
     saveLocalPaperSnapshot();
     const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
-    fetch(apiBase+"/trading/events",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Accept":"application/json"},
-      body:JSON.stringify({events})
-    }).catch(()=>{});
+    try{
+      const response=await fetch(apiBase+"/trading/events",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","Accept":"application/json"},
+        body:JSON.stringify({events})
+      });
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok || result.status!=="ok") throw new Error(result.error||("HTTP "+response.status));
+      return true;
+    }catch(err){
+      console.error("Paper Trading persistence failed:",err);
+      return false;
+    }
   }
 
   function captureTradingState(){
@@ -598,6 +632,7 @@
         profitTimeoutMinutes:Number(profitTimeoutMinutes),
         portfolioTakeAllPct:Number(portfolioTakeAllPct),
         portfolioCycleBaselineEquity:Number(portfolioCycleBaselineEquity),
+        startingCapital:Number(startingCapital),
 
         sessionStartedAt:Number(sessionStartedAt)||null,
         sessionElapsedMs:Number(sessionElapsedMs)||0
@@ -683,6 +718,7 @@
         if(restoreLocalPaperSnapshot()) return true;
       }
       if(Object.keys(state).length){
+        if(Number.isFinite(Number(state.startingCapital)) && Number(state.startingCapital)>0) startingCapital=Number(state.startingCapital);
         if(Number.isFinite(Number(state.threshold))) threshold=Number(state.threshold);
         if(Number.isFinite(Number(state.riskPct))) riskPct=Number(state.riskPct);
         if(Number.isFinite(Number(state.capitalLimitPct))) capitalLimitPct=Number(state.capitalLimitPct);
@@ -778,15 +814,15 @@
       const grossPnl=positionGrossPnl(p,current);
       const isV2=p.costModel==="V2";
       const estimatedCosts=isV2?null:(estimatedEntryCost(p)+estimatedExitCost(p,current));
-      const pnl=isV2?(grossPnl-Number(displayPosition.v2EntryCost?.total||0)):(grossPnl-estimatedCosts);
       const displayEntryQuote=isV2&&p.v2EntryQuote ? {...p.v2EntryQuote,client_entry_capital_usd:Number(p.v2EntryQuote.client_entry_capital_usd||p.entryCapital||p.size||0)} : null;
       const displayEntryCost=isV2 ? jupiterQuoteCosts(displayEntryQuote||{}) : null;
       const displayPosition=isV2 ? {...p,v2EntryQuote:displayEntryQuote,v2EntryCost:displayEntryCost} : p;
+      const pnl=isV2?(grossPnl-Number(displayPosition.v2EntryCost?.total||0)):(grossPnl-estimatedCosts);
       const direction=tradingPriceDirections.get(p.mint)||"flat";
       const arrow=direction==="up"?"↑":direction==="down"?"↓":"→";
       const arrowClass="price-direction "+direction;
       return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td class="paper-current-price">'+price(current)+' <span class="'+arrowClass+'" title="Last 5s price change">'+arrow+'</span></td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(grossPnl>=0?"paper-positive":"paper-negative")+'">'+usd(grossPnl)+'</td><td class="paper-negative">'+(isV2?usd(Number(displayPosition.v2EntryCost?.total||0)):"V1 "+usd(estimatedCosts))+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td><button type="button" class="paper-sell-now" data-position-id="'+(p.positionId||'')+'">SELL NOW</button></td></tr>';
-    }).join(""):'<tr><td colspan="10" class="paper-empty">No open paper positions.</td></tr>';
+    }).join(""):'<tr><td colspan="12" class="paper-empty">No open paper positions.</td></tr>';
     body.querySelectorAll(".paper-sell-now").forEach(btn=>btn.addEventListener("click",()=>{const p=positions.find(x=>(x.positionId||"")===btn.dataset.positionId);if(p){manualSell(p).then(()=>renderAll());}}));
   }
 
