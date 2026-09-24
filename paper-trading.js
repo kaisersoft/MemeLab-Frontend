@@ -31,6 +31,7 @@
   let sessionElapsedMs = 0;
   let paperCycleInFlight = false;
   let paperResetGeneration = 0;
+  let tradingResetInFlight = false;
   const $ = s => document.querySelector(s);
   const usd = v => Number.isFinite(Number(v)) ? "$"+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—";
   const pct = v => Number.isFinite(Number(v)) ? (Number(v)>=0?"+":"")+Number(v).toFixed(2)+"%" : "—";
@@ -738,7 +739,7 @@
         if(paperRunning && !sessionStartedAt) sessionStartedAt=now();
       }
       positions=restoredPositions.map(p=>({...p,costModel:p.costModel==="V2"&&p.v2EntryQuote?"V2":"V1",t:{mint:p.mint,symbol:p.symbol,name:p.name,decimals:p.tokenDecimals,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
-      const thresholdEl=$("#paper-threshold"), riskEl=$("#paper-risk"), capitalEl=$("#paper-capital-limit"), portfolioEl=$("#paper-portfolio-limit"), timeoutEl=$("#paper-profit-timeout"), takeAllEl=$("#paper-take-all");
+      const thresholdEl=$("#paper-threshold"), riskEl=$("#paper-risk"), capitalEl=$("#paper-capital-limit"), portfolioEl=$("#paper-portfolio-limit"), minPositionEl=$("#paper-min-position"), timeoutEl=$("#paper-profit-timeout"), takeAllEl=$("#paper-take-all");
       if(thresholdEl) thresholdEl.value=String(threshold);
       if(riskEl) riskEl.value=String(riskPct);
       if(capitalEl) capitalEl.value=String(capitalLimitPct);
