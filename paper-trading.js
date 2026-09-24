@@ -96,6 +96,134 @@
     }
   }
 
+  let jupiterWallet = null;
+  let jupiterTest = null;
+
+  function jupiterStatus(message){
+    const el=$("#jupiter-exec-status");
+    if(el) el.textContent="JUPITER EXECUTION TEST · "+message;
+  }
+
+  function phantomProvider(){
+    return window.phantom?.solana || window.solana || null;
+  }
+
+  async function connectJupiterWallet(){
+    const provider=phantomProvider();
+    if(!provider) throw new Error("Phantom wallet not found in this browser.");
+    const response=await provider.connect();
+    jupiterWallet=response?.publicKey?.toString?.()||provider.publicKey?.toString?.();
+    if(!jupiterWallet) throw new Error("Phantom did not return a public wallet address.");
+    const btn=$("#jupiter-wallet");
+    if(btn) btn.textContent=jupiterWallet.slice(0,4)+"…"+jupiterWallet.slice(-4);
+    jupiterStatus("wallet connected · "+jupiterWallet.slice(0,6)+"…"+jupiterWallet.slice(-6));
+    return {provider,address:jupiterWallet};
+  }
+
+  function base64ToBytes(value){
+    const binary=atob(value);
+    const bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+    return bytes;
+  }
+
+  function bytesToBase64(bytes){
+    let binary="";
+    const chunk=0x8000;
+    for(let i=0;i<bytes.length;i+=chunk) binary+=String.fromCharCode(...bytes.subarray(i,i+chunk));
+    return btoa(binary);
+  }
+
+  async function jupiterTakerOrder(inputMint,outputMint,amountRaw,taker){
+    const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+    const url=apiBase+"/jupiter/order?"+new URLSearchParams({
+      inputMint,outputMint,amount:String(Math.floor(Number(amountRaw))),taker
+    }).toString();
+    const response=await fetch(url,{cache:"no-store",headers:{Accept:"application/json"}});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(data?.error||("Jupiter order failed · HTTP "+response.status));
+    const quote=data?.quote;
+    if(!quote?.transaction || !quote?.request_id) throw new Error("Jupiter returned no executable transaction.");
+    return quote;
+  }
+
+  async function executeJupiterTransaction(quote,provider){
+    if(!window.solanaWeb3?.VersionedTransaction) throw new Error("Solana transaction library not loaded.");
+    const tx=window.solanaWeb3.VersionedTransaction.deserialize(base64ToBytes(quote.transaction));
+    const signed=await provider.signTransaction(tx);
+    const signedTransaction=bytesToBase64(signed.serialize());
+    const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+    const response=await fetch(apiBase+"/jupiter/execute",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Accept":"application/json"},
+      body:JSON.stringify({signedTransaction,requestId:quote.request_id})
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(data?.error||("Jupiter execute failed · HTTP "+response.status));
+    if(data?.execution?.status!=="Success") throw new Error(data?.execution?.error||"Jupiter execution failed.");
+    return data;
+  }
+
+  async function fetchJupiterReceipt(signature){
+    const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+    for(let i=0;i<8;i++){
+      const response=await fetch(apiBase+"/jupiter/receipt?signature="+encodeURIComponent(signature),{cache:"no-store"});
+      const data=await response.json().catch(()=>({}));
+      if(data?.status==="ok") return data;
+      await new Promise(r=>setTimeout(r,1000));
+    }
+    throw new Error("Solana transaction receipt not available yet.");
+  }
+
+  function feeUsdFromQuote(quote, receipt, referenceUsdPerInputUnit){
+    const raw=Number(quote?.platform_fee_amount_raw);
+    const feeMint=quote?.fee_mint;
+    if(!Number.isFinite(raw)||raw<=0) return 0;
+    if(feeMint===SOL_MINT) return (raw/10**SOL_DECIMALS)*Number(solUsdPrice()||0);
+    return (raw/10**Number(quote?.output_decimals||quote?.input_decimals||0))*Number(referenceUsdPerInputUnit||0);
+  }
+
+  function refreshJupiterTestButton(){
+    const btn=$("#jupiter-exec-test");
+    if(!btn) return;
+    btn.textContent=jupiterTest?.stage==="BOUGHT"?"SELL TEST":"TEST $1 BUY";
+  }
+
+  async function runJupiterExecutionTest(){
+    const wallet=await connectJupiterWallet();
+    const candidates=signalRows().map(x=>x.t).filter(t=>t?.mint && Number.isInteger(Number(t.decimals)));
+    const token=jupiterTest?.stage==="BOUGHT"
+      ? {mint:jupiterTest.mint,decimals:jupiterTest.decimals,symbol:jupiterTest.symbol}
+      : candidates[0];
+    if(!token) throw new Error("No token available for the Jupiter execution test.");
+    if(jupiterTest?.stage==="BOUGHT"){
+      const quote=await jupiterTakerOrder(token.mint,SOL_MINT,jupiterTest.qtyRaw,wallet.address);
+      jupiterStatus("exit order assembled · waiting for Phantom signature");
+      const execution=await executeJupiterTransaction(quote,wallet.provider);
+      const receipt=await fetchJupiterReceipt(execution.execution.signature);
+      const platform=feeUsdFromQuote(quote,receipt);
+      const network=Number(receipt.fee_usd)||0;
+      const total=platform+network;
+      jupiterTest={...jupiterTest,stage:"CLOSED",exitSignature:execution.execution.signature,exitPlatformFeeUsd:platform,exitNetworkFeeUsd:network,exitTotalCostUsd:total};
+      jupiterStatus("EXIT complete · real costs $"+total.toFixed(6)+" · tx "+execution.execution.signature.slice(0,10)+"…");
+    }else{
+      const solPrice=solUsdPrice();
+      if(!Number.isFinite(solPrice)||solPrice<=0) throw new Error("SOL/USD price unavailable.");
+      const amountRaw=Math.max(1,Math.floor((1/solPrice)*10**SOL_DECIMALS));
+      const quote=await jupiterTakerOrder(SOL_MINT,token.mint,amountRaw,wallet.address);
+      jupiterStatus("entry order assembled · "+(token.symbol||token.name||"token")+" · waiting for Phantom signature");
+      const execution=await executeJupiterTransaction(quote,wallet.provider);
+      const receipt=await fetchJupiterReceipt(execution.execution.signature);
+      const actualQtyRaw=Number(execution.execution.output_amount_result||quote.output_amount_raw||0);
+      const platform=feeUsdFromQuote(quote,receipt);
+      const network=Number(receipt.fee_usd)||0;
+      const total=platform+network;
+      jupiterTest={stage:"BOUGHT",mint:token.mint,decimals:Number(token.decimals),symbol:token.symbol||token.name||"TEST",qtyRaw:actualQtyRaw,entrySignature:execution.execution.signature,entryPlatformFeeUsd:platform,entryNetworkFeeUsd:network,entryTotalCostUsd:total};
+      jupiterStatus("BUY complete · real costs $"+total.toFixed(6)+" · "+(token.symbol||"token")+" received · tx "+execution.execution.signature.slice(0,10)+"…");
+    }
+    refreshJupiterTestButton();
+  }
+
   function solUsdPrice(){
     const n=Number(liveTradingPrices.get(SOL_MINT));
     return Number.isFinite(n)&&n>0?n:null;
@@ -785,6 +913,15 @@
   }
 
   async function init(){
+    const walletBtn=$("#jupiter-wallet");
+    if(walletBtn) walletBtn.addEventListener("click",async()=>{
+      try{await connectJupiterWallet();}catch(err){jupiterStatus("error · "+(err?.message||err));}
+    });
+    const testBtn=$("#jupiter-exec-test");
+    if(testBtn) testBtn.addEventListener("click",async()=>{
+      try{await runJupiterExecutionTest();}catch(err){jupiterStatus("error · "+(err?.message||err));}
+    });
+
     const sel=$("#paper-threshold");
     if(sel)sel.addEventListener("change",()=>{threshold=Number(sel.value)||3;renderSignals();});
     const risk=$("#paper-risk");
