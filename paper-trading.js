@@ -788,8 +788,6 @@
       if(batch.length) savePendingTradingEvents(batch);
       console.error("Paper Trading persistence failed; trading event batch queued locally:",err);
       showTradingCloudAlert(err);
-      // Cloud persistence is retried separately. The local paper-trading state
-      // must not be blocked by a transient Supabase outage.
       return true;
     }finally{
       tradingEventsAbortControllers.delete(controller);
@@ -899,3 +897,253 @@
               stoppedAt:Number(guard.stoppedAt)||0,
               cooldownUntil:Number(guard.cooldownUntil)||0,
               rearmed:Boolean(guard.rearmed)
+            });
+          }
+        }
+        if(typeof state.costModelVersion==="string") costModelVersion=state.costModelVersion;
+        if(typeof state.costModelEnabled==="boolean") costModelEnabled=state.costModelEnabled;
+        paperRunning=Boolean(state.paperRunning);
+        sessionStartedAt=Number.isFinite(Number(state.sessionStartedAt)) ? Number(state.sessionStartedAt) : null;
+        sessionElapsedMs=Number.isFinite(Number(state.sessionElapsedMs)) ? Number(state.sessionElapsedMs) : 0;
+        if(paperRunning && !sessionStartedAt) sessionStartedAt=now();
+      }
+      positions=restoredPositions.map(p=>({...p,costModel:p.costModel==="V2"&&p.v2EntryQuote?"V2":"V1",t:{mint:p.mint,symbol:p.symbol,name:p.name,decimals:p.tokenDecimals,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
+      const thresholdEl=$("#paper-threshold"), riskEl=$("#paper-risk"), riskTokenEl=$("#paper-risk-token"), capitalEl=$("#paper-capital-limit"), portfolioEl=$("#paper-portfolio-limit"), minPositionEl=$("#paper-min-position"), timeoutEl=$("#paper-profit-timeout"), takeAllEl=$("#paper-take-all");
+      if(thresholdEl) thresholdEl.value=String(threshold);
+      if(riskEl) riskEl.value=String(riskPct);
+      if(riskTokenEl) riskTokenEl.value=String(riskPerTokenPct);
+      if(capitalEl) capitalEl.value=String(capitalLimitPct);
+      if(portfolioEl) portfolioEl.value=String(portfolioLimitPct);
+      if(minPositionEl) minPositionEl.value=String(minPositionCapital);
+      if(timeoutEl) timeoutEl.value=String(profitTimeoutMinutes);
+      if(takeAllEl) takeAllEl.value=String(portfolioTakeAllPct);
+      journal=restoredJournal.map(p=>({
+        ...p,
+        netPnl:Number(p.netPnl??p.pnl??0),
+        costTotal:Number(p.costTotal||0),
+        entryPriceText:typeof p.entryPriceText==="string"?p.entryPriceText:price(p.entry),
+        exitPriceText:typeof p.exitPriceText==="string"?p.exitPriceText:price(p.exit),
+        durationMs:Number(p.durationMs)||0
+      }));
+      saveLocalPaperSnapshot();
+      return true;
+    }catch(_err){
+      return false;
+    }
+  }
+
+  function sessionDurationMs(){
+    return sessionElapsedMs + (paperRunning && sessionStartedAt ? Math.max(0,now()-sessionStartedAt) : 0);
+  }
+  function formatSessionDuration(ms){
+    const total=Math.floor(Math.max(0,Number(ms)||0)/1000);
+    const h=Math.floor(total/3600), m=Math.floor((total%3600)/60), sec=total%60;
+    return [h,m,sec].map((v,i)=>i===0?String(v).padStart(2,"0"):String(v).padStart(2,"0")).join(":");
+  }
+  function renderSession(){
+    const el=$("#paper-session");
+    if(el) el.textContent=formatSessionDuration(sessionDurationMs());
+  }
+  function updatePaperControl(){
+    const status=$("#paper-status");
+    const btn=$("#paper-start-stop");
+    if(btn){btn.textContent=paperRunning?"STOP PAPER":"START PAPER";btn.classList.toggle("running",paperRunning);}
+    if(status) status.textContent=paperRunning
+      ? "PAPER ENGINE RUNNING · new trades may be opened when BUY signals meet the configured threshold."
+      : "PAPER ENGINE STOPPED · signals are monitored, but no new paper trades will be opened.";
+    renderSession();
+  }
+
+  function renderSignals(){
+    lastSignals=signalRows();
+    const universeEl=$("#paper-universe");
+    if(universeEl) universeEl.textContent="Top "+lastSignals.length+" Mature";
+    const body=$("#paper-signal-body"); if(!body)return;
+    $("#paper-signal-count")?.replaceChildren(document.createTextNode(String(lastSignals.length)));
+    body.innerHTML=lastSignals.length ? lastSignals.map(x=>{
+      const e=x.e||{},t=x.t;
+      const eligible=e.signal==="BUY" && e.strength>=threshold;
+      return '<tr class="'+(eligible?"paper-eligible":"")+'"><td>'+(x.index+1)+'</td><td><strong>'+(t.symbol||"—")+'</strong><small>'+(t.name||"")+'</small></td><td class="paper-signal '+String(e.signal||"").toLowerCase()+'">'+(e.signal||"—")+'</td><td>'+ (e.strength??"—") +'</td><td>'+price(e.entry)+'</td><td>'+price(e.stop)+'</td><td>'+price(e.take)+'</td><td>'+((Number(t.core_score)||0)||"—")+'</td><td>'+(x.evaluatedAt?new Date(x.evaluatedAt).toLocaleTimeString():"—")+'</td></tr>';
+    }).join("") : '<tr><td colspan="9" class="paper-empty">No Mature candidates available.</td></tr>';
+  }
+
+  function renderPositions(){
+    const body=$("#paper-position-body"); if(!body)return;
+    $("#paper-position-count").textContent=String(positions.length);
+    const invested=investedCapital();
+    const cash=availableCash();
+    const unrealized=openPnl();
+    const openPnlEl=$("#paper-open-pnl");
+    if(openPnlEl){openPnlEl.textContent="Unrealized P&L · "+usd(unrealized);openPnlEl.classList.toggle("paper-positive",unrealized>=0);openPnlEl.classList.toggle("paper-negative",unrealized<0);}
+    const paperCostsEl=$("#paper-costs");
+    if(paperCostsEl) paperCostsEl.textContent=usd(totalEstimatedCosts());
+    const portfolioPnlEl=$("#paper-portfolio-pnl");
+    if(portfolioPnlEl){const pp=portfolioCyclePnlPct();portfolioPnlEl.textContent="Portfolio P&L · "+pct(pp);portfolioPnlEl.classList.toggle("paper-positive",pp>=0);portfolioPnlEl.classList.toggle("paper-negative",pp<0);}
+    const capitalEl=$("#paper-capital");
+    if(capitalEl) capitalEl.textContent=usd(startingCapital);
+    const cashEl=$("#paper-cash"), investedEl=$("#paper-invested"), cashDetail=$("#paper-cash-detail"), investedDetail=$("#paper-invested-detail");
+    if(cashEl) cashEl.textContent=usd(cash);
+    if(investedEl) investedEl.textContent=usd(invested);
+    if(cashDetail) cashDetail.textContent="Unallocated · "+(((startingCapital+realizedPnl())>0)?((cash/(startingCapital+realizedPnl()))*100).toFixed(1):"0.0")+"%";
+    if(investedDetail) investedDetail.textContent=positions.length+" open position"+(positions.length===1?"":"s");
+    body.innerHTML=positions.length?positions.map(p=>{
+      const current=currentPrice(p)||p.entry;
+      const grossPnl=positionGrossPnl(p,current);
+      const isV2=p.costModel==="V2";
+      const estimatedCosts=isV2?null:(estimatedEntryCost(p)+estimatedExitCost(p,current));
+      const displayEntryQuote=isV2&&p.v2EntryQuote ? {...p.v2EntryQuote,client_entry_capital_usd:Number(p.v2EntryQuote.client_entry_capital_usd||p.entryCapital||p.size||0)} : null;
+      const displayEntryCost=isV2 ? jupiterQuoteCosts(displayEntryQuote||{}) : null;
+      const displayPosition=isV2 ? {...p,v2EntryQuote:displayEntryQuote,v2EntryCost:displayEntryCost} : p;
+      const pnl=isV2?(grossPnl-Number(displayPosition.v2EntryCost?.total||0)):(grossPnl-estimatedCosts);
+      const direction=tradingPriceDirections.get(p.mint)||"flat";
+      const arrow=direction==="up"?"↑":direction==="down"?"↓":"→";
+      const arrowClass="price-direction "+direction;
+      return '<tr><td><strong>'+p.symbol+'</strong></td><td>'+price(p.entry)+'</td><td class="paper-current-price">'+price(current)+' <span class="'+arrowClass+'" title="Last 5s price change">'+arrow+'</span></td><td>'+p.qty.toFixed(4)+'</td><td>'+usd(p.size)+'</td><td>'+price(p.stop)+'</td><td>'+price(p.take)+'</td><td class="'+(grossPnl>=0?"paper-positive":"paper-negative")+'">'+usd(grossPnl)+'</td><td class="paper-negative">'+(isV2?usd(Number(displayPosition.v2EntryCost?.total||0)):"V1 "+usd(estimatedCosts))+'</td><td class="'+(pnl>=0?"paper-positive":"paper-negative")+'">'+usd(pnl)+'</td><td>'+Math.max(0,Math.round((now()-p.openedAt)/60000))+'m</td><td><button type="button" class="paper-sell-now" data-position-id="'+(p.positionId||'')+'">SELL NOW</button></td></tr>';
+    }).join(""):'<tr><td colspan="12" class="paper-empty">No open paper positions.</td></tr>';
+    body.querySelectorAll(".paper-sell-now").forEach(btn=>btn.addEventListener("click",()=>{const p=positions.find(x=>(x.positionId||"")===btn.dataset.positionId);if(p){manualSell(p).then(()=>renderAll());}}));
+  }
+
+  function renderJournal(){
+    const body=$("#paper-journal-body"), pnlBody=$("#pnl-history-body");
+    const html=journal.length?journal.slice().reverse().map(p=>'<tr><td>'+p.id+'</td><td><strong>'+p.symbol+'</strong></td><td>'+p.entryPriceText+'</td><td>'+p.exitPriceText+'</td><td>'+p.reason+'</td><td>'+usd(p.size)+'</td><td class="'+(p.grossPnl>=0?"paper-positive":"paper-negative")+'">'+usd(p.grossPnl??p.pnl)+'</td><td class="paper-negative">'+(Number.isFinite(Number(p.costTotal))?usd(p.costTotal):"—")+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+usd(p.netPnl??p.pnl)+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+pct(p.netPnlPct??p.pnlPct)+'</td><td>'+Math.round(p.durationMs/60000)+'m</td></tr>').join(""):'<tr><td colspan="11" class="paper-empty">No closed paper trades yet.</td></tr>';
+    if(body){body.innerHTML=html;$("#paper-journal-count").textContent=String(journal.length);} const totalNetPnl=journal.reduce((s,p)=>s+Number(p.netPnl??p.pnl??0),0); const totalNetPct=startingCapital>0?(totalNetPnl/startingCapital)*100:0; const totalPnlEl=$("#pnl-journal-total-pnl"); const totalPctEl=$("#pnl-journal-total-pct"); if(totalPnlEl){totalPnlEl.textContent=usd(totalNetPnl); totalPnlEl.classList.toggle("paper-positive",totalNetPnl>=0); totalPnlEl.classList.toggle("paper-negative",totalNetPnl<0);} if(totalPctEl){totalPctEl.textContent=pct(totalNetPct); totalPctEl.classList.toggle("paper-positive",totalNetPct>=0); totalPctEl.classList.toggle("paper-negative",totalNetPct<0);}
+    if(pnlBody)pnlBody.innerHTML=journal.length?journal.slice().reverse().map(p=>'<tr><td>'+p.id+'</td><td><strong>'+p.symbol+'</strong></td><td>BUY</td><td>'+p.entryPriceText+'</td><td>'+p.exitPriceText+'</td><td>'+p.reason+'</td><td class="'+((p.grossPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+usd(p.grossPnl??p.pnl)+'</td><td class="paper-negative">-'+usd(p.costTotal||0)+'</td><td class="'+((p.netPnl??p.pnl)>=0?"paper-positive":"paper-negative")+'">'+usd(p.netPnl??p.pnl)+'</td><td>'+pct(p.netPnlPct??p.pnlPct)+'</td></tr>').join(""):'<tr><td colspan="10" class="paper-empty">No closed trades recorded.</td></tr>';
+  }
+
+  function renderEquityChart(){
+    const svg=$("#pnl-equity-chart");
+    if(!svg) return;
+    const points=[{label:"START",equity:startingCapital}];
+    let equity=startingCapital;
+    for(const trade of journal){
+      equity+=Number(trade.netPnl??trade.pnl??0);
+      points.push({label:trade.id,equity});
+    }
+    if(positions.length){
+      points.push({label:"CURRENT",equity:currentEquity()});
+    }
+    const W=1000,H=300,L=68,R=24,T=20,B=42;
+    const plotW=W-L-R,plotH=H-T-B;
+    const values=points.map(p=>Number(p.equity));
+    let min=Math.min(...values),max=Math.max(...values);
+    if(!Number.isFinite(min)||!Number.isFinite(max)){svg.innerHTML="";return;}
+    const range=Math.max(max-min,1);
+    const pad=Math.max(range*0.12,25);
+    min-=pad;max+=pad;
+    const x=i=>L+(points.length===1?plotW/2:(i/(points.length-1))*plotW);
+    const y=v=>T+(1-(v-min)/(max-min))*plotH;
+    const grid=[];
+    for(let n=0;n<5;n++){
+      const v=min+(max-min)*(n/4), yy=y(v);
+      grid.push('<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+(W-R)+'" y2="'+yy.toFixed(1)+'" class="equity-grid"/><text x="'+(L-10)+'" y="'+(yy+4).toFixed(1)+'" class="equity-axis" text-anchor="end">'+usd(v)+'</text>');
+    }
+    const paths=[];
+    for(let k=1;k<points.length;k++){
+      const segment=[points[k-1],points[k]];
+      const d="M"+x(k-1).toFixed(1)+" "+y(segment[0].equity).toFixed(1)+" L"+x(k).toFixed(1)+" "+y(segment[1].equity).toFixed(1);
+      const cls=segment[1].equity>=startingCapital?"equity-line equity-profit":"equity-line equity-loss";
+      paths.push('<path d="'+d+'" class="'+cls+'"/>');
+    }
+    const circles=points.map((p,k)=>'<circle cx="'+x(k).toFixed(1)+'" cy="'+y(p.equity).toFixed(1)+'" r="4" class="equity-point '+(p.equity>=startingCapital?"equity-profit-point":"equity-loss-point")+'"><title>'+p.label+" · "+usd(p.equity)+'</title></circle>').join("");
+    const labels=points.map((p,k)=>{if(points.length>8 && k>0 && k<points.length-1 && k%2!==0)return "";return '<text x="'+x(k).toFixed(1)+'" y="'+(H-12)+'" class="equity-label" text-anchor="middle">'+p.label+'</text>';}).join("");
+    svg.innerHTML=grid.join("")+'<line x1="'+L+'" y1="'+y(startingCapital).toFixed(1)+'" x2="'+(W-R)+'" y2="'+y(startingCapital).toFixed(1)+'" class="equity-baseline"/>'+paths.join("")+circles+labels;
+  }
+
+  function renderPnl(){
+    const realized=realizedPnl();
+    const open=openPnl();
+    const costs=totalEstimatedCosts();
+    $("#pnl-start").textContent=usd(startingCapital);
+    $("#pnl-equity").textContent=usd(startingCapital+realized+open);
+    $("#pnl-cash").textContent=usd(availableCash());
+    $("#pnl-invested").textContent=usd(investedCapital());
+    $("#pnl-realized").textContent=usd(realized);
+    $("#pnl-open").textContent=usd(open);
+    const costEl=$("#pnl-costs"); if(costEl) costEl.textContent=usd(costs);
+    $("#pnl-trades").textContent=String(journal.length);
+    $("#pnl-winrate").textContent=journal.length?((journal.filter(x=>Number(x.netPnl??x.pnl)>0).length/journal.length)*100).toFixed(1)+"%":"—";
+    const cycleEl=$("#pnl-cycle-pnl");
+    if(cycleEl){const pp=portfolioCyclePnlPct();cycleEl.textContent=pct(pp);cycleEl.classList.toggle("paper-positive",pp>=0);cycleEl.classList.toggle("paper-negative",pp<0);}
+    renderEquityChart();
+    const targetEl=$("#pnl-cycle-target");
+    if(targetEl)targetEl.textContent=pct(portfolioTakeAllPct);
+  }
+
+  async function renderAll(){
+    await executePaperCycle();
+    renderSignals();
+    renderPositions();
+    renderJournal();
+    renderPnl();
+    captureTradingState();
+    saveLocalPaperSnapshot();
+  }
+
+  async function init(){
+    const sel=$("#paper-threshold");
+    if(sel)sel.addEventListener("change",()=>{threshold=Number(sel.value)||3;renderSignals();});
+    const risk=$("#paper-risk");
+    if(risk)risk.addEventListener("change",()=>{riskPct=Number(risk.value)||2;renderSignals();});
+    const riskToken=$("#paper-risk-token");
+    if(riskToken)riskToken.addEventListener("change",()=>{riskPerTokenPct=Number(riskToken.value)||4;renderAll();});
+    const capitalLimit=$("#paper-capital-limit");
+    if(capitalLimit)capitalLimit.addEventListener("change",()=>{capitalLimitPct=Number(capitalLimit.value)||20;renderAll();});
+    const portfolioLimit=$("#paper-portfolio-limit");
+    if(portfolioLimit)portfolioLimit.addEventListener("change",()=>{portfolioLimitPct=Number(portfolioLimit.value)||50;renderAll();});
+    const minPosition=$("#paper-min-position");
+    if(minPosition)minPosition.addEventListener("change",()=>{minPositionCapital=Number(minPosition.value)||250;renderAll();});
+    const timeout=$("#paper-profit-timeout");
+    if(timeout)timeout.addEventListener("change",()=>{profitTimeoutMinutes=Number(timeout.value)||0;renderAll();});
+    const takeAll=$("#paper-take-all");
+    if(takeAll)takeAll.addEventListener("change",()=>{portfolioTakeAllPct=Number(takeAll.value)||0;renderAll();});
+    const slCooldown=$("#paper-sl-cooldown");
+    if(slCooldown)slCooldown.addEventListener("change",()=>{stopLossCooldownMinutes=Math.max(5,Math.min(1440,Number(slCooldown.value)||15));saveLocalPaperSnapshot();});
+    const resetBtn=$("#paper-reset");
+    if(resetBtn) resetBtn.addEventListener("click",resetPaperTrading);
+    const startStop=$("#paper-start-stop");
+    if(startStop) startStop.addEventListener("click",()=>{
+      if(paperRunning){
+        sessionElapsedMs=sessionDurationMs();
+        sessionStartedAt=null;
+        paperRunning=false;
+      }else{
+        sessionStartedAt=now();
+        sessionElapsedMs=0;
+        paperRunning=true;
+      }
+      updatePaperControl();
+      renderAll();
+    });
+    document.querySelectorAll(".nav-btn[data-view]").forEach(btn=>btn.addEventListener("click",()=>{
+      const view=btn.dataset.view;
+      const paper=$("#paper-panel"), pnl=$("#pnl-panel");
+      if(paper)paper.hidden=view!=="paper";
+      if(pnl)pnl.hidden=view!=="pnl";
+      if(view==="paper"||view==="pnl")renderAll();
+    }));
+    window.addEventListener("memelab:jupiter-data",renderAll);
+    window.addEventListener("memelab:engine-universe-changed",renderSignals);
+    await restoreTradingState();
+    await refreshTradingPrices();
+    if(slCooldown)slCooldown.value=String(Math.max(5,Math.min(1440,Number(stopLossCooldownMinutes)||15)));
+    await renderAll();
+    updatePaperControl();
+    renderSession();
+    setInterval(renderSession,1000);
+    setInterval(async ()=>{
+      await refreshTradingPrices();
+      await executePaperCycle();
+      if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){
+        renderSignals();
+        renderPositions();
+        renderJournal();
+        renderPnl();
+        captureTradingState();
+        saveLocalPaperSnapshot();
+      }
+    },5000);
+    window.addEventListener("pagehide",()=>saveLocalPaperSnapshot());
+  }
+  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,costModelVersion,threshold,riskPct,riskPerTokenPct,capitalLimitPct,portfolioLimitPct,minPositionCapital,profitTimeoutMinutes,portfolioTakeAllPct,portfolioCycleBaselineEquity,paperRunning,sessionStartedAt,sessionElapsedMs}),isRunning:()=>paperRunning,manualBuy,manualSell};
+  init();
+})();
