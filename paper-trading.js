@@ -36,6 +36,7 @@
   let paperResetGeneration = 0;
   let tradingResetInFlight = false;
   let tradingCloudAlertVisible = false;
+  let tradingAlertSource = null;
   const tradingEventsAbortControllers = new Set();
   const paperConsumedEngineEvaluations = new Map();
   const $ = s => document.querySelector(s);
@@ -48,10 +49,14 @@
   };
   const now=()=>Date.now();
 
-  function showTradingCloudAlert(err){
-    if(tradingCloudAlertVisible || document.getElementById("paper-trading-cloud-alert")) return;
+  function showTradingInfrastructureAlert(source, titleText, bodyText, err){
     tradingCloudAlertVisible=true;
-    const box=document.createElement("div");
+    tradingAlertSource=source;
+    let box=document.getElementById("paper-trading-cloud-alert");
+    if(!box){
+      box=document.createElement("div");
+      box.id="paper-trading-cloud-alert";
+    }
     box.id="paper-trading-cloud-alert";
     box.style.cssText=[
       "position:fixed",
@@ -69,22 +74,42 @@
       "pointer-events:none"
     ].join(";");
     const title=document.createElement("div");
-    title.textContent="CLOUD DATABASE OFFLINE";
+    title.textContent=titleText;
     title.style.cssText="font-size:16px;font-weight:800;letter-spacing:.05em;color:#f87171;margin-bottom:8px;";
     const body=document.createElement("div");
-    body.textContent="Supabase ist aktuell nicht erreichbar. Paper Trading bleibt aktiv; die nächsten Trading-Cycles versuchen die Persistenz automatisch erneut.";
+    body.textContent=bodyText;
     body.style.cssText="font-size:14px;line-height:1.45;";
     const detail=document.createElement("div");
     detail.textContent=String(err?.message||"Unbekannter Cloud-Persistenzfehler");
     detail.style.cssText="margin-top:9px;font-size:12px;line-height:1.35;color:#fca5a5;word-break:break-word;";
     box.append(title,body,detail);
-    document.body.appendChild(box);
+    if(!box.parentElement) document.body.appendChild(box);
   }
 
-  function clearTradingCloudAlert(){
+  function showTradingCloudAlert(err){
+    showTradingInfrastructureAlert(
+      "cloud",
+      "CLOUD DATABASE OFFLINE",
+      "Supabase ist aktuell nicht erreichbar. Paper Trading bleibt aktiv; die nächsten Trading-Cycles versuchen die Persistenz automatisch erneut.",
+      err
+    );
+  }
+
+  function showTradingPriceAlert(err){
+    showTradingInfrastructureAlert(
+      "prices",
+      "MARKET DATA FEED OFFLINE",
+      "Der aktuelle Jupiter-Preisfeed antwortet nicht rechtzeitig. Die Preisaktualisierung wird automatisch erneut versucht.",
+      err
+    );
+  }
+
+  function clearTradingCloudAlert(source=null){
     const box=document.getElementById("paper-trading-cloud-alert");
+    if(source && tradingAlertSource!==source) return;
     if(box) box.remove();
     tradingCloudAlertVisible=false;
+    tradingAlertSource=null;
   }
 
   function stopLossGuardBlocksEntry(mint, signal){
@@ -341,10 +366,14 @@
       }
       const count=Object.keys(prices).length;
       tradingPriceFeedStatus=count>0?"LIVE":"NO_DATA";
-      if(count>0) tradingPriceLastUpdateAt=Date.now();
+      if(count>0){
+        tradingPriceLastUpdateAt=Date.now();
+        clearTradingCloudAlert("prices");
+      }
       return count>0;
     }catch(err){
       tradingPriceFeedStatus=err?.name==="AbortError"?"TIMEOUT":"ERROR";
+      showTradingPriceAlert(err);
       if(err?.name!=="AbortError") console.debug("Trading price refresh:",err);
       return false;
     }finally{
@@ -731,7 +760,7 @@
       });
       const result=await response.json().catch(()=>({}));
       if(!response.ok || result.status!=="ok") throw new Error(result.error||("HTTP "+response.status));
-      clearTradingCloudAlert();
+      clearTradingCloudAlert("cloud");
       return true;
     }catch(err){
       if(err?.name==="AbortError") return false;
