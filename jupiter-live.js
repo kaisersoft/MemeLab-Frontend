@@ -134,23 +134,77 @@
   function engineUsd(v){const n=engineNum(v);if(n==null)return "—";if(Math.abs(n)>=1e6)return "$"+(n/1e6).toFixed(2)+"M";if(Math.abs(n)>=1e3)return "$"+(n/1e3).toFixed(1)+"K";if(Math.abs(n)>=1)return "$"+n.toFixed(2);return "$"+n.toExponential(2);}
   function enginePct(v){const n=engineNum(v);return n==null?"—":(n>0?"+":"")+n.toFixed(2)+"%";}
   function engineStats(t){
-    const s=t?.stats_24h||t?.stats||{};
-    const price=engineNum(t?.price_usd), volume=engineNum(s.volume), buy=engineNum(s.buy_volume), sell=engineNum(s.sell_volume);
-    const traders=engineNum(s.num_traders), buys=engineNum(s.num_buys), sells=engineNum(s.num_sells);
-    const flow=buy!=null&&sell!=null?buy-sell:null;
     const hist=Array.isArray(t?._engineHistory)?t._engineHistory:[];
-    const last=hist.at(-1)||null, prev=hist.at(-2)||null;
-    const histPrice=engineNum(last?.price_usd), histVolume=engineNum(last?.volume);
-    const momentum=engineNum(t?.momentum ?? t?.momentum_score) ?? (histPrice!=null&&engineNum(prev?.price_usd)?((histPrice/Number(prev.price_usd))-1)*100:null);
-    const activity=engineNum(t?.volume_change ?? s.volume_change) ?? (histVolume!=null&&engineNum(prev?.volume)?((histVolume/Number(prev.volume))-1)*100:null);
-    let volatility=engineNum(t?.volatility_24h ?? t?.volatility);
-    if(volatility==null&&hist.length>=3){
-      const ps=hist.slice(-13).map(x=>engineNum(x?.price_usd)).filter(x=>x!=null&&x>0), rs=[];
+    const pricePoints=hist
+      .map(x=>({observed_at:engineNum(x?.observed_at),price_usd:engineNum(x?.price_usd)}))
+      .filter(x=>x.price_usd!=null&&x.price_usd>0);
+    const marketPoints=hist
+      .map(x=>({
+        observed_at:engineNum(x?.observed_at),
+        price_usd:engineNum(x?.price_usd),
+        volume:engineNum(x?.volume),
+        buy_volume:engineNum(x?.buy_volume),
+        sell_volume:engineNum(x?.sell_volume),
+        traders:engineNum(x?.traders),
+        buys:engineNum(x?.buys),
+        sells:engineNum(x?.sells),
+        liquidity:engineNum(x?.liquidity)
+      }))
+      .filter(x=>x.price_usd!=null&&x.price_usd>0&&x.volume!=null&&x.buy_volume!=null&&x.sell_volume!=null)
+      .sort((a,b)=>(a.observed_at??0)-(b.observed_at??0));
+    const latestMarket=marketPoints.at(-1)||null;
+    const previousMarket=marketPoints.at(-2)||null;
+    const latestPrice=pricePoints.at(-1)||null;
+    const currentPrice=engineNum(t?._tradingPriceObservedAt?t?.price_usd:null) ?? engineNum(t?.price_usd) ?? latestPrice?.price_usd ?? null;
+    const currentObservedAt=engineNum(t?._tradingPriceObservedAt);
+    const marketAgeSeconds=latestMarket?.observed_at!=null?Math.max(0,Date.now()/1000-latestMarket.observed_at):null;
+    const priceAgeSeconds=currentObservedAt!=null?Math.max(0,Date.now()/1000-currentObservedAt):null;
+    const dataReady=Boolean(
+      latestMarket &&
+      previousMarket &&
+      currentPrice!=null &&
+      marketAgeSeconds!=null &&
+      marketAgeSeconds<=90 &&
+      (priceAgeSeconds==null||priceAgeSeconds<=15)
+    );
+    const volume=latestMarket?.volume??null;
+    const buy=latestMarket?.buy_volume??null;
+    const sell=latestMarket?.sell_volume??null;
+    const flowNow=buy!=null&&sell!=null?buy-sell:null;
+    const flowPrev=previousMarket?.buy_volume!=null&&previousMarket?.sell_volume!=null
+      ? previousMarket.buy_volume-previousMarket.sell_volume
+      : null;
+    const flow=flowNow!=null&&flowPrev!=null?flowNow-flowPrev:null;
+    const momentum=latestMarket?.price_usd!=null&&currentPrice!=null&&latestMarket.price_usd>0
+      ? ((currentPrice/latestMarket.price_usd)-1)*100
+      : null;
+    const activity=latestMarket?.volume!=null&&previousMarket?.volume!=null&&previousMarket.volume>0
+      ? ((latestMarket.volume/previousMarket.volume)-1)*100
+      : null;
+    let volatility=null;
+    if(pricePoints.length>=3){
+      const ps=pricePoints.slice(-13).map(x=>x.price_usd).filter(x=>x!=null&&x>0), rs=[];
       for(let i=1;i<ps.length;i++)rs.push(Math.log(ps[i]/ps[i-1]));
       if(rs.length){const m=rs.reduce((a,x)=>a+x,0)/rs.length;volatility=Math.sqrt(rs.reduce((a,x)=>a+(x-m)**2,0)/rs.length)*100;}
     }
-    const liquidity=engineNum(t?.liquidity) ?? engineNum(last?.liquidity);
-    return {price:price ?? histPrice,volume:volume ?? histVolume,buy:buy ?? engineNum(last?.buy_volume),sell:sell ?? engineNum(last?.sell_volume),flow:flow ?? engineNum(last?.net_flow),traders:traders ?? engineNum(last?.traders),buys:buys ?? engineNum(last?.buys),sells:sells ?? engineNum(last?.sells),momentum,activity,volatility,liquidity};
+    const liquidity=engineNum(t?.liquidity) ?? latestMarket?.liquidity ?? null;
+    return {
+      price:currentPrice,
+      volume,
+      buy,
+      sell,
+      flow,
+      traders:latestMarket?.traders??null,
+      buys:latestMarket?.buys??null,
+      sells:latestMarket?.sells??null,
+      momentum,
+      activity,
+      volatility,
+      liquidity,
+      dataReady,
+      marketAgeSeconds,
+      priceAgeSeconds
+    };
   }
   function engineSignal(t){
     const s=engineStats(t);
@@ -161,7 +215,11 @@
     if(s.traders!=null&&s.traders>0){reasons.push("Trader participation present");}
     if(s.volatility!=null&&s.volatility>25){score-=1;reasons.push("Volatility elevated");}
     const strength=Math.round(Math.min(100,Math.max(0,50+score*10)));
-    const signal=score>=3?"BUY":score<=-3?"SELL":score!==0?"WATCH":"HOLD";
+    const directional=score>=3?"BUY":score<=-3?"SELL":score!==0?"WATCH":"HOLD";
+    // A BUY is only actionable when the current market state is complete and
+    // short-term momentum confirms the direction. Neutral/missing momentum must
+    // never be promoted to BUY by stale 24h activity/flow data.
+    const signal=!s.dataReady?"HOLD":(directional==="BUY"&&s.momentum!=null&&s.momentum>0?"BUY":directional);
     let entry=null,stop=null,take=null,rr=null;
     if((signal==="BUY"||signal==="SELL")&&s.price!=null){
       entry=s.price;
@@ -169,6 +227,7 @@
       if(signal==="BUY"){stop=entry*(1-riskPct);take=entry*(1+riskPct*2);rr=2;}
       else {stop=entry*(1+riskPct);take=entry*(1-riskPct*2);rr=2;}
     }
+    if(!s.dataReady) reasons.unshift("Fresh short-term market state unavailable");
     return {signal,strength,entry,stop,take,rr,reasons,s};
   }
   function engineMatureCandidates(){
