@@ -767,7 +767,8 @@
     saveLocalPaperSnapshot();
     const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
     const pending=loadPendingTradingEvents();
-    const batch=[...pending,...events];
+    const queueable=events.filter(event=>["POSITION_OPEN","POSITION_CLOSE","PORTFOLIO_TAKE_ALL"].includes(String(event?.event_type||"")));
+    const batch=[...pending,...queueable];
     const controller=new AbortController();
     tradingEventsAbortControllers.add(controller);
     try{
@@ -784,8 +785,8 @@
       return true;
     }catch(err){
       if(err?.name==="AbortError") return false;
-      savePendingTradingEvents(batch);
-      console.error("Paper Trading persistence failed; event batch queued locally:",err);
+      if(batch.length) savePendingTradingEvents(batch);
+      console.error("Paper Trading persistence failed; trading event batch queued locally:",err);
       showTradingCloudAlert(err);
       // Cloud persistence is retried separately. The local paper-trading state
       // must not be blocked by a transient Supabase outage.
@@ -898,26 +899,3 @@
               stoppedAt:Number(guard.stoppedAt)||0,
               cooldownUntil:Number(guard.cooldownUntil)||0,
               rearmed:Boolean(guard.rearmed)
-            });
-          }
-        }
-        if(typeof state.costModelVersion==="string") costModelVersion=state.costModelVersion;
-        if(typeof state.costModelEnabled==="boolean") costModelEnabled=state.costModelEnabled;
-        paperRunning=Boolean(state.paperRunning);
-        sessionStartedAt=Number.isFinite(Number(state.sessionStartedAt)) ? Number(state.sessionStartedAt) : null;
-        sessionElapsedMs=Number.isFinite(Number(state.sessionElapsedMs)) ? Number(state.sessionElapsedMs) : 0;
-        if(paperRunning && !sessionStartedAt) sessionStartedAt=now();
-      }
-      positions=restoredPositions.map(p=>({...p,costModel:p.costModel==="V2"&&p.v2EntryQuote?"V2":"V1",t:{mint:p.mint,symbol:p.symbol,name:p.name,decimals:p.tokenDecimals,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
-      const thresholdEl=$("#paper-threshold"), riskEl=$("#paper-risk"), riskTokenEl=$("#paper-risk-token"), capitalEl=$("#paper-capital-limit"), portfolioEl=$("#paper-portfolio-limit"), minPositionEl=$("#paper-min-position"), timeoutEl=$("#paper-profit-timeout"), takeAllEl=$("#paper-take-all");
-      if(thresholdEl) thresholdEl.value=String(threshold);
-      if(riskEl) riskEl.value=String(riskPct);
-      if(riskTokenEl) riskTokenEl.value=String(riskPerTokenPct);
-      if(capitalEl) capitalEl.value=String(capitalLimitPct);
-      if(portfolioEl) portfolioEl.value=String(portfolioLimitPct);
-      if(minPositionEl) minPositionEl.value=String(minPositionCapital);
-      if(timeoutEl) timeoutEl.value=String(profitTimeoutMinutes);
-      if(takeAllEl) takeAllEl.value=String(portfolioTakeAllPct);
-      journal=restoredJournal.map(p=>({
-        ...p,
-        netPnl:Number(p.netPnl??p.pnl??0),
