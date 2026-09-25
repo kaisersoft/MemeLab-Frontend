@@ -1021,7 +1021,7 @@
     updatePaperControl();
     renderSession();
     setInterval(renderSession,1000);
-    setInterval(async ()=>{await refreshTradingPrices();await renderAll();},5000);
+    setInterval(async ()=>{\n      await refreshTradingPrices();\n      await executePaperCycle();\n      if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){\n        renderSignals();\n        renderPositions();\n        renderJournal();\n        renderPnl();\n        captureTradingState();\n        saveLocalPaperSnapshot();\n      }\n    },5000);
     window.addEventListener("pagehide",()=>saveLocalPaperSnapshot());
   }
   window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,costModelVersion,threshold,riskPct,riskPerTokenPct,capitalLimitPct,portfolioLimitPct,minPositionCapital,profitTimeoutMinutes,portfolioTakeAllPct,portfolioCycleBaselineEquity,paperRunning,sessionStartedAt,sessionElapsedMs}),isRunning:()=>paperRunning,manualBuy,manualSell};
