@@ -703,9 +703,7 @@
           liquidity:Number(t.liquidity)||null,
           stats_24h:t.stats_24h||null,
           lifecycle:t.lifecycle||null,
-          core_score:Number(t.core_score)||null,
-          signal:e.signal||null,
-          strength:Number(e.strength)||null
+          core_score:Number(t.core_score)||null
         }
       });
     }
