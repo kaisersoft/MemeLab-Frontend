@@ -531,7 +531,6 @@
 
   function manualBuy(t){
     if(!t?.mint) return false;
-    if(positions.some(p=>p.mint===t.mint)) return false;
     const entry=Number(t.price_usd);
     if(!Number.isFinite(entry)||entry<=0) return false;
     const engine=window.MEMELAB_ENGINE;
