@@ -25,6 +25,7 @@
     return "$"+n.toExponential(2);
   };
   const stats24h = (t) => t?.stats_24h || {};
+  const lifecycle = (t) => String(t?.lifecycle || "DISCOVERED").toUpperCase();
 
   const currentMarketState = (t) => t?.current_market_state || null;
   const coreScores = (t) => {
