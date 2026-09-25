@@ -331,9 +331,7 @@
     tradingPriceRefreshInFlight=true;
     try{
       const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
-      const controller=new AbortController();
-      const timeout=setTimeout(()=>controller.abort(),3000);
-      const response=await fetch(apiBase+"/trading/prices?mints="+encodeURIComponent(unique.join(",")),{cache:"no-store",headers:{Accept:"application/json"},signal:controller.signal});
+      const response=await fetch(apiBase+"/trading/prices?mints="+encodeURIComponent(unique.join(",")),{cache:"no-store",headers:{Accept:"application/json"}});
       if(!response.ok){ tradingPriceFeedStatus="ERROR"; return false; }
       const data=await response.json();
       const prices=data?.prices||{};
@@ -377,7 +375,6 @@
       if(err?.name!=="AbortError") console.debug("Trading price refresh:",err);
       return false;
     }finally{
-      clearTimeout(timeout);
       tradingPriceRefreshInFlight=false;
     }
   }
