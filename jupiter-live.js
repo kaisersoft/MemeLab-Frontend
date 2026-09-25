@@ -22,105 +22,19 @@
     return "$"+n.toExponential(2);
   };
   const stats24h = (t) => t?.stats_24h || {};
-  const lifecycle = (t) => t?.lifecycle || "DISCOVERED";
-  const clamp = (v,min=0,max=100) => {
-    const n=Number(v);
-    return Number.isFinite(n) ? Math.max(min,Math.min(max,n)) : null;
-  };
-  const num = (v) => {
-    const n=Number(v);
-    return Number.isFinite(n) ? n : null;
-  };
-  const logScore = (v,min,max) => {
-    const n=num(v);
-    if(n==null || n<=0) return null;
-    return clamp((Math.log10(Math.max(n,min))-Math.log10(min))/(Math.log10(max)-Math.log10(min))*100);
-  };
-  const metricFor = (t) => (window.MEMELAB_POSITION_METRICS||new Map()).get(t?.mint)||{};
 
-  const marketScore = (t) => {
-    const s=stats24h(t);
-    const liq=num(t?.liquidity), vol=num(s.volume), traders=num(s.num_traders);
-    if(liq==null || vol==null || traders==null) return null;
-    const liqScore=logScore(liq,1e3,1e8);
-    const volScore=logScore(vol,1e3,1e8);
-    const traderScore=logScore(traders,1,1e5);
-    if(liqScore==null || volScore==null || traderScore==null) return null;
-    return 0.40*liqScore+0.35*volScore+0.25*traderScore;
-  };
-
-  const momentumScore = (t) => {
-    const s=stats24h(t);
-    const price=num(s.price_change), volChange=num(s.volume_change), holderChange=num(s.holder_change);
-    const buy=num(s.buy_volume), sell=num(s.sell_volume);
-    if(price==null || volChange==null || holderChange==null || buy==null || sell==null) return null;
-    const totalFlow=buy+sell;
-    if(totalFlow<=0) return null;
-    const flow=(buy-sell)/totalFlow;
-    return 0.40*clamp((price+50)/150*100)
-      +0.25*clamp((volChange+100)/400*100)
-      +0.15*clamp((holderChange+50)/150*100)
-      +0.20*clamp((flow+1)*50);
-  };
-
-  const activityTrendScore = (t) => {
-    const change=num(stats24h(t).volume_change);
-    if(change==null) return null;
-    // 0% change is neutral (50/100). +/-200% spans the displayed score range.
-    return clamp(50+(change/4));
-  };
-
-  const volatilityFromHistory = (points) => {
-    const prices=(Array.isArray(points)?points:[])
-      .map(p=>num(p?.price_usd))
-      .filter(v=>v!=null && v>0);
-    if(prices.length<3) return null;
-    const returns=[];
-    for(let i=1;i<prices.length;i++){
-      if(prices[i-1]>0 && prices[i]>0) returns.push(Math.log(prices[i]/prices[i-1]));
-    }
-    if(returns.length<2) return null;
-    const mean=returns.reduce((a,b)=>a+b,0)/returns.length;
-    const variance=returns.reduce((a,b)=>a+(b-mean)**2,0)/returns.length;
-    return Math.sqrt(variance)*100;
-  };
-
-  let positionHistory=[];
-  const riskScore = (t) => {
-    const historyVol=volatilityFromHistory(positionHistory);
-    const fallback=num(metricFor(t).volatility_24h_pct);
-    const vol=historyVol!=null?historyVol:fallback;
-    if(vol==null) return null;
-    const liq=num(t?.liquidity);
-    const change=num(stats24h(t).price_change);
-    if(liq==null || change==null) return null;
-    const liqRisk=logScore(liq,1e3,1e8);
-    if(liqRisk==null) return null;
-    const volRisk=clamp(100-(vol/20*100));
-    const moveRisk=clamp(100-Math.abs(change)*2);
-    if(volRisk==null || moveRisk==null) return null;
-    const declining=lifecycle(t)==="DECLINING"?15:0;
-    return clamp(0.50*volRisk+0.30*liqRisk+0.20*moveRisk-declining);
-  };
-
+  const currentMarketState = (t) => t?.current_market_state || null;
   const coreScores = (t) => {
-    const market=marketScore(t);
-    const momentum=momentumScore(t);
-    const risk=riskScore(t);
-    const activity=activityTrendScore(t);
-    if(market==null || momentum==null || risk==null || activity==null)
-      return {market,momentum,risk,activity,core:null};
-    // Core Score is the current market-intelligence layer. Social is deliberately
-    // excluded until the separate qualitative social signal is connected.
+    const s=currentMarketState(t);
+    if(!s) return {market:null,momentum:null,risk:null,activity:null,core:null};
     return {
-      market,
-      momentum,
-      risk,
-      activity,
-      core:Math.round(0.30*market+0.25*momentum+0.25*risk+0.20*activity)
+      market:num(s.market_score),
+      momentum:num(s.momentum_score),
+      risk:num(s.risk_score),
+      activity:num(s.activity_score),
+      core:num(s.core_score)
     };
   };
-
 
   let engineTimer=null;
   let engineIntervalMs=5000;
@@ -129,83 +43,47 @@
   let engineCursor=0;
   let engineSelectedMint=null;
   let engineScannedAt=0;
+  let watchlistStateTimer=null;
 
   function engineNum(v){const n=Number(v);return Number.isFinite(n)?n:null;}
   function engineUsd(v){const n=engineNum(v);if(n==null)return "—";if(Math.abs(n)>=1e6)return "$"+(n/1e6).toFixed(2)+"M";if(Math.abs(n)>=1e3)return "$"+(n/1e3).toFixed(1)+"K";if(Math.abs(n)>=1)return "$"+n.toFixed(2);return "$"+n.toExponential(2);}
   function enginePct(v){const n=engineNum(v);return n==null?"—":(n>0?"+":"")+n.toFixed(2)+"%";}
+
   function engineStats(t){
-    const hist=Array.isArray(t?._engineHistory)?t._engineHistory:[];
-    const pricePoints=hist
-      .map(x=>({observed_at:engineNum(x?.observed_at),price_usd:engineNum(x?.price_usd)}))
-      .filter(x=>x.price_usd!=null&&x.price_usd>0);
-    const marketPoints=hist
-      .map(x=>({
-        observed_at:engineNum(x?.observed_at),
-        price_usd:engineNum(x?.price_usd),
-        volume:engineNum(x?.volume),
-        buy_volume:engineNum(x?.buy_volume),
-        sell_volume:engineNum(x?.sell_volume),
-        traders:engineNum(x?.traders),
-        buys:engineNum(x?.buys),
-        sells:engineNum(x?.sells),
-        liquidity:engineNum(x?.liquidity)
-      }))
-      .filter(x=>x.price_usd!=null&&x.price_usd>0&&x.volume!=null&&x.buy_volume!=null&&x.sell_volume!=null)
-      .sort((a,b)=>(a.observed_at??0)-(b.observed_at??0));
-    const latestMarket=marketPoints.at(-1)||null;
-    const previousMarket=marketPoints.at(-2)||null;
-    const latestPrice=pricePoints.at(-1)||null;
-    const currentPrice=engineNum(t?._tradingPriceObservedAt?t?.price_usd:null) ?? engineNum(t?.price_usd) ?? latestPrice?.price_usd ?? null;
-    const currentObservedAt=engineNum(t?._tradingPriceObservedAt);
-    const marketAgeSeconds=latestMarket?.observed_at!=null?Math.max(0,Date.now()/1000-latestMarket.observed_at):null;
-    const priceAgeSeconds=currentObservedAt!=null?Math.max(0,Date.now()/1000-currentObservedAt):null;
-    const dataReady=Boolean(
-      latestMarket &&
-      previousMarket &&
-      currentPrice!=null &&
-      marketAgeSeconds!=null &&
-      marketAgeSeconds<=90 &&
-      (priceAgeSeconds==null||priceAgeSeconds<=15)
-    );
-    const volume=latestMarket?.volume??null;
-    const buy=latestMarket?.buy_volume??null;
-    const sell=latestMarket?.sell_volume??null;
-    const flowNow=buy!=null&&sell!=null?buy-sell:null;
-    const flowPrev=previousMarket?.buy_volume!=null&&previousMarket?.sell_volume!=null
-      ? previousMarket.buy_volume-previousMarket.sell_volume
-      : null;
-    const flow=flowNow!=null&&flowPrev!=null?flowNow-flowPrev:null;
-    const momentum=latestMarket?.price_usd!=null&&currentPrice!=null&&latestMarket.price_usd>0
-      ? ((currentPrice/latestMarket.price_usd)-1)*100
-      : null;
-    const activity=latestMarket?.volume!=null&&previousMarket?.volume!=null&&previousMarket.volume>0
-      ? ((latestMarket.volume/previousMarket.volume)-1)*100
-      : null;
-    let volatility=null;
-    if(pricePoints.length>=3){
-      const ps=pricePoints.slice(-13).map(x=>x.price_usd).filter(x=>x!=null&&x>0), rs=[];
-      for(let i=1;i<ps.length;i++)rs.push(Math.log(ps[i]/ps[i-1]));
-      if(rs.length){const m=rs.reduce((a,x)=>a+x,0)/rs.length;volatility=Math.sqrt(rs.reduce((a,x)=>a+(x-m)**2,0)/rs.length)*100;}
+    const m=currentMarketState(t);
+    if(!m){
+      return {
+        price:null,volume:null,buy:null,sell:null,flow:null,traders:null,buys:null,sells:null,
+        momentum:null,activity:null,volatility:null,liquidity:null,dataReady:false,marketAgeSeconds:null,priceAgeSeconds:null
+      };
     }
-    const liquidity=engineNum(t?.liquidity) ?? latestMarket?.liquidity ?? null;
+    const snapshotPrice=engineNum(m.price_usd);
+    const livePriceObservedAt=engineNum(t?._tradingPriceObservedAt);
+    const livePriceFresh=livePriceObservedAt!=null && (Date.now()/1000-livePriceObservedAt)<=15;
+    const livePrice=livePriceFresh ? engineNum(t?.price_usd) : null;
+    const currentPrice=livePrice!=null&&livePrice>0?livePrice:snapshotPrice;
+    const momentum=currentPrice!=null&&snapshotPrice!=null&&snapshotPrice>0&&livePrice!=null
+      ? ((currentPrice/snapshotPrice)-1)*100
+      : engineNum(m.momentum_pct);
     return {
       price:currentPrice,
-      volume,
-      buy,
-      sell,
-      flow,
-      traders:latestMarket?.traders??null,
-      buys:latestMarket?.buys??null,
-      sells:latestMarket?.sells??null,
+      volume:engineNum(m.volume_24h_usd),
+      buy:engineNum(m.buy_volume_24h_usd),
+      sell:engineNum(m.sell_volume_24h_usd),
+      flow:engineNum(m.flow_delta_24h_usd),
+      traders:engineNum(m.traders_24h),
+      buys:engineNum(m.buys_24h),
+      sells:engineNum(m.sells_24h),
       momentum,
-      activity,
-      volatility,
-      liquidity,
-      dataReady,
-      marketAgeSeconds,
-      priceAgeSeconds
+      activity:engineNum(m.activity_delta_pct),
+      volatility:engineNum(m.volatility_pct),
+      liquidity:engineNum(m.liquidity_usd),
+      dataReady:Boolean(m.data_ready),
+      marketAgeSeconds:engineNum(m.age_seconds),
+      priceAgeSeconds:livePriceFresh ? Math.max(0,Date.now()/1000-livePriceObservedAt):null
     };
   }
+
   function engineSignal(t){
     const s=engineStats(t);
     let score=0, reasons=[];
@@ -234,7 +112,7 @@
     const all=Array.isArray(window.MEMELAB_JUPITER_TOKENS)?window.MEMELAB_JUPITER_TOKENS:[];
     const mature=all.filter(t=>["MATURE","DECLINING"].includes(String(t?.lifecycle||"").toUpperCase()) || t?.permanent===true);
     const permanent=mature.filter(t=>t?.permanent===true);
-    const ranked=mature.map(t=>({t,core:engineNum(t?.core_score) ?? engineNum(coreScores(t)?.core)}))
+    const ranked=mature.map(t=>({t,core:engineNum(t?.current_market_state?.core_score)}))
       .sort((a,b)=>(b.core??-1)-(a.core??-1));
     const regular=ranked.filter(x=>x.t?.permanent!==true).slice(0,Math.max(0,engineWatchlistSize-permanent.length)).map(x=>x.t);
     return [...regular,...permanent];
@@ -247,8 +125,7 @@
     if(!engineCandidates.length){body.innerHTML='<tr><td colspan="12" class="engine-empty">No MATURE / DECLINING candidates available.</td></tr>';return;}
     body.innerHTML=engineCandidates.map((t,i)=>{
       const e=engineSignal(t), s=e.s, selected=t.mint===engineSelectedMint;
-      const computedCore=coreScores(t)?.core;
-      const core=engineNum(t.core_score) ?? engineNum(computedCore);
+      const core=engineNum(t.current_market_state?.core_score);
       return '<tr data-engine-mint="'+t.mint+'" class="'+(selected?"selected":"")+'">'+
         '<td>'+(i+1)+'</td><td><span class="engine-token">'+(t.symbol||"—")+'</span><br><span class="engine-symbol">'+(t.name||"")+'</span></td>'+
         '<td>'+(core!=null?Math.round(core):"—")+'</td><td>'+engineUsd(s.price)+'</td><td>'+engineUsd(s.flow)+'</td><td>'+engineUsd(s.volume)+'</td>'+
@@ -278,15 +155,9 @@
     engineScannedAt=Date.now();
     const cycle=$("#engine-cycle");if(cycle)cycle.textContent=(engineCursor+1)+" / "+engineCandidates.length;
     const last=$("#engine-last-scan");if(last)last.textContent=new Date(engineScannedAt).toLocaleTimeString();
-    try{
-      const response=await fetch(apiBase+"/jupiter/history?mint="+encodeURIComponent(t.mint)+"&window=5m",{cache:"no-store",headers:{Accept:"application/json"}});
-      if(response.ok){
-        const data=await response.json();
-        t._engineHistory=Array.isArray(data?.points)?data.points:[];
-      }
-    }catch(e){console.debug("Trading engine history scan:",e);}
     engineRender();
   }
+
   function engineStart(){
     if(engineTimer)clearInterval(engineTimer);
     engineIntervalMs=Number($("#engine-interval")?.value)||5000;
@@ -557,18 +428,49 @@
     renderUniverseTable(filteredTokens);
   }
   function renderDiscoveryState(){const state=$("#discovery-state"),button=$("#discovery-toggle"),scan=$("#scan-time");if(state){state.textContent=discoveryRunning?"RUNNING":"OFF";state.classList.toggle("running",discoveryRunning);}if(button){button.textContent=discoveryRunning?"STOP DISCOVERY":"START DISCOVERY";button.setAttribute("aria-pressed",discoveryRunning?"true":"false");button.classList.toggle("running",discoveryRunning);}if(scan&&!discoveryRunning&&window.MEMELAB_JUPITER_DATA?.feed!=="discovery_scope")scan.textContent="Persistent dataset · discovery off";}
+  function applyCurrentMarketStates(stateRows){
+    const map=new Map((Array.isArray(stateRows)?stateRows:[]).map(row=>[row?.mint,row?.current_market_state||null]));
+    window.MEMELAB_JUPITER_TOKENS=(Array.isArray(window.MEMELAB_JUPITER_TOKENS)?window.MEMELAB_JUPITER_TOKENS:[]).map(token=>({
+      ...token,
+      current_market_state:map.has(token?.mint)?map.get(token.mint):token?.current_market_state||null
+    }));
+    tokens=window.MEMELAB_JUPITER_TOKENS;
+    if(selectedMint){
+      const selected=tokens.find(t=>t.mint===selectedMint);
+      if(selected && window.MEMELAB_MARKET?.updateLive) window.MEMELAB_MARKET.updateLive(selected);
+    }
+    render();
+    if(!document.getElementById("engine-panel")?.hidden) engineRender();
+    window.dispatchEvent(new CustomEvent("memelab:jupiter-data",{detail:{tokens,diagnostics:{watchlist:stateRows||[]}}}));
+  }
+
+  async function refreshWatchlistState(){
+    try{
+      const r=await fetch(apiBase+"/jupiter/watchlist-state",{cache:"no-store",headers:{Accept:"application/json"}});
+      if(!r.ok) throw new Error(r.status+" "+r.statusText);
+      const data=await r.json();
+      applyCurrentMarketStates(data?.watchlist||[]);
+    }catch(e){
+      console.debug("Watchlist market state refresh:",e);
+    }
+  }
+
   async function load() {
     try {
       const r=await fetch(apiBase+"/jupiter/universe",{cache:"no-store",headers:{Accept:"application/json"}});
       if(!r.ok) throw new Error(r.status+" "+r.statusText);
       const data=await r.json();
-      tokens=Array.isArray(data.tokens)?data.tokens:[];
+      const states=new Map((data?.diagnostics?.watchlist||[]).map(row=>[row?.mint,row?.current_market_state||null]));
+      tokens=(Array.isArray(data.tokens)?data.tokens:[]).map(token=>({
+        ...token,
+        current_market_state:states.get(token?.mint)||null
+      }));
       window.MEMELAB_JUPITER_TOKENS=tokens;
       ingestCount=Number(data.ingest_count)||0;
       window.MEMELAB_JUPITER_DATA=data;
       if(typeof data.discovery_running === "boolean") discoveryRunning=data.discovery_running;
       renderDiscoveryState();
-      window.dispatchEvent(new CustomEvent("memelab:jupiter-data",{detail:data}));
+      window.dispatchEvent(new CustomEvent("memelab:jupiter-data",{detail:{...data,tokens}}));
       render();
       if(!document.getElementById("engine-panel")?.hidden) engineRender();
       if(selectedMint && window.MEMELAB_MARKET?.updateLive){
@@ -614,6 +516,8 @@
   async function refreshDiscoveryState(){try{const r=await fetch(apiBase+"/discovery/status",{cache:"no-store",headers:{Accept:"application/json"}});if(!r.ok)throw new Error(r.status+" "+r.statusText);const data=await r.json();discoveryRunning=!!data.running;renderDiscoveryState();if(discoveryRunning){await load();if(!discoveryPollTimer)discoveryPollTimer=setInterval(load,5000);}else{if(discoveryPollTimer)clearInterval(discoveryPollTimer);discoveryPollTimer=null;await load();}}catch(e){console.debug("Discovery status:",e);}}
   async function toggleDiscovery(){const action=discoveryRunning?"stop":"start";try{const r=await fetch(apiBase+"/discovery/"+action,{method:"POST",cache:"no-store",headers:{Accept:"application/json"}});if(!r.ok)throw new Error(r.status+" "+r.statusText);discoveryRunning=action==="start";renderDiscoveryState();if(discoveryRunning){await load();if(!discoveryPollTimer)discoveryPollTimer=setInterval(load,5000);}else{if(discoveryPollTimer)clearInterval(discoveryPollTimer);discoveryPollTimer=null;await load();}}catch(e){console.error("Discovery toggle:",e);}}
   const discoveryToggle=$("#discovery-toggle");if(discoveryToggle)discoveryToggle.addEventListener("click",toggleDiscovery);renderDiscoveryState();refreshDiscoveryState();
+  if(!watchlistStateTimer) watchlistStateTimer=setInterval(refreshWatchlistState,30000);
+  refreshWatchlistState();
 
   window.MEMELAB_ENGINE={
     getCandidates:()=>engineMatureCandidates(),
