@@ -35,6 +35,7 @@
   let paperCycleInFlight = false;
   let paperResetGeneration = 0;
   let tradingResetInFlight = false;
+  let tradingCloudAlertVisible = false;
   const tradingEventsAbortControllers = new Set();
   const paperConsumedEngineEvaluations = new Map();
   const $ = s => document.querySelector(s);
@@ -46,6 +47,45 @@
     return "$"+n.toExponential(3);
   };
   const now=()=>Date.now();
+
+  function showTradingCloudAlert(err){
+    if(tradingCloudAlertVisible || document.getElementById("paper-trading-cloud-alert")) return;
+    tradingCloudAlertVisible=true;
+    const box=document.createElement("div");
+    box.id="paper-trading-cloud-alert";
+    box.style.cssText=[
+      "position:fixed",
+      "top:24px",
+      "right:24px",
+      "z-index:99999",
+      "width:min(430px,calc(100vw - 48px))",
+      "padding:18px 20px",
+      "border:2px solid #dc2626",
+      "border-radius:14px",
+      "background:#1f1010",
+      "color:#fff",
+      "box-shadow:0 14px 40px rgba(0,0,0,.38)",
+      "font-family:inherit",
+      "pointer-events:none"
+    ].join(";");
+    const title=document.createElement("div");
+    title.textContent="CLOUD DATABASE OFFLINE";
+    title.style.cssText="font-size:16px;font-weight:800;letter-spacing:.05em;color:#f87171;margin-bottom:8px;";
+    const body=document.createElement("div");
+    body.textContent="Supabase ist aktuell nicht erreichbar. Paper Trading bleibt aktiv; die nächsten Trading-Cycles versuchen die Persistenz automatisch erneut.";
+    body.style.cssText="font-size:14px;line-height:1.45;";
+    const detail=document.createElement("div");
+    detail.textContent=String(err?.message||"Unbekannter Cloud-Persistenzfehler");
+    detail.style.cssText="margin-top:9px;font-size:12px;line-height:1.35;color:#fca5a5;word-break:break-word;";
+    box.append(title,body,detail);
+    document.body.appendChild(box);
+  }
+
+  function clearTradingCloudAlert(){
+    const box=document.getElementById("paper-trading-cloud-alert");
+    if(box) box.remove();
+    tradingCloudAlertVisible=false;
+  }
 
   function stopLossGuardBlocksEntry(mint, signal){
     const guard=stopLossGuards.get(mint);
@@ -684,10 +724,12 @@
       });
       const result=await response.json().catch(()=>({}));
       if(!response.ok || result.status!=="ok") throw new Error(result.error||("HTTP "+response.status));
+      clearTradingCloudAlert();
       return true;
     }catch(err){
       if(err?.name==="AbortError") return false;
       console.error("Paper Trading persistence failed:",err);
+      showTradingCloudAlert(err);
       return false;
     }finally{
       tradingEventsAbortControllers.delete(controller);
