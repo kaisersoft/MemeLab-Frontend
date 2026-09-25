@@ -316,7 +316,9 @@
     if(e.entry==null || e.stop==null || e.take==null || Number(e.entry)<=0 || Number(e.stop)>=Number(e.entry)) return false;
 
     const equity=startingCapital+realizedPnl()+positions.reduce((s,p)=>s+(currentPrice(p)-p.entry)*p.qty,0);
-    const riskAmount=Math.max(0,equity*(Number(riskPct)/100));
+    const activityRiskMultiplier=manual?1:Math.min(1,Math.max(0.5,Number(e.riskMultiplier)||1));
+    const appliedRiskPct=Number(riskPct)*activityRiskMultiplier;
+    const riskAmount=Math.max(0,equity*(appliedRiskPct/100));
     const maxTokenRisk=Math.max(0,equity*(Number(riskPerTokenPct)/100));
     const existingTokenRisk=positions.filter(p=>p.mint===t.mint).reduce((sum,p)=>{
       const storedRisk=Number(p.riskAmount);
@@ -361,6 +363,7 @@
     const position={
       mint:t.mint,symbol:t.symbol||t.name||"—",name:t.name||"",
       entry,stop,take,qty:finalQty,riskAmount:actualRisk,size:finalCapital,
+      riskMultiplier:activityRiskMultiplier,appliedRiskPct,
       entryCapital:finalCapital,openedAt:now(),
       positionId:"POS-"+t.mint+"-"+now(),t,
       costModel:v2?"V2":"V1",
@@ -377,6 +380,7 @@
         symbol:t.symbol||t.name||null,name:t.name||"",
         entry:Number(entry),stop:Number(stop),take:Number(take),qty:Number(finalQty),
         capital:Number(finalCapital),risk:Number(actualRisk),opened_at_ms:position.openedAt,
+        risk_multiplier:Number(activityRiskMultiplier),applied_risk_pct:Number(appliedRiskPct),
         reason:manual?"MANUAL_BUY":"SIGNAL",
         token_decimals:Number(t.decimals),
         cost_model:position.costModel,
