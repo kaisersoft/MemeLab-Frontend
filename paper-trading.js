@@ -34,6 +34,7 @@
   let paperCycleInFlight = false;
   let paperResetGeneration = 0;
   let tradingResetInFlight = false;
+  const paperConsumedEngineEvaluations = new Map();
   const $ = s => document.querySelector(s);
   const usd = v => Number.isFinite(Number(v)) ? "$"+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—";
   const pct = v => Number.isFinite(Number(v)) ? (Number(v)>=0?"+":"")+Number(v).toFixed(2)+"%" : "—";
@@ -393,6 +394,9 @@
     if(!persisted) return false;
     if(generation!==paperResetGeneration || (!paperRunning && !manual)) return false;
     positions.push(position);
+    if(!manual && Number(x.evaluationId)>0){
+      paperConsumedEngineEvaluations.set(t.mint,Number(x.evaluationId));
+    }
     saveLocalPaperSnapshot();
     return true;
   }
@@ -519,7 +523,7 @@
       if(hadPositions && positions.length===0) portfolioCycleBaselineEquity=currentEquity();
       if(!paperRunning) return;
       if(await takeAllPortfolio()) return;
-      const rows=signalRows();
+      const rows=signalRows({pendingOnly:true});
       for(const x of rows){
         if(!paperRunning || generation!==paperResetGeneration) break;
         await openPaperPosition(x);
@@ -541,13 +545,17 @@
     return openPaperPosition({t,e},{manual:true});
   }
 
-  function signalRows(){
+  function signalRows({pendingOnly=false}={}){
     const engine=window.MEMELAB_ENGINE;
     const candidates=engine?.getCandidates?.()||[];
     return candidates.map((t,i)=>{
-      const e=engine?.signal?.(t);
-      return {t,e,index:i};
-    });
+      const e=engine?.getEvaluation?.(t?.mint)||null;
+      const evaluationId=Number(e?.evaluationId)||0;
+      const evaluatedAt=Number(e?.evaluatedAt)||0;
+      const consumedId=Number(paperConsumedEngineEvaluations.get(t?.mint))||0;
+      if(pendingOnly && (!evaluationId || evaluationId<=consumedId)) return null;
+      return {t,e,index:i,evaluationId,evaluatedAt};
+    }).filter(Boolean);
   }
 
   const PAPER_STORAGE_KEY = "memelab.paperTrading.v1";
@@ -587,6 +595,7 @@
       const result=await response.json().catch(()=>({}));
       if(!response.ok || result.status!=="ok") throw new Error(result.error||("HTTP "+response.status));
       localStorage.removeItem(PAPER_STORAGE_KEY);
+      paperConsumedEngineEvaluations.clear();
       positions=[]; journal=[]; startingCapital=capital; portfolioCycleBaselineEquity=capital;
       stopLossGuards.clear();
       lastSignals=[]; sessionStartedAt=null; sessionElapsedMs=0; paperRunning=false;
@@ -826,7 +835,7 @@
     body.innerHTML=lastSignals.length ? lastSignals.map(x=>{
       const e=x.e||{},t=x.t;
       const eligible=e.signal==="BUY" && e.strength>=threshold;
-      return '<tr class="'+(eligible?"paper-eligible":"")+'"><td>'+(x.index+1)+'</td><td><strong>'+(t.symbol||"—")+'</strong><small>'+(t.name||"")+'</small></td><td class="paper-signal '+String(e.signal||"").toLowerCase()+'">'+(e.signal||"—")+'</td><td>'+ (e.strength??"—") +'</td><td>'+price(e.entry)+'</td><td>'+price(e.stop)+'</td><td>'+price(e.take)+'</td><td>'+((Number(t.core_score)||0)||"—")+'</td><td>'+new Date().toLocaleTimeString()+'</td></tr>';
+      return '<tr class="'+(eligible?"paper-eligible":"")+'"><td>'+(x.index+1)+'</td><td><strong>'+(t.symbol||"—")+'</strong><small>'+(t.name||"")+'</small></td><td class="paper-signal '+String(e.signal||"").toLowerCase()+'">'+(e.signal||"—")+'</td><td>'+ (e.strength??"—") +'</td><td>'+price(e.entry)+'</td><td>'+price(e.stop)+'</td><td>'+price(e.take)+'</td><td>'+((Number(t.core_score)||0)||"—")+'</td><td>'+(x.evaluatedAt?new Date(x.evaluatedAt).toLocaleTimeString():"—")+'</td></tr>';
     }).join("") : '<tr><td colspan="9" class="paper-empty">No Mature candidates available.</td></tr>';
   }
 
