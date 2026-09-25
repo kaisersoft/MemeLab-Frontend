@@ -44,7 +44,7 @@
   let engineIntervalMs=5000;
   let engineCandidates=[];
   let engineWatchlistSize=25;
-  let engineCursor=0;
+  let engineCursor=-1;
   let engineSelectedMint=null;
   let engineScannedAt=0;
   let watchlistStateTimer=null;
@@ -134,7 +134,7 @@
     if(!body)return;
     engineCandidates=engineMatureCandidates();
     if(count)count.textContent=String(engineCandidates.length);
-    const cycle=$("#engine-cycle");if(cycle)cycle.textContent="0 / "+engineCandidates.length;
+    const cycle=$("#engine-cycle");if(cycle)cycle.textContent=engineScannedAt?((engineCursor+1)+" / "+engineCandidates.length):"0 / "+engineCandidates.length;
     if(!engineCandidates.length){body.innerHTML='<tr><td colspan="12" class="engine-empty">No monitored MATURE / DECLINING candidates available.</td></tr>';return;}
     body.innerHTML=engineCandidates.map((t,i)=>{
       const e=engineSignal(t), s=e.s, selected=t.mint===engineSelectedMint;
@@ -196,7 +196,8 @@
         const next=Number(universe.value);
         if(Number.isFinite(next)&&[10,25,50].includes(next)){
           engineWatchlistSize=next;
-          engineCursor=0;
+          engineCursor=-1;
+          engineScannedAt=0;
           engineSelectedMint=null;
           engineRender();
           window.dispatchEvent(new CustomEvent("memelab:engine-universe-changed",{detail:{size:engineWatchlistSize}}));
