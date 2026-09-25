@@ -14,6 +14,7 @@
   const score = (v) => Number.isFinite(Number(v)) ? Math.round(Number(v)) : null;
   const num = (v) => Number.isFinite(Number(v)) ? Number(v) : null;
   const clamp = (v) => Math.max(0, Math.min(100, Number(v) || 0));
+  const esc = v => String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   let positionHistory = [];
   const usd = (v) => {
     const n = Number(v);
@@ -160,8 +161,8 @@
       const core=engineNum(t.current_market_state?.core_score);
       const signal=e?.signal||"—";
       const strength=e?.strength??"—";
-      return '<tr data-engine-mint="'+t.mint+'" class="'+(selected?"selected":"")+'">'+
-        '<td>'+(i+1)+'</td><td><span class="engine-token">'+(t.symbol||"—")+'</span><br><span class="engine-symbol">'+(t.name||"")+'</span></td>'+
+      return '<tr data-engine-mint="'+esc(t.mint)+'" class="'+(selected?"selected":"")+'">'+
+        '<td>'+(i+1)+'</td><td><span class="engine-token">'+esc(t.symbol||"—")+'</span><br><span class="engine-symbol">'+esc(t.name||"")+'</span></td>'+
         '<td>'+(core!=null?Math.round(core):"—")+'</td><td>'+engineUsd(s.price)+'</td><td>'+engineUsd(s.flow)+'</td><td>'+engineUsd(s.volume)+'</td>'+
         '<td>'+(s.traders==null?"—":s.traders.toLocaleString("de-DE"))+'</td><td>'+enginePct(s.momentum)+'</td><td>'+enginePct(s.volatility)+'</td><td>'+enginePct(s.activity)+'</td>'+
         '<td class="engine-signal-cell '+String(signal).toLowerCase()+'">'+signal+'</td><td>'+strength+'</td></tr>';
@@ -178,7 +179,7 @@
     set("engine-selected-token",(t.symbol||"—")+" · "+(t.lifecycle||"—"));
     set("engine-entry",engineUsd(e?.entry));set("engine-stop",engineUsd(e?.stop));set("engine-take",engineUsd(e?.take));set("engine-margin","PAPER · 0");set("engine-rr",e?.rr?e.rr.toFixed(1)+"R":"—");set("engine-pnl","—");set("engine-activity-regime",s.activityRegime||"—");
     const badge=$("#engine-signal-badge");if(badge){badge.textContent=e?.signal||"WAITING";badge.className="engine-signal-badge "+(e?.signal?e.signal.toLowerCase():"hold");}
-    const reasons=$("#engine-reasons");if(reasons)reasons.innerHTML=e?.reasons?.length?e.reasons.map(x=>"✓ "+x).join("<br>"):"Awaiting scheduled engine evaluation.";
+    const reasons=$("#engine-reasons");if(reasons)reasons.innerHTML=e?.reasons?.length?e.reasons.map(x=>"✓ "+esc(x)).join("<br>"):"Awaiting scheduled engine evaluation.";
   }
   async function engineScanStep(){
     if(!engineCandidates.length)engineCandidates=engineMatureCandidates();
@@ -337,17 +338,17 @@
       const next=nextStage(lifecycle(t));
       const ready=next && t?.lifecycle_readiness?.[next];
       const solscan="https://solscan.io/token/"+encodeURIComponent(t.mint);
-      return '<tr data-token="'+t.mint+'">'+
+      return '<tr data-token="'+esc(t.mint)+'">'+
         '<td><a class="token-mint" href="'+solscan+'" target="_blank" rel="noopener noreferrer">'+(t.symbol||shortMint(t.mint))+'</a></td>'+
-        '<td>'+(t.name||"—")+'</td>'+
+        '<td>'+esc(t.name||"—")+'</td>'+
         '<td class="stage">'+lifecycle(t)+'</td>'+
-        '<td>'+(t.discovery_status||"—")+'</td>'+
+        '<td>'+esc(t.discovery_status||"—")+'</td>'+
         '<td>'+((t.history?.observations||0)+" obs.")+'</td>'+
         '<td>'+usd(t.liquidity)+'</td>'+
         '<td>'+usd(s.volume)+'</td>'+
         '<td>'+((Number(s.num_buys||0)+Number(s.num_sells||0))||"—")+'</td>'+
         '<td>'+(s.num_traders ?? "—")+'</td>'+
-        '<td class="next '+(ready?"ready":"")+(next?"":" none")+'">'+(phaseLabel(t))+'</td>'+
+        '<td class="next '+(ready?"ready":"")+(next?"":" none")+'">'+esc(phaseLabel(t))+'</td>'+
       '</tr>';
     }).join("");
 
@@ -405,17 +406,17 @@
       const solscan="https://solscan.io/token/"+encodeURIComponent(t.mint);
       const s=stats24h(t);
       const phase=phaseLabel(t);
-      return '<article class="token-card '+(selected?"selected":"")+'" data-token="'+t.mint+'">'+
+      return '<article class="token-card '+(selected?"selected":"")+'" data-token="'+esc(t.mint)+'">'+
         '<strong>'+(t.symbol||shortMint(t.mint))+'</strong>'+
         '<span>'+(t.name||"Solana token")+'</span>'+
-        '<small class="token-chain">Solana Mainnet · '+lifecycle(t)+' · '+(t.discovery_status||"NOT_EVALUATED")+'</small>'+
+        '<small class="token-chain">Solana Mainnet · '+lifecycle(t)+' · '+esc(t.discovery_status||"NOT_EVALUATED")+'</small>'+
         '<div><label>Liquidity</label><b>'+usd(t.liquidity)+'</b></div>'+
         '<div><label>24h Volume</label><b>'+usd(s.volume)+'</b></div>'+
         '<div><label>24h Trades</label><b>'+((Number(s.num_buys||0)+Number(s.num_sells||0))||"—")+'</b></div>'+
         '<div><label>24h Traders</label><b>'+(s.num_traders ?? "—")+'</b></div>'+
         '<div><label>History</label><b>'+(t.history?.observations||0)+' obs.</b></div>'+
         '<div><label>Next phase</label><b class="'+(t?.lifecycle_readiness?.[next]?"positive":"")+'">'+phase+'</b></div>'+
-        '<a class="token-mint" href="'+solscan+'" target="_blank" rel="noopener noreferrer" title="'+t.mint+'">Mint '+shortMint(t.mint)+' ↗</a>'+
+        '<a class="token-mint" href="'+solscan+'" target="_blank" rel="noopener noreferrer" title="'+esc(t.mint)+'">Mint '+shortMint(t.mint)+' ↗</a>'+
         '</article>';
     }).join("") : '<div class="token-empty"><strong>No tokens in this lifecycle stage</strong><span>The persistent MemeLab universe currently has no records matching <b>'+lifecycleFilter+'</b>.</span></div>';
 
