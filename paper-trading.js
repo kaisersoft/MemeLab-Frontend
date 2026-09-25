@@ -708,6 +708,13 @@
           strength:Number(e.strength)||null
         }
       });
+      const signalReplayMints=new Set([
+        "FKEL85JmVXk6i371v8SGbyxGSYZNT8sa8VPaeiezTUt5",
+        "XsqE9cRRpzxcGKDXj1BJ7Xmg4GRhZoyY1KpmGSxAWT2",
+        "CLoUDKc4Ane7HeQcPpE3YHnznRxhMimJ4MyaUqyHFzAu",
+        "METAwkXcqyXKy1AtsSgJ8JiUHwGCafnZL38n3vYmeta"
+      ]);
+      if(!signalReplayMints.has(t.mint)) continue;
       const signalScore=(e.reasons||[]).reduce((score,reason)=>{
         if(reason==="Buy flow positive") return score+2;
         if(reason==="Sell flow dominant") return score-2;
