@@ -43,7 +43,6 @@
     return "$"+n.toExponential(3);
   };
   const now=()=>Date.now();
-  const MAX_POSITIONS_PER_TOKEN = 1;
 
   function stopLossGuardBlocksEntry(mint, signal){
     const guard=stopLossGuards.get(mint);
@@ -313,7 +312,6 @@
     if(stopLossGuardBlocksEntry(t.mint, signal)) return false;
     if((!manual && signal!=="BUY") || (!manual && Number(e.strength)<Number(threshold))) return false;
     if(e.entry==null || e.stop==null || e.take==null || Number(e.entry)<=0 || Number(e.stop)>=Number(e.entry)) return false;
-    if(positions.some(p=>p.mint===t.mint)) return false;
 
     const equity=startingCapital+realizedPnl()+positions.reduce((s,p)=>s+(currentPrice(p)-p.entry)*p.qty,0);
     const riskAmount=Math.max(0,equity*(Number(riskPct)/100));
