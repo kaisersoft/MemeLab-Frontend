@@ -35,6 +35,7 @@
   let paperCycleInFlight = false;
   let paperResetGeneration = 0;
   let tradingResetInFlight = false;
+  let tradingEventsAbortController = null;
   const paperConsumedEngineEvaluations = new Map();
   const $ = s => document.querySelector(s);
   const usd = v => Number.isFinite(Number(v)) ? "$"+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—";
@@ -605,6 +606,10 @@
       tradingResetInFlight=true;
       paperRunning=false;
       paperResetGeneration++;
+      if(tradingEventsAbortController){
+        tradingEventsAbortController.abort();
+        tradingEventsAbortController=null;
+      }
       updatePaperControl();
       const response=await fetch(apiBase+"/trading/reset",{method:"POST",headers:{"Accept":"application/json"}});
       const result=await response.json().catch(()=>({}));
@@ -670,18 +675,24 @@
     if(!events.length || tradingResetInFlight) return false;
     saveLocalPaperSnapshot();
     const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+    const controller=new AbortController();
+    tradingEventsAbortController=controller;
     try{
       const response=await fetch(apiBase+"/trading/events",{
         method:"POST",
         headers:{"Content-Type":"application/json","Accept":"application/json"},
-        body:JSON.stringify({events})
+        body:JSON.stringify({events}),
+        signal:controller.signal
       });
       const result=await response.json().catch(()=>({}));
       if(!response.ok || result.status!=="ok") throw new Error(result.error||("HTTP "+response.status));
       return true;
     }catch(err){
+      if(err?.name==="AbortError") return false;
       console.error("Paper Trading persistence failed:",err);
       return false;
+    }finally{
+      if(tradingEventsAbortController===controller) tradingEventsAbortController=null;
     }
   }
 
