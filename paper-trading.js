@@ -178,7 +178,9 @@
         inputDecimals:String(inputDecimals),
         outputDecimals:String(outputDecimals)
       }).toString();
-      const response=await fetch(url,{cache:"no-store",headers:{Accept:"application/json"}});
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),5000);
+      const response=await fetch(url,{cache:"no-store",headers:{Accept:"application/json"},signal:controller.signal});
       if(!response.ok){
         let detail="HTTP "+response.status;
         try{ const body=await response.text(); if(body) detail+=" · "+body.slice(0,240); }catch(_err){}
@@ -190,8 +192,10 @@
       if(!q || q.executed===true || q.transaction_present===true) return null;
       return q;
     }catch(err){
-      console.debug("Jupiter V2 quote:",err);
+      if(err?.name!=="AbortError") console.debug("Jupiter V2 quote:",err);
       return null;
+    }finally{
+      clearTimeout(timeout);
     }
   }
 
@@ -302,7 +306,9 @@
     tradingPriceRefreshInFlight=true;
     try{
       const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
-      const response=await fetch(apiBase+"/trading/prices?mints="+encodeURIComponent(unique.join(",")),{cache:"no-store",headers:{Accept:"application/json"}});
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),3000);
+      const response=await fetch(apiBase+"/trading/prices?mints="+encodeURIComponent(unique.join(",")),{cache:"no-store",headers:{Accept:"application/json"},signal:controller.signal});
       if(!response.ok){ tradingPriceFeedStatus="ERROR"; return false; }
       const data=await response.json();
       const prices=data?.prices||{};
@@ -338,10 +344,11 @@
       if(count>0) tradingPriceLastUpdateAt=Date.now();
       return count>0;
     }catch(err){
-      tradingPriceFeedStatus="ERROR";
-      console.debug("Trading price refresh:",err);
+      tradingPriceFeedStatus=err?.name==="AbortError"?"TIMEOUT":"ERROR";
+      if(err?.name!=="AbortError") console.debug("Trading price refresh:",err);
       return false;
     }finally{
+      clearTimeout(timeout);
       tradingPriceRefreshInFlight=false;
     }
   }
