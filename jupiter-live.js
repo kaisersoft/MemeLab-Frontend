@@ -48,6 +48,9 @@
   let engineSelectedMint=null;
   let engineScannedAt=0;
   let watchlistStateTimer=null;
+  let engineInitialized=false;
+  let engineEvaluationSequence=0;
+  const engineEvaluations=new Map();
 
   function engineNum(v){const n=Number(v);return Number.isFinite(n)?n:null;}
   function engineUsd(v){const n=engineNum(v);if(n==null)return "—";if(Math.abs(n)>=1e6)return "$"+(n/1e6).toFixed(2)+"M";if(Math.abs(n)>=1e3)return "$"+(n/1e3).toFixed(1)+"K";if(Math.abs(n)>=1)return "$"+n.toFixed(2);return "$"+n.toExponential(2);}
@@ -129,21 +132,32 @@
       .map(x=>x.t);
     return [...regular,...permanent].slice(0,engineWatchlistSize);
   }
+  function engineCachedEvaluation(t){
+    const record=engineEvaluations.get(t?.mint);
+    if(!record) return null;
+    return {
+      ...record.evaluation,
+      evaluationId:record.evaluationId,
+      evaluatedAt:record.evaluatedAt
+    };
+  }
   function engineRender(){
     const body=$("#engine-table-body"), count=$("#engine-candidate-count");
     if(!body)return;
-    engineCandidates=engineMatureCandidates();
+    if(!engineCandidates.length)engineCandidates=engineMatureCandidates();
     if(count)count.textContent=String(engineCandidates.length);
     const cycle=$("#engine-cycle");if(cycle)cycle.textContent=engineScannedAt?((engineCursor+1)+" / "+engineCandidates.length):"0 / "+engineCandidates.length;
     if(!engineCandidates.length){body.innerHTML='<tr><td colspan="12" class="engine-empty">No monitored MATURE / DECLINING candidates available.</td></tr>';return;}
     body.innerHTML=engineCandidates.map((t,i)=>{
-      const e=engineSignal(t), s=e.s, selected=t.mint===engineSelectedMint;
+      const e=engineCachedEvaluation(t), s=e?.s||{}, selected=t.mint===engineSelectedMint;
       const core=engineNum(t.current_market_state?.core_score);
+      const signal=e?.signal||"—";
+      const strength=e?.strength??"—";
       return '<tr data-engine-mint="'+t.mint+'" class="'+(selected?"selected":"")+'">'+
         '<td>'+(i+1)+'</td><td><span class="engine-token">'+(t.symbol||"—")+'</span><br><span class="engine-symbol">'+(t.name||"")+'</span></td>'+
         '<td>'+(core!=null?Math.round(core):"—")+'</td><td>'+engineUsd(s.price)+'</td><td>'+engineUsd(s.flow)+'</td><td>'+engineUsd(s.volume)+'</td>'+
         '<td>'+(s.traders==null?"—":s.traders.toLocaleString("de-DE"))+'</td><td>'+enginePct(s.momentum)+'</td><td>'+enginePct(s.volatility)+'</td><td>'+enginePct(s.activity)+'</td>'+
-        '<td class="engine-signal-cell '+e.signal.toLowerCase()+'">'+e.signal+'</td><td>'+e.strength+'</td></tr>';
+        '<td class="engine-signal-cell '+String(signal).toLowerCase()+'">'+signal+'</td><td>'+strength+'</td></tr>';
     }).join("");
     body.querySelectorAll("tr[data-engine-mint]").forEach(row=>row.addEventListener("click",()=>{engineSelectedMint=row.dataset.engineMint;engineRender();engineRenderSelected();}));
     if(!engineSelectedMint&&engineCandidates[0])engineSelectedMint=engineCandidates[0].mint;
@@ -152,60 +166,76 @@
   function engineRenderSelected(){
     const t=engineCandidates.find(x=>x.mint===engineSelectedMint)||engineCandidates[0];
     if(!t)return;
-    const e=engineSignal(t), s=e.s;
+    const e=engineCachedEvaluation(t), s=e?.s||{};
     const set=(id,v)=>{const el=$("#"+id);if(el)el.textContent=v;};
     set("engine-selected-token",(t.symbol||"—")+" · "+(t.lifecycle||"—"));
-    set("engine-entry",engineUsd(e.entry));set("engine-stop",engineUsd(e.stop));set("engine-take",engineUsd(e.take));set("engine-margin","PAPER · 0");set("engine-rr",e.rr?e.rr.toFixed(1)+"R":"—");set("engine-pnl","—");
-    const badge=$("#engine-signal-badge");if(badge){badge.textContent=e.signal;badge.className="engine-signal-badge "+e.signal.toLowerCase();}
-    const reasons=$("#engine-reasons");if(reasons)reasons.innerHTML=e.reasons.length?e.reasons.map(x=>"✓ "+x).join("<br>"):"No directional conditions met.";
+    set("engine-entry",engineUsd(e?.entry));set("engine-stop",engineUsd(e?.stop));set("engine-take",engineUsd(e?.take));set("engine-margin","PAPER · 0");set("engine-rr",e?.rr?e.rr.toFixed(1)+"R":"—");set("engine-pnl","—");
+    const badge=$("#engine-signal-badge");if(badge){badge.textContent=e?.signal||"WAITING";badge.className="engine-signal-badge "+(e?.signal?e.signal.toLowerCase():"hold");}
+    const reasons=$("#engine-reasons");if(reasons)reasons.innerHTML=e?.reasons?.length?e.reasons.map(x=>"✓ "+x).join("<br>"):"Awaiting scheduled engine evaluation.";
   }
   async function engineScanStep(){
     if(!engineCandidates.length)engineCandidates=engineMatureCandidates();
+    else if(engineCursor>=engineCandidates.length-1){
+      const refreshed=engineMatureCandidates();
+      if(refreshed.length){engineCandidates=refreshed;engineCursor=-1;}
+    }
     if(!engineCandidates.length)return;
     engineCursor=(engineCursor+1)%engineCandidates.length;
     const t=engineCandidates[engineCursor];
+    const evaluatedAt=Date.now();
+    const evaluation=engineSignal(t);
+    engineEvaluationSequence+=1;
+    engineEvaluations.set(t.mint,{evaluation,evaluationId:engineEvaluationSequence,evaluatedAt});
     engineSelectedMint=t.mint;
-    engineScannedAt=Date.now();
+    engineScannedAt=evaluatedAt;
     const cycle=$("#engine-cycle");if(cycle)cycle.textContent=(engineCursor+1)+" / "+engineCandidates.length;
-    const last=$("#engine-last-scan");if(last)last.textContent=new Date(engineScannedAt).toLocaleTimeString();
+    const last=$("#engine-last-scan");if(last)last.textContent=new Date(evaluatedAt).toLocaleTimeString();
     engineRender();
   }
 
-  function engineStart(){
+  function engineStart(options={}){
+    const restart=Boolean(options.restart);
+    if(engineTimer&&!restart)return;
     if(engineTimer)clearInterval(engineTimer);
+    engineTimer=null;
     engineIntervalMs=Number($("#engine-interval")?.value)||5000;
     const status=$("#engine-status"), wrap=status?.parentElement;
     if(status)status.textContent="SCANNING";
     if(wrap)wrap.classList.add("running");
     engineRender();
     engineTimer=setInterval(engineScanStep,engineIntervalMs);
+    void engineScanStep();
   }
   function engineStop(){
     if(engineTimer)clearInterval(engineTimer);
     engineTimer=null;
     const status=$("#engine-status"), wrap=status?.parentElement;
-    if(status)status.textContent="READY";
+    if(status)status.classList.remove("running");
     if(wrap)wrap.classList.remove("running");
   }
   function engineInit(){
-    const select=$("#engine-interval");if(select)select.addEventListener("change",engineStart);
-    const universe=$("#engine-watchlist-size");
-    if(universe){
-      universe.value=String(engineWatchlistSize);
-      universe.addEventListener("change",()=>{
-        const next=Number(universe.value);
-        if(Number.isFinite(next)&&[10,25,50].includes(next)){
-          engineWatchlistSize=next;
-          engineCursor=-1;
-          engineScannedAt=0;
-          engineSelectedMint=null;
-          engineRender();
-          window.dispatchEvent(new CustomEvent("memelab:engine-universe-changed",{detail:{size:engineWatchlistSize}}));
-        }
-      });
+    if(!engineInitialized){
+      const select=$("#engine-interval");if(select)select.addEventListener("change",()=>engineStart({restart:true}));
+      const universe=$("#engine-watchlist-size");
+      if(universe){
+        universe.value=String(engineWatchlistSize);
+        universe.addEventListener("change",()=>{
+          const next=Number(universe.value);
+          if(Number.isFinite(next)&&[10,25,50].includes(next)){
+            engineWatchlistSize=next;
+            engineCursor=-1;
+            engineScannedAt=0;
+            engineSelectedMint=null;
+            engineEvaluations.clear();
+            engineRender();
+            window.dispatchEvent(new CustomEvent("memelab:engine-universe-changed",{detail:{size:engineWatchlistSize}}));
+          }
+        });
+      }
+      engineInitialized=true;
     }
-    engineRender();
-    engineStart();
+    if(!engineTimer)engineStart();
+    else engineRender();
   }
 
   let universeOpen = false;
@@ -506,7 +536,7 @@
     if(watch) watch.hidden=view!=="watchlist";
     if(position) position.hidden=view!=="position";
     if(engine) engine.hidden=view!=="engine";
-    if(view==="engine"){ engineInit(); } else { engineStop(); }
+    engineInit();
     if(view==="position" && window.MEMELAB_MARKET?.selectToken){
       const mature=tokens.filter(t=>lifecycle(t)==="MATURE"||lifecycle(t)==="DECLINING");
       const target=mature.find(t=>t.mint===selectedMint)||mature[0];
@@ -534,10 +564,12 @@
   refreshWatchlistState();
 
   window.MEMELAB_ENGINE={
-    getCandidates:()=>engineMatureCandidates(),
+    getCandidates:()=>engineCandidates.slice(),
     signal:(t)=>engineSignal(t),
+    getEvaluation:(mint)=>engineCachedEvaluation({mint}),
     isRunning:()=>!!engineTimer
   };
   window.MEMELAB_JUPITER={refresh:load,active:true};
+  engineInit();
 
 })();
