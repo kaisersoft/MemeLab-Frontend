@@ -15,7 +15,7 @@ const val=(t,k)=>{const s=stats(t),m=t?.monitoring||{};if(k==="symbol")return St
   const stateMap=new Map((d?.diagnostics?.watchlist||[]).map(t=>[t?.mint,t?.current_market_state||null]));
   rows=(Array.isArray(d?.tokens)?d.tokens:[]).map(token=>({
     ...token,
-    current_market_state:stateMap.has(token?.mint)?stateMap.get(token.mint):token?.current_market_state||null
+    current_market_state:stateMap.has(token?.mint)&&stateMap.get(token?.mint)!=null?stateMap.get(token.mint):token?.current_market_state||null
   }));
   metricMap.clear();
   (d?.diagnostics?.watchlist||[]).forEach(t=>{
