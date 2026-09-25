@@ -708,13 +708,27 @@
           strength:Number(e.strength)||null
         }
       });
+      const signalScore=(e.reasons||[]).reduce((score,reason)=>{
+        if(reason==="Buy flow positive") return score+2;
+        if(reason==="Sell flow dominant") return score-2;
+        if(reason==="Momentum positive") return score+2;
+        if(reason==="Momentum negative") return score-2;
+        if(reason==="Activity increasing") return score+1;
+        if(reason==="Activity declining") return score-1;
+        if(reason==="Volatility elevated") return score-1;
+        return score;
+      },0);
       events.push({
         event_id:crypto.randomUUID(),
         observed_at:ts,
-        event_type:"SIGNAL",
+        event_type:"SIGNAL_REPLAY",
         mint:t.mint,
         payload:{
+          algorithm_version:"engineSignal-v1",
+          candidate_index:Number(x.index),
+          universe_size:Number(lastSignals.length),
           signal:e.signal||null,
+          signal_score:signalScore,
           strength:Number(e.strength)||null,
           entry:Number(e.entry)||null,
           stop:Number(e.stop)||null,
