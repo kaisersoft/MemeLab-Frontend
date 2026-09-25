@@ -110,19 +110,28 @@
   }
   function engineMatureCandidates(){
     const all=Array.isArray(window.MEMELAB_JUPITER_TOKENS)?window.MEMELAB_JUPITER_TOKENS:[];
-    const mature=all.filter(t=>["MATURE","DECLINING"].includes(String(t?.lifecycle||"").toUpperCase()) || t?.permanent===true);
+    // The Engine universe is the monitored MATURE/DECLINING pool that carries
+    // the shared current_market_state. Tokens outside that pool cannot provide
+    // the common market state required for reliable entry evaluation.
+    const mature=all.filter(t=>
+      ["MATURE","DECLINING"].includes(String(t?.lifecycle||"").toUpperCase()) &&
+      t?.current_market_state!=null
+    );
     const permanent=mature.filter(t=>t?.permanent===true);
     const ranked=mature.map(t=>({t,core:engineNum(t?.current_market_state?.core_score)}))
       .sort((a,b)=>(b.core??-1)-(a.core??-1));
-    const regular=ranked.filter(x=>x.t?.permanent!==true).slice(0,Math.max(0,engineWatchlistSize-permanent.length)).map(x=>x.t);
-    return [...regular,...permanent];
+    const regular=ranked.filter(x=>x.t?.permanent!==true)
+      .slice(0,Math.max(0,engineWatchlistSize-permanent.length))
+      .map(x=>x.t);
+    return [...regular,...permanent].slice(0,engineWatchlistSize);
   }
   function engineRender(){
     const body=$("#engine-table-body"), count=$("#engine-candidate-count");
     if(!body)return;
     engineCandidates=engineMatureCandidates();
     if(count)count.textContent=String(engineCandidates.length);
-    if(!engineCandidates.length){body.innerHTML='<tr><td colspan="12" class="engine-empty">No MATURE / DECLINING candidates available.</td></tr>';return;}
+    const cycle=$("#engine-cycle");if(cycle)cycle.textContent="0 / "+engineCandidates.length;
+    if(!engineCandidates.length){body.innerHTML='<tr><td colspan="12" class="engine-empty">No monitored MATURE / DECLINING candidates available.</td></tr>';return;}
     body.innerHTML=engineCandidates.map((t,i)=>{
       const e=engineSignal(t), s=e.s, selected=t.mint===engineSelectedMint;
       const core=engineNum(t.current_market_state?.core_score);
