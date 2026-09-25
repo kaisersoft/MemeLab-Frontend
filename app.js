@@ -199,14 +199,29 @@ function renderLifecycle(token) {
 
 function renderSelectedToken(token) {
   if(!token)return;
-  $("#score-token").textContent=token.symbol || shortMint(token.mint);
-  const intelligenceScore=score(token.intelligence);
-  $("#score").textContent=intelligenceScore==null?"— / 100":intelligenceScore+" / 100";
-  $("#chart-label").textContent=(token.symbol || shortMint(token.mint))+" / SOL · "+marketWindow+" history";
-  setMetric("m-liq",token.liquidity); setMetric("m-vol",token.activity); setMetric("m-holder",token.actor_growth); setMetric("m-social",token.confidence);
-  const risk=$("#m-risk"); if(risk){risk.textContent="—";const bar=risk.parentElement?.nextElementSibling?.querySelector("em");if(bar)bar.style.width="0%";}
-  const note=$("#market-context-note"); if(note) note.textContent="Selected metric · selected history window";
-  renderLifecycle(token); renderChart(token);
+  const stateToken=(Array.isArray(window.MEMELAB_JUPITER_TOKENS)
+    ? window.MEMELAB_JUPITER_TOKENS.find(t=>t.mint===token.mint)
+    : null) || token;
+  const state=stateToken.current_market_state || {};
+  const num=(v)=>{const n=Number(v);return Number.isFinite(n)?n:null;};
+  const setScoreMetric=(id,value)=>{
+    const el=$("#"+id);
+    if(!el)return;
+    el.textContent=value==null?"—":Math.round(value);
+    const bar=el.parentElement?.nextElementSibling?.querySelector("em");
+    if(bar)bar.style.width=value==null?"0%":Math.max(0,Math.min(100,Number(value)))+"%";
+  };
+  const core=num(state.core_score);
+  $("#score-token").textContent=stateToken.symbol || shortMint(stateToken.mint);
+  $("#score").textContent=core==null?"— / 100":Math.round(core)+" / 100";
+  $("#chart-label").textContent=(stateToken.symbol || shortMint(stateToken.mint))+" / SOL · "+marketWindow+" history";
+  setScoreMetric("m-liq",num(state.market_score));
+  setScoreMetric("m-vol",num(state.momentum_score));
+  setScoreMetric("m-holder",num(state.risk_score));
+  setScoreMetric("m-activity",num(state.activity_score));
+  setScoreMetric("m-social",null);
+  setScoreMetric("m-risk",core);
+  renderLifecycle(stateToken); renderChart(stateToken);
 }
 async function selectMarketToken(mint){
   externalSelectedMint=mint;
