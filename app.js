@@ -26,8 +26,9 @@ function usd(v) {
   return "$"+n.toExponential(2);
 }
 function lifecycleLabel(v) {
-  const map={DISCOVERY:"Discover",LAUNCH:"Launch",EARLY_TRADING:"Early Trading",MOMENTUM:"Momentum",DISTRIBUTION:"Distribution",DECAY:"Decay"};
-  return map[v]||v||"—";
+  const map={DISCOVERED:"Discovered",EMERGING:"Emerging",ACTIVE:"Active",MATURE:"Mature",DECLINING:"Declining",INACTIVE:"Inactive",ARCHIVED:"Archived"};
+  const key=String(v||"").toUpperCase();
+  return map[key]||v||"—";
 }
 function formatTime(ts) { if(!ts)return "—"; const d=new Date(Number(ts)*1000); return Number.isNaN(d.getTime())?"—":d.toLocaleTimeString(); }
 
@@ -193,8 +194,13 @@ function renderMarketChart(history, token, options={}){
 }
 
 function renderLifecycle(token) {
-  const stages=["DISCOVERY","LAUNCH","EARLY_TRADING","MOMENTUM","DISTRIBUTION","DECAY"], current=stages.indexOf(token?.lifecycle);
-  document.querySelectorAll(".life").forEach((el,i)=>el.classList.toggle("active",current>=0&&i<=current));
+  const stages=["DISCOVERED","EMERGING","ACTIVE","MATURE","DECLINING","INACTIVE","ARCHIVED"];
+  const current=stages.indexOf(String(token?.lifecycle||"").toUpperCase());
+  document.querySelectorAll(".life").forEach((el,i)=>{
+    const active=current>=0&&i<=current;
+    el.classList.toggle("active",active);
+    el.setAttribute("aria-selected",i===current?"true":"false");
+  });
 }
 
 function renderSelectedToken(token) {
@@ -284,7 +290,7 @@ function renderMarketContext(market) {
   if(selected && !selected.textContent) selected.textContent="—";
   const universe=market?.meme_universe||{};
   const count=Number(universe.count);
-  const effectiveCount=Number.isFinite(count)?count:20752933;
+  const effectiveCount=Number.isFinite(count)&&count>0?count:null;
   const countEl=$("#meme-universe-count");
   const updatedEl=$("#meme-universe-updated");
   if(countEl) countEl.textContent=formatCompactCount(effectiveCount);
@@ -293,13 +299,18 @@ function renderMarketContext(market) {
   if(monitoredEl) monitoredEl.textContent=Number.isFinite(monitored)?monitored.toLocaleString("de-DE"):"—";
   const ratioFill=$("#market-ratio-fill");
   const ratioPercent=$("#market-ratio-percent");
-  const share=effectiveCount>0 && monitored>0 ? monitored/effectiveCount*100 : 0;
+  const share=effectiveCount>0 && monitored>0 ? monitored/effectiveCount*100 : null;
   if(ratioFill){
-    const visibleDegrees=Math.max(2,Math.min(360,share*3.6));
-    ratioFill.style.background="conic-gradient(from -90deg,#63c69f 0deg "+visibleDegrees.toFixed(2)+"deg,#15232c "+visibleDegrees.toFixed(2)+"deg 360deg)";
-    ratioFill.title=share.toFixed(3)+"% of total meme universe";
+    if(share!=null){
+      const visibleDegrees=Math.max(2,Math.min(360,share*3.6));
+      ratioFill.style.background="conic-gradient(from -90deg,#63c69f 0deg "+visibleDegrees.toFixed(2)+"deg,#15232c "+visibleDegrees.toFixed(2)+"deg 360deg)";
+      ratioFill.title=share.toFixed(3)+"% of total meme universe";
+    }else{
+      ratioFill.style.background="conic-gradient(from -90deg,#15232c 0deg 360deg)";
+      ratioFill.title="Meme universe size not available";
+    }
   }
-  if(ratioPercent) ratioPercent.textContent=share<0.01 ? "<0.01%" : share.toFixed(2)+"%";
+  if(ratioPercent) ratioPercent.textContent=share==null?"—":(share<0.01 ? "<0.01%" : share.toFixed(2)+"%");
   if(updatedEl){
     updatedEl.textContent=universe.updated_at
       ? "Solscan · "+formatTime(universe.updated_at)
@@ -468,4 +479,4 @@ const chartMetricSelect=$("#chart-metric");
 if(chartMetricSelect) chartMetricSelect.addEventListener("change",()=>setChartMetric(chartMetricSelect.value));
 renderBuildInfo();
 startEngine();
-setInterval(refresh,1000);
+setInterval(refresh,5000);
