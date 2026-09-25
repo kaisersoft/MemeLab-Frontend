@@ -791,7 +791,6 @@
       saveLocalPaperSnapshot();
       return true;
     }catch(_err){
-      if(restoreLocalPaperSnapshot()) return true;
       return false;
     }
   }
@@ -985,8 +984,7 @@
     }));
     window.addEventListener("memelab:jupiter-data",renderAll);
     window.addEventListener("memelab:engine-universe-changed",renderSignals);
-    const restored=await restoreTradingState();
-    if(!restored) restoreLocalPaperSnapshot();
+    await restoreTradingState();
     await refreshTradingPrices();
     if(slCooldown)slCooldown.value=String(Math.max(5,Math.min(1440,Number(stopLossCooldownMinutes)||15)));
     await renderAll();
