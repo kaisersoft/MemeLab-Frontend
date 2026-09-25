@@ -61,7 +61,8 @@
     if(!m){
       return {
         price:null,volume:null,buy:null,sell:null,flow:null,traders:null,buys:null,sells:null,
-        momentum:null,activity:null,volatility:null,liquidity:null,dataReady:false,marketAgeSeconds:null,priceAgeSeconds:null
+        momentum:null,activity:null,activityRegimeScore:null,activityRegime:"UNKNOWN",activityRiskMultiplier:1,
+        volatility:null,liquidity:null,dataReady:false,marketAgeSeconds:null,priceAgeSeconds:null
       };
     }
     const snapshotPrice=engineNum(m.price_usd);
@@ -83,6 +84,9 @@
       sells:engineNum(m.sells_24h),
       momentum,
       activity:engineNum(m.activity_delta_pct),
+      activityRegimeScore:engineNum(m.activity_regime_score),
+      activityRegime:String(m.activity_regime||"UNKNOWN"),
+      activityRiskMultiplier:engineNum(m.activity_risk_multiplier)??1,
       volatility:engineNum(m.volatility_pct),
       liquidity:engineNum(m.liquidity_usd),
       dataReady:Boolean(m.data_ready),
@@ -105,6 +109,9 @@
     // short-term momentum confirms the direction. Neutral/missing momentum must
     // never be promoted to BUY by stale 24h activity/flow data.
     const signal=!s.dataReady?"HOLD":(directional==="BUY"&&s.momentum!=null&&s.momentum>0?"BUY":directional);
+    const riskMultiplier=Math.min(1,Math.max(0.5,Number(s.activityRiskMultiplier)||1));
+    if(s.activityRegime==="LOW"){reasons.push("Activity regime LOW · risk scaled to 75%");}
+    else if(s.activityRegime==="VERY LOW"){reasons.push("Activity regime VERY LOW · risk scaled to 50%");}
     let entry=null,stop=null,take=null,rr=null;
     if((signal==="BUY"||signal==="SELL")&&s.price!=null){
       entry=s.price;
@@ -113,7 +120,7 @@
       else {stop=entry*(1+riskPct);take=entry*(1-riskPct*2);rr=2;}
     }
     if(!s.dataReady) reasons.unshift("Fresh short-term market state unavailable");
-    return {signal,strength,entry,stop,take,rr,reasons,s};
+    return {signal,strength,entry,stop,take,rr,reasons,s,riskMultiplier};
   }
   function engineMatureCandidates(){
     const all=Array.isArray(window.MEMELAB_JUPITER_TOKENS)?window.MEMELAB_JUPITER_TOKENS:[];
@@ -169,7 +176,7 @@
     const e=engineCachedEvaluation(t), s=e?.s||{};
     const set=(id,v)=>{const el=$("#"+id);if(el)el.textContent=v;};
     set("engine-selected-token",(t.symbol||"—")+" · "+(t.lifecycle||"—"));
-    set("engine-entry",engineUsd(e?.entry));set("engine-stop",engineUsd(e?.stop));set("engine-take",engineUsd(e?.take));set("engine-margin","PAPER · 0");set("engine-rr",e?.rr?e.rr.toFixed(1)+"R":"—");set("engine-pnl","—");
+    set("engine-entry",engineUsd(e?.entry));set("engine-stop",engineUsd(e?.stop));set("engine-take",engineUsd(e?.take));set("engine-margin","PAPER · 0");set("engine-rr",e?.rr?e.rr.toFixed(1)+"R":"—");set("engine-pnl","—");set("engine-activity-regime",s.activityRegime||"—");
     const badge=$("#engine-signal-badge");if(badge){badge.textContent=e?.signal||"WAITING";badge.className="engine-signal-badge "+(e?.signal?e.signal.toLowerCase():"hold");}
     const reasons=$("#engine-reasons");if(reasons)reasons.innerHTML=e?.reasons?.length?e.reasons.map(x=>"✓ "+x).join("<br>"):"Awaiting scheduled engine evaluation.";
   }
