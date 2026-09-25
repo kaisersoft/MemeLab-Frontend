@@ -826,10 +826,10 @@
   }
 
   function renderSignals(){
-    const body=$("#paper-signal-body"); if(!body)return;
     lastSignals=signalRows();
     const universeEl=$("#paper-universe");
     if(universeEl) universeEl.textContent="Top "+lastSignals.length+" Mature";
+    const body=$("#paper-signal-body"); if(!body)return;
     $("#paper-signal-count")?.replaceChildren(document.createTextNode(String(lastSignals.length)));
     body.innerHTML=lastSignals.length ? lastSignals.map(x=>{
       const e=x.e||{},t=x.t;
