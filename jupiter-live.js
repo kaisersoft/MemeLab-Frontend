@@ -441,7 +441,7 @@
     const map=new Map((Array.isArray(stateRows)?stateRows:[]).map(row=>[row?.mint,row?.current_market_state||null]));
     window.MEMELAB_JUPITER_TOKENS=(Array.isArray(window.MEMELAB_JUPITER_TOKENS)?window.MEMELAB_JUPITER_TOKENS:[]).map(token=>({
       ...token,
-      current_market_state:map.has(token?.mint)?map.get(token.mint):token?.current_market_state||null
+      current_market_state:map.has(token?.mint)&&map.get(token?.mint)!=null?map.get(token.mint):token?.current_market_state||null
     }));
     tokens=window.MEMELAB_JUPITER_TOKENS;
     if(selectedMint){
@@ -472,7 +472,7 @@
       const states=new Map((data?.diagnostics?.watchlist||[]).map(row=>[row?.mint,row?.current_market_state||null]));
       tokens=(Array.isArray(data.tokens)?data.tokens:[]).map(token=>({
         ...token,
-        current_market_state:states.get(token?.mint)||null
+        current_market_state:states.get(token?.mint)||token?.current_market_state||null
       }));
       window.MEMELAB_JUPITER_TOKENS=tokens;
       ingestCount=Number(data.ingest_count)||0;
