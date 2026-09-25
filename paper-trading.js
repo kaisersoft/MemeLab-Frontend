@@ -3,6 +3,7 @@
   let startingCapital = DEFAULT_startingCapital;
   let threshold = 3;
   let riskPct = 2;
+  let riskPerTokenPct = 4;
   let capitalLimitPct = 20;
   let portfolioLimitPct = 50;
   let minPositionCapital = 250;
@@ -316,9 +317,18 @@
 
     const equity=startingCapital+realizedPnl()+positions.reduce((s,p)=>s+(currentPrice(p)-p.entry)*p.qty,0);
     const riskAmount=Math.max(0,equity*(Number(riskPct)/100));
+    const maxTokenRisk=Math.max(0,equity*(Number(riskPerTokenPct)/100));
+    const existingTokenRisk=positions.filter(p=>p.mint===t.mint).reduce((sum,p)=>{
+      const storedRisk=Number(p.riskAmount);
+      if(Number.isFinite(storedRisk)&&storedRisk>=0) return sum+storedRisk;
+      const qty=Number(p.qty)||0, entry=Number(p.entry)||0, stop=Number(p.stop)||0;
+      return sum+(qty*Math.max(0,entry-stop));
+    },0);
+    const remainingTokenRisk=Math.max(0,maxTokenRisk-existingTokenRisk);
+    const entryRisk=Math.min(riskAmount,remainingTokenRisk);
     const unitRisk=Number(e.entry)-Number(e.stop);
-    if(riskAmount<=0 || unitRisk<=0) return false;
-    let qty=riskAmount/unitRisk;
+    if(entryRisk<=0 || unitRisk<=0) return false;
+    let qty=entryRisk/unitRisk;
     const maxAffordable=availableCash()/Number(e.entry);
     const maxCapital=equity*(Number(capitalLimitPct)/100);
     const maxByCapital=maxCapital/Number(e.entry);
@@ -346,6 +356,7 @@
     const stop=entry*stopRatio;
     const take=entry*takeRatio;
     const actualRisk=finalQty*Math.max(0,entry-stop);
+    if(actualRisk>remainingTokenRisk+1e-9) return false;
 
     const position={
       mint:t.mint,symbol:t.symbol||t.name||"—",name:t.name||"",
@@ -566,7 +577,7 @@
       positions,
       journal,
       state: {
-        startingCapital, threshold, riskPct, capitalLimitPct, portfolioLimitPct,
+        startingCapital, threshold, riskPct, riskPerTokenPct, capitalLimitPct, portfolioLimitPct,
         minPositionCapital, profitTimeoutMinutes, portfolioTakeAllPct, portfolioCycleBaselineEquity,
         stopLossCooldownMinutes,
         stopLossGuards:[...stopLossGuards.entries()],
@@ -621,6 +632,7 @@
       if(Number.isFinite(Number(state.startingCapital)) && Number(state.startingCapital)>0) startingCapital=Number(state.startingCapital);
       if(Number.isFinite(Number(state.threshold))) threshold=Number(state.threshold);
       if(Number.isFinite(Number(state.riskPct))) riskPct=Number(state.riskPct);
+      if(Number.isFinite(Number(state.riskPerTokenPct))) riskPerTokenPct=Number(state.riskPerTokenPct);
       if(Number.isFinite(Number(state.capitalLimitPct))) capitalLimitPct=Number(state.capitalLimitPct);
       if(Number.isFinite(Number(state.portfolioLimitPct))) portfolioLimitPct=Number(state.portfolioLimitPct);
       if(Number.isFinite(Number(state.minPositionCapital))) minPositionCapital=Number(state.minPositionCapital);
@@ -679,6 +691,7 @@
       payload:{
         threshold:Number(threshold),
         riskPct:Number(riskPct),
+        riskPerTokenPct:Number(riskPerTokenPct),
         capitalLimitPct:Number(capitalLimitPct),
         portfolioLimitPct:Number(portfolioLimitPct),
         profitTimeoutMinutes:Number(profitTimeoutMinutes),
@@ -753,6 +766,7 @@
         if(Number.isFinite(Number(state.startingCapital)) && Number(state.startingCapital)>0) startingCapital=Number(state.startingCapital);
         if(Number.isFinite(Number(state.threshold))) threshold=Number(state.threshold);
         if(Number.isFinite(Number(state.riskPct))) riskPct=Number(state.riskPct);
+        if(Number.isFinite(Number(state.riskPerTokenPct))) riskPerTokenPct=Number(state.riskPerTokenPct);
         if(Number.isFinite(Number(state.capitalLimitPct))) capitalLimitPct=Number(state.capitalLimitPct);
         if(Number.isFinite(Number(state.portfolioLimitPct))) portfolioLimitPct=Number(state.portfolioLimitPct);
         if(Number.isFinite(Number(state.minPositionCapital))) minPositionCapital=Number(state.minPositionCapital);
@@ -781,9 +795,10 @@
         if(paperRunning && !sessionStartedAt) sessionStartedAt=now();
       }
       positions=restoredPositions.map(p=>({...p,costModel:p.costModel==="V2"&&p.v2EntryQuote?"V2":"V1",t:{mint:p.mint,symbol:p.symbol,name:p.name,decimals:p.tokenDecimals,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
-      const thresholdEl=$("#paper-threshold"), riskEl=$("#paper-risk"), capitalEl=$("#paper-capital-limit"), portfolioEl=$("#paper-portfolio-limit"), minPositionEl=$("#paper-min-position"), timeoutEl=$("#paper-profit-timeout"), takeAllEl=$("#paper-take-all");
+      const thresholdEl=$("#paper-threshold"), riskEl=$("#paper-risk"), riskTokenEl=$("#paper-risk-token"), capitalEl=$("#paper-capital-limit"), portfolioEl=$("#paper-portfolio-limit"), minPositionEl=$("#paper-min-position"), timeoutEl=$("#paper-profit-timeout"), takeAllEl=$("#paper-take-all");
       if(thresholdEl) thresholdEl.value=String(threshold);
       if(riskEl) riskEl.value=String(riskPct);
+      if(riskTokenEl) riskTokenEl.value=String(riskPerTokenPct);
       if(capitalEl) capitalEl.value=String(capitalLimitPct);
       if(portfolioEl) portfolioEl.value=String(portfolioLimitPct);
       if(minPositionEl) minPositionEl.value=String(minPositionCapital);
@@ -956,6 +971,8 @@
     if(sel)sel.addEventListener("change",()=>{threshold=Number(sel.value)||3;renderSignals();});
     const risk=$("#paper-risk");
     if(risk)risk.addEventListener("change",()=>{riskPct=Number(risk.value)||2;renderSignals();});
+    const riskToken=$("#paper-risk-token");
+    if(riskToken)riskToken.addEventListener("change",()=>{riskPerTokenPct=Number(riskToken.value)||4;renderAll();});
     const capitalLimit=$("#paper-capital-limit");
     if(capitalLimit)capitalLimit.addEventListener("change",()=>{capitalLimitPct=Number(capitalLimit.value)||20;renderAll();});
     const portfolioLimit=$("#paper-portfolio-limit");
@@ -1003,6 +1020,6 @@
     setInterval(async ()=>{await refreshTradingPrices();if(!$("#paper-panel")?.hidden||!$("#pnl-panel")?.hidden){await renderAll();}},5000);
     window.addEventListener("pagehide",()=>saveLocalPaperSnapshot());
   }
-  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,costModelVersion,threshold,riskPct,capitalLimitPct,portfolioLimitPct,minPositionCapital,profitTimeoutMinutes,portfolioTakeAllPct,portfolioCycleBaselineEquity,paperRunning,sessionStartedAt,sessionElapsedMs}),isRunning:()=>paperRunning,manualBuy,manualSell};
+  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,costModelVersion,threshold,riskPct,riskPerTokenPct,capitalLimitPct,portfolioLimitPct,minPositionCapital,profitTimeoutMinutes,portfolioTakeAllPct,portfolioCycleBaselineEquity,paperRunning,sessionStartedAt,sessionElapsedMs}),isRunning:()=>paperRunning,manualBuy,manualSell};
   init();
 })();
