@@ -274,8 +274,8 @@ function renderMarketContext(market) {
   const updatedEl=$("#meme-universe-updated");
   if(countEl) countEl.textContent=formatCompactCount(effectiveCount);
   const monitoredEl=$("#meme-lab-monitored");
-  const monitored=Number(window.MEMELAB_JUPITER_TOKENS?.length || 0);
-  if(monitoredEl) monitoredEl.textContent=monitored?monitored.toLocaleString("de-DE"):"—";
+  const monitored=Number(window.MEMELAB_JUPITER_DATA?.diagnostics?.watchlist_count);
+  if(monitoredEl) monitoredEl.textContent=Number.isFinite(monitored)?monitored.toLocaleString("de-DE"):"—";
   const ratioFill=$("#market-ratio-fill");
   const ratioPercent=$("#market-ratio-percent");
   const share=effectiveCount>0 && monitored>0 ? monitored/effectiveCount*100 : 0;
