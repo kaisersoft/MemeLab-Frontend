@@ -90,7 +90,7 @@
     showTradingInfrastructureAlert(
       "cloud",
       "CLOUD DATABASE OFFLINE",
-      "Supabase ist aktuell nicht erreichbar. Paper Trading bleibt aktiv; die nächsten Trading-Cycles versuchen die Persistenz automatisch erneut.",
+      "Supabase ist aktuell nicht erreichbar. Cloud-Persistenz ist autoritativ; neue Positionen/Schließungen werden erst nach erfolgreicher Speicherung übernommen. Ausstehende Lifecycle-Events werden automatisch erneut versucht.",
       err
     );
   }
@@ -683,7 +683,7 @@
       for(const controller of tradingEventsAbortControllers) controller.abort();
       tradingEventsAbortControllers.clear();
       updatePaperControl();
-      const response=await fetch(apiBase+"/trading/reset",{method:"POST",headers:{"Accept":"application/json"}});
+      const response=await fetch(apiBase+"/trading/reset",{method:"POST",headers:{"Accept":"application/json","X-MemeLab-Reset-Confirm":"PAPER-TRADING-RESET"}});
       const result=await response.json().catch(()=>({}));
       if(!response.ok || result.status!=="ok") throw new Error(result.error||("HTTP "+response.status));
       localStorage.removeItem(PAPER_STORAGE_KEY);
@@ -765,7 +765,7 @@
     const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
     const pending=loadPendingTradingEvents();
     const queueable=events.filter(event=>["POSITION_OPEN","POSITION_CLOSE","PORTFOLIO_TAKE_ALL"].includes(String(event?.event_type||"")));
-    const batch=[...pending,...queueable];
+    const batch=[...pending,...events];
     const controller=new AbortController();
     tradingEventsAbortControllers.add(controller);
     try{
@@ -782,10 +782,10 @@
       return true;
     }catch(err){
       if(err?.name==="AbortError") return false;
-      if(batch.length) savePendingTradingEvents(batch);
-      console.error("Paper Trading persistence failed; trading event batch queued locally:",err);
+      if(pending.length + queueable.length) savePendingTradingEvents([...pending,...queueable]);
+      console.error("Paper Trading persistence failed; lifecycle events queued locally:",err);
       showTradingCloudAlert(err);
-      return true;
+      return false;
     }finally{
       tradingEventsAbortControllers.delete(controller);
     }
@@ -1120,7 +1120,14 @@
     }));
     window.addEventListener("memelab:jupiter-data",renderAll);
     window.addEventListener("memelab:engine-universe-changed",renderSignals);
-    await restoreTradingState();
+    const restoredFromCloud=await restoreTradingState();
+    if(!restoredFromCloud){
+      const restoredFromLocal=restoreLocalPaperSnapshot();
+      if(restoredFromLocal){
+        console.warn("Paper Trading cloud state unavailable; restored the last local paper-trading snapshot.");
+        showTradingCloudAlert(new Error("Cloud state unavailable; local snapshot restored"));
+      }
+    }
     await refreshTradingPrices();
     if(slCooldown)slCooldown.value=String(Math.max(5,Math.min(1440,Number(stopLossCooldownMinutes)||15)));
     await renderAll();
