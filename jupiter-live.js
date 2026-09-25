@@ -13,6 +13,8 @@
   const shortMint = (m) => !m ? "—" : m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5);
   const score = (v) => Number.isFinite(Number(v)) ? Math.round(Number(v)) : null;
   const num = (v) => Number.isFinite(Number(v)) ? Number(v) : null;
+  const clamp = (v) => Math.max(0, Math.min(100, Number(v) || 0));
+  let positionHistory = [];
   const usd = (v) => {
     const n = Number(v);
     if (!Number.isFinite(n)) return "—";
