@@ -40,6 +40,8 @@
   let tradingAlertSource = null;
   const tradingEventsAbortControllers = new Set();
   const paperConsumedEngineEvaluations = new Map();
+  let tradingPriceRetryAfter=0;
+  let jupiterQuoteRetryAfter=0;
   const $ = s => document.querySelector(s);
   const usd = v => Number.isFinite(Number(v)) ? "$"+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—";
   const pct = v => Number.isFinite(Number(v)) ? (Number(v)>=0?"+":"")+Number(v).toFixed(2)+"%" : "—";
@@ -195,7 +197,9 @@
 
   async function jupiterOrderQuote(inputMint, outputMint, amountRaw, inputDecimals, outputDecimals){
     if(costModelVersion!=="V2" || !costModelEnabled) return null;
+    if(Date.now()<jupiterQuoteRetryAfter) return null;
     if(!inputMint||!outputMint||!Number.isFinite(Number(amountRaw))||Number(amountRaw)<=0) return null;
+    let timeoutId=null;
     try{
       const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
       const url=apiBase+"/jupiter/order?"+new URLSearchParams({
@@ -205,11 +209,12 @@
         outputDecimals:String(outputDecimals)
       }).toString();
       const controller=new AbortController();
-      const timeout=setTimeout(()=>controller.abort(),5000);
+      timeoutId=setTimeout(()=>controller.abort(),5000);
       const response=await fetch(url,{cache:"no-store",headers:{Accept:"application/json"},signal:controller.signal});
       if(!response.ok){
         let detail="HTTP "+response.status;
         try{ const body=await response.text(); if(body) detail+=" · "+body.slice(0,240); }catch(_err){}
+        if(response.status===429) jupiterQuoteRetryAfter=Date.now()+15000;
         console.warn("Jupiter V2 quote failed:",detail);
         return null;
       }
@@ -221,7 +226,7 @@
       if(err?.name!=="AbortError") console.debug("Jupiter V2 quote:",err);
       return null;
     }finally{
-      clearTimeout(timeout);
+      if(timeoutId!==null) clearTimeout(timeoutId);
     }
   }
 
@@ -320,6 +325,7 @@
 
   async function refreshTradingPrices(){
     if(tradingPriceRefreshInFlight) return false;
+    if(Date.now()<tradingPriceRetryAfter) return false;
     const engine=window.MEMELAB_ENGINE;
     const candidateList=engine?.getCandidates?.()||[];
     const mints=[
@@ -333,7 +339,11 @@
     try{
       const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
       const response=await fetch(apiBase+"/trading/prices?mints="+encodeURIComponent(unique.join(",")),{cache:"no-store",headers:{Accept:"application/json"}});
-      if(!response.ok){ tradingPriceFeedStatus="ERROR"; return false; }
+      if(!response.ok){
+        tradingPriceFeedStatus="ERROR";
+        if(response.status===429) tradingPriceRetryAfter=Date.now()+15000;
+        return false;
+      }
       const data=await response.json();
       const prices=data?.prices||{};
       const observedAt=Date.now()/1000;
