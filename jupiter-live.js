@@ -58,9 +58,9 @@
   };
 
   let engineTimer=null;
-  let engineIntervalMs=5000;
+  let engineIntervalMs=1000;
   let engineCandidates=[];
-  let engineWatchlistSize=25;
+  let engineWatchlistSize=50;
   let engineCursor=-1;
   let engineSelectedMint=null;
   let engineScannedAt=0;
@@ -222,7 +222,7 @@
     if(engineTimer&&!restart)return;
     if(engineTimer)clearInterval(engineTimer);
     engineTimer=null;
-    engineIntervalMs=Number($("#engine-interval")?.value)||5000;
+    engineIntervalMs=Number($("#engine-interval")?.value)||1000;
     const status=$("#engine-status"), wrap=status?.parentElement;
     if(status)status.textContent="SCANNING";
     if(wrap)wrap.classList.add("running");
@@ -619,7 +619,7 @@
     discoveryToggle.addEventListener("click",toggleDiscovery);
   }
   renderDiscoveryState();refreshDiscoveryState();
-  if(!watchlistStateTimer) watchlistStateTimer=setInterval(refreshWatchlistState,30000);
+  if(!watchlistStateTimer) watchlistStateTimer=setInterval(refreshWatchlistState,60000);
   refreshWatchlistState();
 
   window.MEMELAB_ENGINE={
