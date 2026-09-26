@@ -6,6 +6,22 @@
   let ingestCount = 0;
   let discoveryRunning = false;
   let discoveryPollTimer = null;
+  const DISCOVERY_INTERVAL_STORAGE_KEY = "memelab.discovery.intervalMs";
+  const DISCOVERY_INTERVAL_DEFAULT_MS = 3600000;
+  const DISCOVERY_INTERVAL_OPTIONS = [
+    { value: 5000, label: "5 s · Turbo Discovery" },
+    { value: 30000, label: "30 s" },
+    { value: 300000, label: "5 min" },
+    { value: 3600000, label: "1 h · Normal" }
+  ];
+  function loadDiscoveryIntervalMs(){
+    try{
+      const raw=Number(localStorage.getItem(DISCOVERY_INTERVAL_STORAGE_KEY));
+      if(DISCOVERY_INTERVAL_OPTIONS.some(o=>o.value===raw)) return raw;
+    }catch(e){}
+    return DISCOVERY_INTERVAL_DEFAULT_MS;
+  }
+  let discoveryIntervalMs = loadDiscoveryIntervalMs();
   let selectedMint = null;
   let lifecycleFilter = "DISCOVERED";
   const LIFECYCLE_STAGES = ["DISCOVERED","EMERGING","ACTIVE","MATURE","DECLINING","INACTIVE","ARCHIVED"];
@@ -479,7 +495,7 @@
     });
     renderUniverseTable(filteredTokens);
   }
-  function renderDiscoveryState(){const state=$("#discovery-state"),button=$("#discovery-toggle"),scan=$("#scan-time");if(state){state.textContent=discoveryRunning?"RUNNING":"OFF";state.classList.toggle("running",discoveryRunning);}if(button){button.textContent=discoveryRunning?"STOP DISCOVERY":"START DISCOVERY";button.setAttribute("aria-pressed",discoveryRunning?"true":"false");button.classList.toggle("running",discoveryRunning);}if(scan&&!discoveryRunning&&window.MEMELAB_JUPITER_DATA?.feed!=="discovery_scope")scan.textContent="Persistent dataset · discovery off";}
+  function renderDiscoveryState(){const state=$("#discovery-state"),button=$("#discovery-toggle"),scan=$("#scan-time");if(state){state.textContent=discoveryRunning?"RUNNING":"OFF · next run not scheduled";state.classList.toggle("running",discoveryRunning);}if(button){button.textContent=discoveryRunning?"STOP DISCOVERY":"START DISCOVERY";button.setAttribute("aria-pressed",discoveryRunning?"true":"false");button.classList.toggle("running",discoveryRunning);}if(scan&&!discoveryRunning&&window.MEMELAB_JUPITER_DATA?.feed!=="discovery_scope")scan.textContent="Persistent dataset · discovery off";}
   function applyCurrentMarketStates(stateRows){
     const map=new Map((Array.isArray(stateRows)?stateRows:[]).map(row=>[row?.mint,row?.current_market_state||null]));
     window.MEMELAB_JUPITER_TOKENS=(Array.isArray(window.MEMELAB_JUPITER_TOKENS)?window.MEMELAB_JUPITER_TOKENS:[]).map(token=>({
@@ -565,9 +581,44 @@
     positionHistory=Array.isArray(e.detail?.points)?e.detail.points:[];
     render();
   });
-  async function refreshDiscoveryState(){try{const r=await fetch(apiBase+"/discovery/status",{cache:"no-store",headers:{Accept:"application/json"}});if(!r.ok)throw new Error(r.status+" "+r.statusText);const data=await r.json();discoveryRunning=!!data.running;renderDiscoveryState();if(discoveryRunning){await load();if(!discoveryPollTimer)discoveryPollTimer=setInterval(load,5000);}else{if(discoveryPollTimer)clearInterval(discoveryPollTimer);discoveryPollTimer=null;await load();}}catch(e){console.debug("Discovery status:",e);}}
-  async function toggleDiscovery(){const action=discoveryRunning?"stop":"start";try{const r=await fetch(apiBase+"/discovery/"+action,{method:"POST",cache:"no-store",headers:{Accept:"application/json"}});if(!r.ok)throw new Error(r.status+" "+r.statusText);discoveryRunning=action==="start";renderDiscoveryState();if(discoveryRunning){await load();if(!discoveryPollTimer)discoveryPollTimer=setInterval(load,5000);}else{if(discoveryPollTimer)clearInterval(discoveryPollTimer);discoveryPollTimer=null;await load();}}catch(e){console.error("Discovery toggle:",e);}}
-  const discoveryToggle=$("#discovery-toggle");if(discoveryToggle)discoveryToggle.addEventListener("click",toggleDiscovery);renderDiscoveryState();refreshDiscoveryState();
+  function startDiscoveryPolling(){
+    if(discoveryPollTimer) clearInterval(discoveryPollTimer);
+    discoveryPollTimer=setInterval(load,discoveryIntervalMs);
+  }
+  function stopDiscoveryPolling(){
+    if(discoveryPollTimer) clearInterval(discoveryPollTimer);
+    discoveryPollTimer=null;
+  }
+  async function refreshDiscoveryState(){try{const r=await fetch(apiBase+"/discovery/status",{cache:"no-store",headers:{Accept:"application/json"}});if(!r.ok)throw new Error(r.status+" "+r.statusText);const data=await r.json();discoveryRunning=!!data.running;renderDiscoveryState();if(discoveryRunning){await load();startDiscoveryPolling();}else{stopDiscoveryPolling();await load();}}catch(e){console.debug("Discovery status:",e);}}
+  async function toggleDiscovery(){const action=discoveryRunning?"stop":"start";try{const r=await fetch(apiBase+"/discovery/"+action,{method:"POST",cache:"no-store",headers:{Accept:"application/json"}});if(!r.ok)throw new Error(r.status+" "+r.statusText);discoveryRunning=action==="start";renderDiscoveryState();if(discoveryRunning){await load();startDiscoveryPolling();}else{stopDiscoveryPolling();await load();}}catch(e){console.error("Discovery toggle:",e);}}
+  function renderDiscoveryIntervalOptions(select){
+    select.innerHTML="";
+    DISCOVERY_INTERVAL_OPTIONS.forEach(opt=>{
+      const optionEl=document.createElement("option");
+      optionEl.value=String(opt.value);
+      optionEl.textContent=opt.label;
+      if(opt.value===discoveryIntervalMs) optionEl.selected=true;
+      select.appendChild(optionEl);
+    });
+  }
+  const discoveryToggle=$("#discovery-toggle");
+  if(discoveryToggle){
+    if(!$("#discovery-interval-select")){
+      const discoveryIntervalSelect=document.createElement("select");
+      discoveryIntervalSelect.id="discovery-interval-select";
+      renderDiscoveryIntervalOptions(discoveryIntervalSelect);
+      discoveryToggle.parentNode.insertBefore(discoveryIntervalSelect,discoveryToggle);
+      discoveryIntervalSelect.addEventListener("change",()=>{
+        const val=Number(discoveryIntervalSelect.value);
+        if(!DISCOVERY_INTERVAL_OPTIONS.some(o=>o.value===val)) return;
+        discoveryIntervalMs=val;
+        try{localStorage.setItem(DISCOVERY_INTERVAL_STORAGE_KEY,String(val));}catch(e){}
+        if(discoveryRunning) startDiscoveryPolling();
+      });
+    }
+    discoveryToggle.addEventListener("click",toggleDiscovery);
+  }
+  renderDiscoveryState();refreshDiscoveryState();
   if(!watchlistStateTimer) watchlistStateTimer=setInterval(refreshWatchlistState,30000);
   refreshWatchlistState();
 
