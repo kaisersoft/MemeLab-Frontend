@@ -91,7 +91,7 @@
     showTradingInfrastructureAlert(
       "cloud",
       "CLOUD DATABASE OFFLINE",
-      "Supabase ist aktuell nicht erreichbar. Cloud-Persistenz ist autoritativ; neue Positionen/Schließungen werden erst nach erfolgreicher Speicherung übernommen. Ausstehende Lifecycle-Events werden automatisch erneut versucht.",
+      "Supabase ist aktuell nicht erreichbar. Paper Trading bleibt aktiv; ausstehende Lifecycle-Events werden lokal gepuffert und beim nächsten erfolgreichen Cloud-Zugriff erneut gespeichert.",
       err
     );
   }
@@ -686,7 +686,11 @@
       updatePaperControl();
       const response=await fetch(apiBase+"/trading/reset",{method:"POST",headers:{"Accept":"application/json","X-MemeLab-Reset-Confirm":"PAPER-TRADING-RESET"}});
       const result=await response.json().catch(()=>({}));
-      if(!response.ok || result.status!=="ok") throw new Error(result.error||("HTTP "+response.status));
+      if(!response.ok){
+        const error=new Error(result.error||("HTTP "+response.status));
+        error.transientCloudFailure=[502,503,504].includes(response.status);
+        throw error;
+      }
       localStorage.removeItem(PAPER_STORAGE_KEY);
       localStorage.removeItem(PAPER_PENDING_EVENTS_KEY);
       paperConsumedEngineEvaluations.clear();
@@ -786,7 +790,7 @@
       if(pending.length + queueable.length) savePendingTradingEvents([...pending,...queueable]);
       console.error("Paper Trading persistence failed; lifecycle events queued locally:",err);
       showTradingCloudAlert(err);
-      return false;
+      return err?.transientCloudFailure===true || err?.name==="TypeError";
     }finally{
       tradingEventsAbortControllers.delete(controller);
     }
