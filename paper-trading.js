@@ -686,11 +686,7 @@
       updatePaperControl();
       const response=await fetch(apiBase+"/trading/reset",{method:"POST",headers:{"Accept":"application/json","X-MemeLab-Reset-Confirm":"PAPER-TRADING-RESET"}});
       const result=await response.json().catch(()=>({}));
-      if(!response.ok){
-        const error=new Error(result.error||("HTTP "+response.status));
-        error.transientCloudFailure=[502,503,504].includes(response.status);
-        throw error;
-      }
+      if(!response.ok || result.status!=="ok") throw new Error(result.error||("HTTP "+response.status));
       localStorage.removeItem(PAPER_STORAGE_KEY);
       localStorage.removeItem(PAPER_PENDING_EVENTS_KEY);
       paperConsumedEngineEvaluations.clear();
@@ -781,7 +777,11 @@
         signal:controller.signal
       });
       const result=await response.json().catch(()=>({}));
-      if(!response.ok || result.status!=="ok") throw new Error(result.error||("HTTP "+response.status));
+      if(!response.ok || result.status!=="ok"){
+        const error=new Error(result.error||("HTTP "+response.status));
+        error.transientCloudFailure=[502,503,504].includes(response.status);
+        throw error;
+      }
       savePendingTradingEvents([]);
       clearTradingCloudAlert("cloud");
       return true;
