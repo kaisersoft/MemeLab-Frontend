@@ -6,7 +6,7 @@
   <title>MemeLab — On-chain Market Intelligence</title>
   <meta name="description" content="MemeLab frontend prototype — on-chain market intelligence, lifecycle and risk engine.">
   <link rel="icon" href="./assets/memelab-logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=20260924-201">
+  <link rel="stylesheet" href="./styles.css?v=20260926-debug">
   <link rel="stylesheet" href="./position-intelligence.css">
 </head>
 <body>
@@ -35,6 +35,7 @@
         <button class="nav-btn" data-view="engine">Engine</button>
         <button class="nav-btn" data-view="paper">Paper Trade</button>
         <button class="nav-btn" data-view="pnl">P&amp;L</button>
+        <button class="nav-btn" data-view="debug">Debug</button>
       </nav>
     </header>
 
@@ -275,6 +276,28 @@
         </section>
       </section>
 
+      <section class="debug-shell" id="debug-panel" hidden>
+        <section class="panel debug-controls">
+          <div class="panel-head"><div><h2>Debug</h2><span>Runtime logging controls</span></div></div>
+          <p class="debug-notice">Logging controls only. No trading or market logic is affected.</p>
+          <div class="debug-log-list">
+            <article class="debug-log-row">
+              <div class="debug-log-copy"><h3>ERROR LOG</h3><p>Normale Fehler- und Problemereignisse des Systems.</p></div>
+              <div class="debug-log-control"><button class="debug-switch" type="button" role="switch" aria-checked="true" data-log-toggle="error_log" aria-label="ERROR LOG"><span></span></button><b class="debug-log-status">ON</b></div>
+            </article>
+            <article class="debug-log-row">
+              <div class="debug-log-copy"><h3>TRADE LOG</h3><p>Trading-Signale, Pending/Quote-Probleme, Rejects, Executions und Trade-Lifecycle.</p></div>
+              <div class="debug-log-control"><button class="debug-switch" type="button" role="switch" aria-checked="true" data-log-toggle="trade_log" aria-label="TRADE LOG"><span></span></button><b class="debug-log-status">ON</b></div>
+            </article>
+            <article class="debug-log-row">
+              <div class="debug-log-copy"><h3>JUPITER LOG</h3><p>Detailliertes Jupiter Request-/Response-Logging.</p></div>
+              <div class="debug-log-control"><button class="debug-switch" type="button" role="switch" aria-checked="false" data-log-toggle="jupiter_log" aria-label="JUPITER LOG"><span></span></button><b class="debug-log-status">OFF</b></div>
+            </article>
+          </div>
+          <p class="debug-api-status" id="debug-api-status" role="status">Loading logging status…</p>
+        </section>
+      </section>
+
       <section class="position-shell" id="position-panel" hidden>
         <div class="position-top-grid">
           <section class="panel intelligence" id="intelligence-panel">
@@ -391,5 +414,6 @@
   <script src="./jupiter-live.js?v=20260926-0505"></script>
   <script src="./watchlist.js?v=20260926-0505"></script>
     <script src="./paper-trading.js?v=20260926-0505"></script>
+  <script src="./debug-logging.js?v=20260926-debug"></script>
 </body>
 </html>

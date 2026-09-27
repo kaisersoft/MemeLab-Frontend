@@ -40,8 +40,13 @@
   let tradingAlertSource = null;
   const tradingEventsAbortControllers = new Set();
   const paperConsumedEngineEvaluations = new Map();
+  const tradeLogSignals = new Set();
+  const tradeLogOutcomes = new Set();
+  let tradeLogQueue = Promise.resolve();
   let tradingPriceRetryAfter=0;
   let jupiterQuoteRetryAfter=0;
+  const quoteUnavailableUntil=new Map();
+  const QUOTE_UNAVAILABLE_COOLDOWN_MS=60000;
   const $ = s => document.querySelector(s);
   const usd = v => Number.isFinite(Number(v)) ? "$"+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—";
   const pct = v => Number.isFinite(Number(v)) ? (Number(v)>=0?"+":"")+Number(v).toFixed(2)+"%" : "—";
@@ -51,6 +56,65 @@
     return "$"+n.toExponential(3);
   };
   const now=()=>Date.now();
+
+  function tradeLog(event, x, details={}){
+    if(!paperRunning) return;
+    const t=x?.t||{};
+    const e=x?.e||{};
+    const payload={
+      event,
+      observed_at:now(),
+      evaluation_id:Number(x?.evaluationId)||null,
+      evaluated_at:Number(x?.evaluatedAt)||null,
+      mint:t.mint||null,
+      symbol:t.symbol||t.name||null,
+      signal:e.signal||null,
+      strength:Number.isFinite(Number(e.strength))?Number(e.strength):null,
+      entry:Number.isFinite(Number(e.entry))?Number(e.entry):null,
+      stop:Number.isFinite(Number(e.stop))?Number(e.stop):null,
+      take:Number.isFinite(Number(e.take))?Number(e.take):null,
+      ...details
+    };
+    tradeLogQueue=tradeLogQueue.then(()=>{
+      if(!paperRunning) return;
+      const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),5000);
+      return fetch(apiBase+"/trading/log",{
+        method:"POST",cache:"no-store",signal:controller.signal,
+        headers:{"Accept":"application/json","Content-Type":"application/json"},
+        body:JSON.stringify(payload)
+      }).catch(()=>{}).finally(()=>clearTimeout(timeout));
+    }).catch(()=>{});
+  }
+
+  function tradeLogSignal(x, manual=false){
+    if(!paperRunning) return false;
+    const evalId=Number(x?.evaluationId)||0;
+    const key=evalId>0?String(x?.t?.mint||"")+":"+evalId:null;
+    if(!manual&&key&&tradeLogSignals.has(key)) return false;
+    if(!manual&&key){
+      tradeLogSignals.add(key);
+      if(tradeLogSignals.size>5000) tradeLogSignals.delete(tradeLogSignals.values().next().value);
+    }
+    tradeLog("SIGNAL",x,{manual});
+    return true;
+  }
+
+  function tradeReject(x, reason, manual=false){
+    if(paperRunning&&(manual||x?.e?.signal==="BUY")){
+      const evalId=Number(x?.evaluationId)||0;
+      const key=evalId>0?String(x?.t?.mint||"")+":"+evalId+":"+reason:null;
+      if(!key||!tradeLogOutcomes.has(key)){
+        if(key){
+          tradeLogOutcomes.add(key);
+          if(tradeLogOutcomes.size>5000) tradeLogOutcomes.delete(tradeLogOutcomes.values().next().value);
+        }
+        tradeLog("REJECTED",x,{reason,manual});
+      }
+    }
+    return false;
+  }
 
   function showTradingInfrastructureAlert(source, titleText, bodyText, err){
     tradingCloudAlertVisible=true;
@@ -195,8 +259,20 @@
     return positionGrossPnl(p,exitPrice)-estimatedEntryCost(p)-estimatedExitCost(p,exitPrice);
   }
 
-  async function jupiterOrderQuote(inputMint, outputMint, amountRaw, inputDecimals, outputDecimals){
+  async function jupiterOrderQuote(inputMint, outputMint, amountRaw, inputDecimals, outputDecimals, cooldownMint=null){
     if(costModelVersion!=="V2" || !costModelEnabled) return null;
+    const mint=String(cooldownMint||"").trim();
+    if(mint){
+      const unavailableUntil=Number(quoteUnavailableUntil.get(mint)||0);
+      if(unavailableUntil>Date.now()){
+        console.debug(`mint=${mint} | V2 quote skipped | cooldown active`);
+        return {quoteUnavailableCooldownActive:true};
+      }
+      if(unavailableUntil) quoteUnavailableUntil.delete(mint);
+    }
+    const markQuoteUnavailable=()=>{
+      if(mint) quoteUnavailableUntil.set(mint,Date.now()+QUOTE_UNAVAILABLE_COOLDOWN_MS);
+    };
     if(Date.now()<jupiterQuoteRetryAfter) return null;
     if(!inputMint||!outputMint||!Number.isFinite(Number(amountRaw))||Number(amountRaw)<=0) return null;
     let timeoutId=null;
@@ -216,14 +292,16 @@
         try{ const body=await response.text(); if(body) detail+=" · "+body.slice(0,240); }catch(_err){}
         if(response.status===429) jupiterQuoteRetryAfter=Date.now()+15000;
         console.warn("Jupiter V2 quote failed:",detail);
+        markQuoteUnavailable();
         return null;
       }
       const data=await response.json();
       const q=data?.quote;
-      if(!q || q.executed===true || q.transaction_present===true) return null;
+      if(!q || q.executed===true || q.transaction_present===true){markQuoteUnavailable();return null;}
       return q;
     }catch(err){
       if(err?.name!=="AbortError") console.debug("Jupiter V2 quote:",err);
+      markQuoteUnavailable();
       return null;
     }finally{
       if(timeoutId!==null) clearTimeout(timeoutId);
@@ -241,13 +319,21 @@
     if(!Number.isFinite(solPrice)||solPrice<=0||!Number.isInteger(decimals)||decimals<0) return null;
     const solAmount=Number(capitalUsd)/solPrice;
     const solRaw=Math.floor(solAmount*10**SOL_DECIMALS);
-    const quote=await jupiterOrderQuote(SOL_MINT,token.mint,solRaw,SOL_DECIMALS,decimals);
-    if(!quote || !Number.isFinite(Number(quote.output_amount)) || Number(quote.output_amount)<=0) return null;
+    const quote=await jupiterOrderQuote(SOL_MINT,token.mint,solRaw,SOL_DECIMALS,decimals,token.mint);
+    if(quote?.quoteUnavailableCooldownActive) return quote;
+    if(!quote || !Number.isFinite(Number(quote.output_amount)) || Number(quote.output_amount)<=0){
+      quoteUnavailableUntil.set(String(token.mint),Date.now()+QUOTE_UNAVAILABLE_COOLDOWN_MS);
+      return null;
+    }
     quote.client_input_usd=Number(capitalUsd);
     quote.client_swap_usd_value=Number(capitalUsd);
     quote.client_entry_capital_usd=Number(capitalUsd);
     const qty=Number(quote.output_amount);
-    if(!Number.isFinite(qty)||qty<=0) return null;
+    if(!Number.isFinite(qty)||qty<=0){
+      quoteUnavailableUntil.set(String(token.mint),Date.now()+QUOTE_UNAVAILABLE_COOLDOWN_MS);
+      return null;
+    }
+    quoteUnavailableUntil.delete(String(token.mint));
     return {quote,qty,capitalUsd,effectiveEntry:capitalUsd/qty,solAmount,cost:jupiterQuoteCosts(quote)};
   }
 
@@ -393,12 +479,16 @@
   async function openPaperPosition(x, options={}){
     const manual=!!options.manual;
     const generation=paperResetGeneration;
-    if(!paperRunning && !manual) return false;
     const t=x.t, e=x.e||{};
     const signal=e.signal||null;
-    if(stopLossGuardBlocksEntry(t.mint, signal)) return false;
-    if((!manual && signal!=="BUY") || (!manual && Number(e.strength)<Number(threshold))) return false;
-    if(e.entry==null || e.stop==null || e.take==null || Number(e.entry)<=0 || Number(e.stop)>=Number(e.entry)) return false;
+    if(paperRunning&&(manual||signal==="BUY")) tradeLogSignal(x,manual);
+    if(!paperRunning && !manual) return false;
+    if(stopLossGuardBlocksEntry(t.mint, signal)) return tradeReject(x,"STOP_LOSS_REENTRY_GUARD",manual);
+    if(!manual && signal!=="BUY") return false;
+    if(!manual && Number(e.strength)<Number(threshold)) return tradeReject(x,"SIGNAL_BELOW_THRESHOLD",manual);
+    if(e.entry==null || e.stop==null || e.take==null) return tradeReject(x,"MISSING_ENTRY_STOP_OR_TAKE",manual);
+    if(Number(e.entry)<=0) return tradeReject(x,"INVALID_ENTRY_PRICE",manual);
+    if(Number(e.stop)>=Number(e.entry)) return tradeReject(x,"STOP_NOT_BELOW_ENTRY",manual);
 
     const equity=startingCapital+realizedPnl()+positions.reduce((s,p)=>s+(currentPrice(p)-p.entry)*p.qty,0);
     const activityRiskMultiplier=manual?1:Math.min(1,Math.max(0.5,Number(e.riskMultiplier)||1));
@@ -414,7 +504,8 @@
     const remainingTokenRisk=Math.max(0,maxTokenRisk-existingTokenRisk);
     const entryRisk=Math.min(riskAmount,remainingTokenRisk);
     const unitRisk=Number(e.entry)-Number(e.stop);
-    if(entryRisk<=0 || unitRisk<=0) return false;
+    if(entryRisk<=0) return tradeReject(x,remainingTokenRisk<=0?"MAX_TOKEN_RISK":"RISK_BUDGET_ZERO",manual);
+    if(unitRisk<=0) return tradeReject(x,"INVALID_UNIT_RISK",manual);
     let qty=entryRisk/unitRisk;
     const maxAffordable=availableCash()/Number(e.entry);
     const maxCapital=equity*(Number(capitalLimitPct)/100);
@@ -423,27 +514,35 @@
     const remainingPortfolioCapital=Math.max(0,portfolioCapitalLimit-investedCapital());
     const maxByPortfolio=remainingPortfolioCapital/Number(e.entry);
     qty=Math.min(qty,maxAffordable,maxByCapital,maxByPortfolio);
-    if(!Number.isFinite(qty)||qty<=0) return false;
+    if(!Number.isFinite(qty)||qty<=0){
+      const reason=!Number.isFinite(Number(e.entry))?"INVALID_ENTRY_PRICE":!Number.isFinite(unitRisk)?"INVALID_UNIT_RISK":!Number.isFinite(riskAmount)?"RISK_BUDGET_NOT_FINITE":maxAffordable<=0?"INSUFFICIENT_AVAILABLE_CASH":maxByCapital<=0?"POSITION_CAPITAL_LIMIT":maxByPortfolio<=0?"PORTFOLIO_CAPITAL_LIMIT":!Number.isFinite(qty)?"POSITION_SIZE_NOT_FINITE":"POSITION_SIZE_ZERO";
+      return tradeReject(x,reason,manual);
+    }
     const finalCapital=qty*Number(e.entry);
-    if(finalCapital < Number(minPositionCapital)) return false;
+    if(finalCapital < Number(minPositionCapital)) return tradeReject(x,"MINIMUM_POSITION_SIZE",manual);
 
     let entry=Number(e.entry), finalQty=qty, v2=null;
     if(costModelVersion==="V2" && costModelEnabled){
       v2=await quoteEntryV2(finalCapital,t);
-      if(!v2) return false;
-      if(generation!==paperResetGeneration || (!paperRunning && !manual)) return false;
+      if(v2?.quoteUnavailableCooldownActive) return tradeReject(x,"JUPITER_ENTRY_QUOTE_UNAVAILABLE",manual);
+      if(!v2){
+        const quoteReason=!Number.isFinite(solUsdPrice())||solUsdPrice()<=0?"SOL_PRICE_UNAVAILABLE":!Number.isInteger(Number(t?.decimals))||Number(t.decimals)<0?"INVALID_TOKEN_DECIMALS":"JUPITER_ENTRY_QUOTE_UNAVAILABLE";
+        tradeLog("QUOTE_FAILED",x,{reason:quoteReason,manual});
+        return tradeReject(x,quoteReason,manual);
+      }
+      if(generation!==paperResetGeneration || (!paperRunning && !manual)) return tradeReject(x,"GENERATION_OR_RUNNING_STATE_CHANGED",manual);
       finalQty=v2.qty;
       entry=v2.effectiveEntry;
     }
 
-    if(generation!==paperResetGeneration || (!paperRunning && !manual)) return false;
+    if(generation!==paperResetGeneration || (!paperRunning && !manual)) return tradeReject(x,"GENERATION_OR_RUNNING_STATE_CHANGED",manual);
 
     const stopRatio=Number(e.stop)/Number(e.entry);
     const takeRatio=Number(e.take)/Number(e.entry);
     const stop=entry*stopRatio;
     const take=entry*takeRatio;
     const actualRisk=finalQty*Math.max(0,entry-stop);
-    if(actualRisk>remainingTokenRisk+1e-9) return false;
+    if(actualRisk>remainingTokenRisk+1e-9) return tradeReject(x,"MAX_TOKEN_RISK",manual);
 
     const position={
       mint:t.mint,symbol:t.symbol||t.name||"—",name:t.name||"",
@@ -452,6 +551,7 @@
       entryCapital:finalCapital,openedAt:now(),
       positionId:"POS-"+t.mint+"-"+now(),t,
       costModel:v2?"V2":"V1",
+      evaluationId:Number(x.evaluationId)||null,
       v2EntryQuote:v2?.quote||null,
       v2EntryCost:v2?.cost||null
     };
@@ -491,12 +591,13 @@
         } : null
       }
     }]);
-    if(!persisted) return false;
-    if(generation!==paperResetGeneration || (!paperRunning && !manual)) return false;
+    if(!persisted) return tradeReject(x,"TRADING_EVENT_PERSISTENCE_FAILED",manual);
+    if(generation!==paperResetGeneration || (!paperRunning && !manual)) return tradeReject(x,"GENERATION_OR_RUNNING_STATE_CHANGED",manual);
     positions.push(position);
     if(!manual && Number(x.evaluationId)>0){
       paperConsumedEngineEvaluations.set(t.mint,Number(x.evaluationId));
     }
+    tradeLog("EXECUTED",x,{manual,position_id:position.positionId,capital:Number(finalCapital),quantity:Number(finalQty)});
     saveLocalPaperSnapshot();
     return true;
   }
@@ -559,6 +660,7 @@
     if(!persisted) return false;
     journal.push(journalEntry);
     positions=positions.filter(x=>x!==p);
+    tradeLog("CLOSED",{t:{mint:p.mint,symbol:p.symbol},e:{signal:"BUY"},evaluationId:p.evaluationId},{position_id:p.positionId||p.mint,close_reason:reason,exit:Number(exit),net_pnl:Number(netPnl),trade_id:journalEntry.id});
     if(reason==="STOP LOSS"){
       const stoppedAt=now();
       const cooldownMs=Math.max(5,Math.min(1440,Number(stopLossCooldownMinutes)||15))*60*1000;
