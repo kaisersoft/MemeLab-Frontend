@@ -4,14 +4,18 @@
   let threshold = 3;
   let riskPct = 2;
   let riskPerTokenPct = 4;
-  let capitalLimitPct = 20;
+  let capitalLimitPct = 2;
   let portfolioLimitPct = 50;
   let minPositionCapital = 250;
-  let profitTimeoutMinutes = 120;
+  let profitTimeoutMinutes = 1440;
   let portfolioTakeAllPct = 5;
   let portfolioCycleBaselineEquity = startingCapital;
-  let stopLossCooldownMinutes = 15;
+  let stopLossCooldownMinutes = 1440;
   const stopLossGuards = new Map();
+  const CAPITAL_LIMIT_OPTIONS = [1,2,2.5,5,10];
+  const STOP_LOSS_COOLDOWN_OPTIONS = [1440,2880,4320];
+  const normalizeCapitalLimitPct = value => CAPITAL_LIMIT_OPTIONS.includes(Number(value)) ? Number(value) : 2;
+  const normalizeStopLossCooldownMinutes = value => STOP_LOSS_COOLDOWN_OPTIONS.includes(Number(value)) ? Number(value) : 1440;
   const esc = v => String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 
   // Cost Model V2 — Jupiter quote-only execution simulation.
@@ -154,13 +158,11 @@
   }
 
   function showTradingCloudAlert(err){
-    showTradingInfrastructureAlert(
-      "cloud",
-      "CLOUD DATABASE OFFLINE",
-      "Supabase ist aktuell nicht erreichbar. Paper Trading bleibt aktiv; ausstehende Lifecycle-Events werden lokal gepuffert und beim nächsten erfolgreichen Cloud-Zugriff erneut gespeichert.",
+    console.warn(
+      "Cloud database unavailable; details are recorded in the error log:",
       err
-    );
-  }
+   );
+ }
 
   function showTradingPriceAlert(err){
     showTradingInfrastructureAlert(
@@ -481,6 +483,25 @@
     const generation=paperResetGeneration;
     const t=x.t, e=x.e||{};
     const signal=e.signal||null;
+    const parameterSnapshotId=crypto.randomUUID();
+    const parameterSnapshot={
+      schema_version:1,
+      captured_at_ms:now(),
+      configuration:{
+        startingCapital:Number(startingCapital),threshold:Number(threshold),riskPct:Number(riskPct),
+        riskPerTokenPct:Number(riskPerTokenPct),capitalLimitPct:Number(capitalLimitPct),
+        portfolioLimitPct:Number(portfolioLimitPct),minPositionCapital:Number(minPositionCapital),
+        profitTimeoutMinutes:Number(profitTimeoutMinutes),portfolioTakeAllPct:Number(portfolioTakeAllPct),
+        portfolioCycleBaselineEquity:Number(portfolioCycleBaselineEquity),
+        stopLossCooldownMinutes:Number(stopLossCooldownMinutes),stopLossR:Number(SL_R),takeProfitR:Number(TP_R),
+        costModelVersion,costModelEnabled
+      },
+      entry:{
+        manual,signal,strength:Number(e.strength),entry:Number(e.entry),stop:Number(e.stop),take:Number(e.take),
+        riskMultiplier:manual?1:Number(e.riskMultiplier)||1,
+        evaluationId:Number(x.evaluationId)||null,evaluatedAt:Number(x.evaluatedAt)||null
+      }
+    };
     if(paperRunning&&(manual||signal==="BUY")) tradeLogSignal(x,manual);
     if(!paperRunning && !manual) return false;
     if(stopLossGuardBlocksEntry(t.mint, signal)) return tradeReject(x,"STOP_LOSS_REENTRY_GUARD",manual);
@@ -493,6 +514,8 @@
     const equity=startingCapital+realizedPnl()+positions.reduce((s,p)=>s+(currentPrice(p)-p.entry)*p.qty,0);
     const activityRiskMultiplier=manual?1:Math.min(1,Math.max(0.5,Number(e.riskMultiplier)||1));
     const appliedRiskPct=Number(riskPct)*activityRiskMultiplier;
+    parameterSnapshot.entry.riskMultiplier=activityRiskMultiplier;
+    parameterSnapshot.entry.appliedRiskPct=appliedRiskPct;
     const riskAmount=Math.max(0,equity*(appliedRiskPct/100));
     const maxTokenRisk=Math.max(0,equity*(Number(riskPerTokenPct)/100));
     const existingTokenRisk=positions.filter(p=>p.mint===t.mint).reduce((sum,p)=>{
@@ -543,6 +566,12 @@
     const take=entry*takeRatio;
     const actualRisk=finalQty*Math.max(0,entry-stop);
     if(actualRisk>remainingTokenRisk+1e-9) return tradeReject(x,"MAX_TOKEN_RISK",manual);
+    parameterSnapshot.execution={
+      costModelUsed:v2?"V2":"V1",equity:Number(equity),riskAmount:Number(riskAmount),
+      existingTokenRisk:Number(existingTokenRisk),remainingTokenRisk:Number(remainingTokenRisk),
+      entry:Number(entry),stop:Number(stop),take:Number(take),quantity:Number(finalQty),
+      capital:Number(finalCapital),actualRisk:Number(actualRisk)
+    };
 
     const position={
       mint:t.mint,symbol:t.symbol||t.name||"—",name:t.name||"",
@@ -553,7 +582,8 @@
       costModel:v2?"V2":"V1",
       evaluationId:Number(x.evaluationId)||null,
       v2EntryQuote:v2?.quote||null,
-      v2EntryCost:v2?.cost||null
+      v2EntryCost:v2?.cost||null,
+      parameterSnapshotId,parameterSnapshot
     };
     const persisted=await postTradingEvents([{
       event_id:crypto.randomUUID(),
@@ -568,6 +598,8 @@
         risk_multiplier:Number(activityRiskMultiplier),applied_risk_pct:Number(appliedRiskPct),
         reason:manual?"MANUAL_BUY":"SIGNAL",
         token_decimals:Number(t.decimals),
+        parameter_snapshot_id:parameterSnapshotId,
+        parameter_snapshot:parameterSnapshot,
         cost_model:position.costModel,
         v2_execution:position.v2EntryQuote ? {
           provider:"jupiter",mode:"quote_only",executed:false,
@@ -655,7 +687,7 @@
       event_type:"POSITION_CLOSE",
       mint:p.mint,
       position_id:p.positionId||p.mint,
-      payload:{symbol:p.symbol,entry:Number(p.entry),exit:Number(exit),qty:Number(p.qty),capital:Number(size),opened_at_ms:Number(p.openedAt||0),pnl:Number(netPnl),cost_model:p.costModel||"V1",v2_execution:v2Exit ? {provider:"jupiter",mode:"quote_only",executed:false,request_id:v2Exit.quote.request_id,router:v2Exit.quote.router,input_mint:v2Exit.quote.input_mint,output_mint:v2Exit.quote.output_mint,input_amount:v2Exit.quote.input_amount,output_amount:v2Exit.quote.output_amount,quoted_fee_bps:v2Exit.quote.quoted_fee_bps,fee_mint:v2Exit.quote.fee_mint,platform_fee_amount:v2Exit.quote.platform_fee_amount,platform_fee_bps:v2Exit.quote.platform_fee_bps,network_fee_usd:null,priority_fee_usd:null} : null,pnl_pct:Number(size?((netPnl/size)*100):0),gross_pnl:Number(grossPnl),entry_cost:Number(entryCost),exit_cost:Number(exitCost),cost_total:Number(costTotal),net_pnl:Number(netPnl),net_pnl_pct:Number(size?((netPnl/size)*100):0),entry_price_text:price(p.entry),exit_price_text:price(exit),duration_ms:Math.max(0,now()-p.openedAt),reason}
+      payload:{symbol:p.symbol,entry:Number(p.entry),exit:Number(exit),qty:Number(p.qty),capital:Number(size),opened_at_ms:Number(p.openedAt||0),pnl:Number(netPnl),parameter_snapshot_id:p.parameterSnapshotId||null,parameter_snapshot:p.parameterSnapshot||null,cost_model:p.costModel||"V1",v2_execution:v2Exit ? {provider:"jupiter",mode:"quote_only",executed:false,request_id:v2Exit.quote.request_id,router:v2Exit.quote.router,input_mint:v2Exit.quote.input_mint,output_mint:v2Exit.quote.output_mint,input_amount:v2Exit.quote.input_amount,output_amount:v2Exit.quote.output_amount,quoted_fee_bps:v2Exit.quote.quoted_fee_bps,fee_mint:v2Exit.quote.fee_mint,platform_fee_amount:v2Exit.quote.platform_fee_amount,platform_fee_bps:v2Exit.quote.platform_fee_bps,network_fee_usd:null,priority_fee_usd:null} : null,pnl_pct:Number(size?((netPnl/size)*100):0),gross_pnl:Number(grossPnl),entry_cost:Number(entryCost),exit_cost:Number(exitCost),cost_total:Number(costTotal),net_pnl:Number(netPnl),net_pnl_pct:Number(size?((netPnl/size)*100):0),entry_price_text:price(p.entry),exit_price_text:price(exit),duration_ms:Math.max(0,now()-p.openedAt),reason}
     }]);
     if(!persisted) return false;
     journal.push(journalEntry);
@@ -663,7 +695,7 @@
     tradeLog("CLOSED",{t:{mint:p.mint,symbol:p.symbol},e:{signal:"BUY"},evaluationId:p.evaluationId},{position_id:p.positionId||p.mint,close_reason:reason,exit:Number(exit),net_pnl:Number(netPnl),trade_id:journalEntry.id});
     if(reason==="STOP LOSS"){
       const stoppedAt=now();
-      const cooldownMs=Math.max(5,Math.min(1440,Number(stopLossCooldownMinutes)||15))*60*1000;
+      const cooldownMs=Math.max(5,Number(stopLossCooldownMinutes)||15)*60*1000;
       stopLossGuards.set(p.mint,{
         stoppedAt,
         cooldownUntil:stoppedAt+cooldownMs,
@@ -828,13 +860,13 @@
       if(Number.isFinite(Number(state.threshold))) threshold=Number(state.threshold);
       if(Number.isFinite(Number(state.riskPct))) riskPct=Number(state.riskPct);
       if(Number.isFinite(Number(state.riskPerTokenPct))) riskPerTokenPct=Number(state.riskPerTokenPct);
-      if(Number.isFinite(Number(state.capitalLimitPct))) capitalLimitPct=Number(state.capitalLimitPct);
+      if(Number.isFinite(Number(state.capitalLimitPct))) capitalLimitPct=normalizeCapitalLimitPct(state.capitalLimitPct);
       if(Number.isFinite(Number(state.portfolioLimitPct))) portfolioLimitPct=Number(state.portfolioLimitPct);
       if(Number.isFinite(Number(state.minPositionCapital))) minPositionCapital=Number(state.minPositionCapital);
       if(Number.isFinite(Number(state.profitTimeoutMinutes))) profitTimeoutMinutes=Number(state.profitTimeoutMinutes);
       if(Number.isFinite(Number(state.portfolioTakeAllPct))) portfolioTakeAllPct=Number(state.portfolioTakeAllPct);
       if(Number.isFinite(Number(state.portfolioCycleBaselineEquity))) portfolioCycleBaselineEquity=Number(state.portfolioCycleBaselineEquity);
-      if(Number.isFinite(Number(state.stopLossCooldownMinutes))) stopLossCooldownMinutes=Math.max(5,Math.min(1440,Number(state.stopLossCooldownMinutes)));
+      if(Number.isFinite(Number(state.stopLossCooldownMinutes))) stopLossCooldownMinutes=normalizeStopLossCooldownMinutes(state.stopLossCooldownMinutes);
       stopLossGuards.clear();
       if(Array.isArray(state.stopLossGuards)){
         for(const item of state.stopLossGuards){
@@ -994,13 +1026,13 @@
         if(Number.isFinite(Number(state.threshold))) threshold=Number(state.threshold);
         if(Number.isFinite(Number(state.riskPct))) riskPct=Number(state.riskPct);
         if(Number.isFinite(Number(state.riskPerTokenPct))) riskPerTokenPct=Number(state.riskPerTokenPct);
-        if(Number.isFinite(Number(state.capitalLimitPct))) capitalLimitPct=Number(state.capitalLimitPct);
+      if(Number.isFinite(Number(state.capitalLimitPct))) capitalLimitPct=normalizeCapitalLimitPct(state.capitalLimitPct);
         if(Number.isFinite(Number(state.portfolioLimitPct))) portfolioLimitPct=Number(state.portfolioLimitPct);
         if(Number.isFinite(Number(state.minPositionCapital))) minPositionCapital=Number(state.minPositionCapital);
         if(Number.isFinite(Number(state.profitTimeoutMinutes))) profitTimeoutMinutes=Number(state.profitTimeoutMinutes);
         if(Number.isFinite(Number(state.portfolioTakeAllPct))) portfolioTakeAllPct=Number(state.portfolioTakeAllPct);
         if(Number.isFinite(Number(state.portfolioCycleBaselineEquity))) portfolioCycleBaselineEquity=Number(state.portfolioCycleBaselineEquity);
-        if(Number.isFinite(Number(state.stopLossCooldownMinutes))) stopLossCooldownMinutes=Math.max(5,Math.min(1440,Number(state.stopLossCooldownMinutes)));
+      if(Number.isFinite(Number(state.stopLossCooldownMinutes))) stopLossCooldownMinutes=normalizeStopLossCooldownMinutes(state.stopLossCooldownMinutes);
         stopLossGuards.clear();
         if(Array.isArray(state.stopLossGuards)){
           for(const item of state.stopLossGuards){
@@ -1201,7 +1233,7 @@
     const riskToken=$("#paper-risk-token");
     if(riskToken)riskToken.addEventListener("change",()=>{riskPerTokenPct=Number(riskToken.value)||4;renderAll();});
     const capitalLimit=$("#paper-capital-limit");
-    if(capitalLimit)capitalLimit.addEventListener("change",()=>{capitalLimitPct=Number(capitalLimit.value)||20;renderAll();});
+    if(capitalLimit)capitalLimit.addEventListener("change",()=>{capitalLimitPct=normalizeCapitalLimitPct(capitalLimit.value);capitalLimit.value=String(capitalLimitPct);renderAll();});
     const portfolioLimit=$("#paper-portfolio-limit");
     if(portfolioLimit)portfolioLimit.addEventListener("change",()=>{portfolioLimitPct=Number(portfolioLimit.value)||50;renderAll();});
     const minPosition=$("#paper-min-position");
@@ -1211,7 +1243,7 @@
     const takeAll=$("#paper-take-all");
     if(takeAll)takeAll.addEventListener("change",()=>{portfolioTakeAllPct=Number(takeAll.value)||0;renderAll();});
     const slCooldown=$("#paper-sl-cooldown");
-    if(slCooldown)slCooldown.addEventListener("change",()=>{stopLossCooldownMinutes=Math.max(5,Math.min(1440,Number(slCooldown.value)||15));saveLocalPaperSnapshot();});
+    if(slCooldown)slCooldown.addEventListener("change",()=>{stopLossCooldownMinutes=normalizeStopLossCooldownMinutes(slCooldown.value);slCooldown.value=String(stopLossCooldownMinutes);saveLocalPaperSnapshot();});
     const resetBtn=$("#paper-reset");
     if(resetBtn) resetBtn.addEventListener("click",resetPaperTrading);
     const startStop=$("#paper-start-stop");
@@ -1246,7 +1278,7 @@
       }
     }
     await refreshTradingPrices();
-    if(slCooldown)slCooldown.value=String(Math.max(5,Math.min(1440,Number(stopLossCooldownMinutes)||15)));
+    if(slCooldown)slCooldown.value=String(normalizeStopLossCooldownMinutes(stopLossCooldownMinutes));
     await renderAll();
     updatePaperControl();
     renderSession();
