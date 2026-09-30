@@ -11,11 +11,17 @@
   let portfolioTakeAllPct = 5;
   let portfolioCycleBaselineEquity = startingCapital;
   let stopLossCooldownMinutes = 1440;
+  let stopLossR = 1;
+  let takeProfitR = 2;
   const stopLossGuards = new Map();
   const CAPITAL_LIMIT_OPTIONS = [1,2,2.5,5,10];
   const STOP_LOSS_COOLDOWN_OPTIONS = [1440,2880,4320];
+  const STOP_LOSS_R_OPTIONS = [1,1.25,1.5,2];
+  const TAKE_PROFIT_R_OPTIONS = [0.75,1,1.25,1.5,2];
   const normalizeCapitalLimitPct = value => CAPITAL_LIMIT_OPTIONS.includes(Number(value)) ? Number(value) : 2;
   const normalizeStopLossCooldownMinutes = value => STOP_LOSS_COOLDOWN_OPTIONS.includes(Number(value)) ? Number(value) : 1440;
+  const normalizeStopLossR = value => STOP_LOSS_R_OPTIONS.includes(Number(value)) ? Number(value) : 1;
+  const normalizeTakeProfitR = value => TAKE_PROFIT_R_OPTIONS.includes(Number(value)) ? Number(value) : 2;
   const esc = v => String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 
   // Cost Model V2 — Jupiter quote-only execution simulation.
@@ -193,8 +199,15 @@
     }
     return true;
   }
-  const TP_R = 2;
-  const SL_R = 1;
+  const getRiskParameters = () => ({stopLossR:Number(stopLossR),takeProfitR:Number(takeProfitR)});
+  function renderRiskParameterLabels(){
+    const stopLabel=Number(stopLossR).toFixed(Number(stopLossR)%1?2:1)+"R";
+    const takeLabel=Number(takeProfitR).toFixed(Number(takeProfitR)%1?2:1)+"R";
+    const model=$("#paper-risk-model"), executionStop=$("#execution-stop-loss"), executionTake=$("#execution-take-profit");
+    if(model)model.textContent="TP "+takeLabel+" · SL "+stopLabel;
+    if(executionStop)executionStop.textContent=stopLabel;
+    if(executionTake)executionTake.textContent=takeLabel;
+  }
 
   function jupiterQuoteCosts(quote){
     const solPrice=solUsdPrice();
@@ -493,7 +506,7 @@
         portfolioLimitPct:Number(portfolioLimitPct),minPositionCapital:Number(minPositionCapital),
         profitTimeoutMinutes:Number(profitTimeoutMinutes),portfolioTakeAllPct:Number(portfolioTakeAllPct),
         portfolioCycleBaselineEquity:Number(portfolioCycleBaselineEquity),
-        stopLossCooldownMinutes:Number(stopLossCooldownMinutes),stopLossR:Number(SL_R),takeProfitR:Number(TP_R),
+        stopLossCooldownMinutes:Number(stopLossCooldownMinutes),stopLossR:Number(stopLossR),takeProfitR:Number(takeProfitR),
         costModelVersion,costModelEnabled
       },
       entry:{
@@ -775,7 +788,7 @@
     const engineSignal=engine?.signal?.(t)||{};
     const volatility=Number(engineSignal?.s?.volatility);
     const riskDistance=Math.max(0.015,Math.min(0.08,(Number.isFinite(volatility)&&volatility>0?volatility/1000:0.025)));
-    const e={signal:"BUY",strength:100,entry,stop:entry*(1-riskDistance),take:entry*(1+riskDistance*TP_R),rr:TP_R,reasons:["MANUAL BUY"]};
+    const e={signal:"BUY",strength:100,entry,stop:entry*(1-riskDistance*stopLossR),take:entry*(1+riskDistance*takeProfitR),rr:takeProfitR/stopLossR,reasons:["MANUAL BUY"]};
     return openPaperPosition({t,e},{manual:true});
   }
 
@@ -804,6 +817,7 @@
         startingCapital, threshold, riskPct, riskPerTokenPct, capitalLimitPct, portfolioLimitPct,
         minPositionCapital, profitTimeoutMinutes, portfolioTakeAllPct, portfolioCycleBaselineEquity,
         stopLossCooldownMinutes,
+        stopLossR,takeProfitR,
         stopLossGuards:[...stopLossGuards.entries()],
       }
     };
@@ -867,6 +881,8 @@
       if(Number.isFinite(Number(state.portfolioTakeAllPct))) portfolioTakeAllPct=Number(state.portfolioTakeAllPct);
       if(Number.isFinite(Number(state.portfolioCycleBaselineEquity))) portfolioCycleBaselineEquity=Number(state.portfolioCycleBaselineEquity);
       if(Number.isFinite(Number(state.stopLossCooldownMinutes))) stopLossCooldownMinutes=normalizeStopLossCooldownMinutes(state.stopLossCooldownMinutes);
+      if(Number.isFinite(Number(state.stopLossR))) stopLossR=normalizeStopLossR(state.stopLossR);
+      if(Number.isFinite(Number(state.takeProfitR))) takeProfitR=normalizeTakeProfitR(state.takeProfitR);
       stopLossGuards.clear();
       if(Array.isArray(state.stopLossGuards)){
         for(const item of state.stopLossGuards){
@@ -958,6 +974,7 @@
         portfolioCycleBaselineEquity:Number(portfolioCycleBaselineEquity),
         startingCapital:Number(startingCapital),
         stopLossCooldownMinutes:Number(stopLossCooldownMinutes),
+        stopLossR:Number(stopLossR),takeProfitR:Number(takeProfitR),
         stopLossGuards:[...stopLossGuards.entries()],
 
         sessionStartedAt:Number(sessionStartedAt)||null,
@@ -1033,6 +1050,8 @@
         if(Number.isFinite(Number(state.portfolioTakeAllPct))) portfolioTakeAllPct=Number(state.portfolioTakeAllPct);
         if(Number.isFinite(Number(state.portfolioCycleBaselineEquity))) portfolioCycleBaselineEquity=Number(state.portfolioCycleBaselineEquity);
       if(Number.isFinite(Number(state.stopLossCooldownMinutes))) stopLossCooldownMinutes=normalizeStopLossCooldownMinutes(state.stopLossCooldownMinutes);
+      if(Number.isFinite(Number(state.stopLossR))) stopLossR=normalizeStopLossR(state.stopLossR);
+      if(Number.isFinite(Number(state.takeProfitR))) takeProfitR=normalizeTakeProfitR(state.takeProfitR);
         stopLossGuards.clear();
         if(Array.isArray(state.stopLossGuards)){
           for(const item of state.stopLossGuards){
@@ -1054,7 +1073,7 @@
         if(paperRunning && !sessionStartedAt) sessionStartedAt=now();
       }
       positions=restoredPositions.map(p=>({...p,costModel:p.costModel==="V2"&&p.v2EntryQuote?"V2":"V1",t:{mint:p.mint,symbol:p.symbol,name:p.name,decimals:p.tokenDecimals,price_usd:Number(p.lastCurrent)||Number(p.entry)||null}}));
-      const thresholdEl=$("#paper-threshold"), riskEl=$("#paper-risk"), riskTokenEl=$("#paper-risk-token"), capitalEl=$("#paper-capital-limit"), portfolioEl=$("#paper-portfolio-limit"), minPositionEl=$("#paper-min-position"), timeoutEl=$("#paper-profit-timeout"), takeAllEl=$("#paper-take-all");
+      const thresholdEl=$("#paper-threshold"), riskEl=$("#paper-risk"), riskTokenEl=$("#paper-risk-token"), capitalEl=$("#paper-capital-limit"), portfolioEl=$("#paper-portfolio-limit"), minPositionEl=$("#paper-min-position"), timeoutEl=$("#paper-profit-timeout"), takeAllEl=$("#paper-take-all"), stopLossREl=$("#paper-stop-loss-r"), takeProfitREl=$("#paper-take-profit-r");
       if(thresholdEl) thresholdEl.value=String(threshold);
       if(riskEl) riskEl.value=String(riskPct);
       if(riskTokenEl) riskTokenEl.value=String(riskPerTokenPct);
@@ -1063,6 +1082,8 @@
       if(minPositionEl) minPositionEl.value=String(minPositionCapital);
       if(timeoutEl) timeoutEl.value=String(profitTimeoutMinutes);
       if(takeAllEl) takeAllEl.value=String(portfolioTakeAllPct);
+      if(stopLossREl) stopLossREl.value=String(stopLossR);
+      if(takeProfitREl) takeProfitREl.value=String(takeProfitR);
       journal=restoredJournal.map(p=>({
         ...p,
         netPnl:Number(p.netPnl??p.pnl??0),
@@ -1217,6 +1238,7 @@
 
   async function renderAll(){
     await executePaperCycle();
+    renderRiskParameterLabels();
     renderSignals();
     renderPositions();
     renderJournal();
@@ -1244,6 +1266,9 @@
     if(takeAll)takeAll.addEventListener("change",()=>{portfolioTakeAllPct=Number(takeAll.value)||0;renderAll();});
     const slCooldown=$("#paper-sl-cooldown");
     if(slCooldown)slCooldown.addEventListener("change",()=>{stopLossCooldownMinutes=normalizeStopLossCooldownMinutes(slCooldown.value);slCooldown.value=String(stopLossCooldownMinutes);saveLocalPaperSnapshot();});
+    const stopLossREl=$("#paper-stop-loss-r"), takeProfitREl=$("#paper-take-profit-r");
+    if(stopLossREl)stopLossREl.addEventListener("change",()=>{stopLossR=normalizeStopLossR(stopLossREl.value);stopLossREl.value=String(stopLossR);renderAll();});
+    if(takeProfitREl)takeProfitREl.addEventListener("change",()=>{takeProfitR=normalizeTakeProfitR(takeProfitREl.value);takeProfitREl.value=String(takeProfitR);renderAll();});
     const resetBtn=$("#paper-reset");
     if(resetBtn) resetBtn.addEventListener("click",resetPaperTrading);
     const startStop=$("#paper-start-stop");
@@ -1279,6 +1304,9 @@
     }
     await refreshTradingPrices();
     if(slCooldown)slCooldown.value=String(normalizeStopLossCooldownMinutes(stopLossCooldownMinutes));
+    if(stopLossREl)stopLossREl.value=String(normalizeStopLossR(stopLossR));
+    if(takeProfitREl)takeProfitREl.value=String(normalizeTakeProfitR(takeProfitR));
+    renderRiskParameterLabels();
     await renderAll();
     updatePaperControl();
     renderSession();
@@ -1297,6 +1325,6 @@
     },5000);
     window.addEventListener("pagehide",()=>saveLocalPaperSnapshot());
   }
-  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,costModelVersion,threshold,riskPct,riskPerTokenPct,capitalLimitPct,portfolioLimitPct,minPositionCapital,profitTimeoutMinutes,portfolioTakeAllPct,portfolioCycleBaselineEquity,paperRunning,sessionStartedAt,sessionElapsedMs}),isRunning:()=>paperRunning,manualBuy,manualSell};
+  window.MEMELAB_PAPER={render:renderAll,state:()=>({positions,journal,costModelVersion,threshold,riskPct,riskPerTokenPct,capitalLimitPct,portfolioLimitPct,minPositionCapital,profitTimeoutMinutes,portfolioTakeAllPct,portfolioCycleBaselineEquity,stopLossR,takeProfitR,paperRunning,sessionStartedAt,sessionElapsedMs}),riskParameters:getRiskParameters,isRunning:()=>paperRunning,manualBuy,manualSell};
   init();
 })();

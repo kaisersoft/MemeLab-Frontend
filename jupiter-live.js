@@ -133,8 +133,12 @@
     if((signal==="BUY"||signal==="SELL")&&s.price!=null){
       entry=s.price;
       const riskPct=Math.min(0.08,Math.max(0.015,(s.volatility!=null?s.volatility/1000:0.025)));
-      if(signal==="BUY"){stop=entry*(1-riskPct);take=entry*(1+riskPct*2);rr=2;}
-      else {stop=entry*(1+riskPct);take=entry*(1-riskPct*2);rr=2;}
+      const riskParameters=window.MEMELAB_PAPER?.riskParameters?.()||{stopLossR:1,takeProfitR:2};
+      const stopLossR=Number(riskParameters.stopLossR)||1;
+      const takeProfitR=Number(riskParameters.takeProfitR)||2;
+      if(signal==="BUY"){stop=entry*(1-riskPct*stopLossR);take=entry*(1+riskPct*takeProfitR);}
+      else {stop=entry*(1+riskPct*stopLossR);take=entry*(1-riskPct*takeProfitR);}
+      rr=takeProfitR/stopLossR;
     }
     if(!s.dataReady) reasons.unshift("Fresh short-term market state unavailable");
     return {signal,strength,entry,stop,take,rr,reasons,s,riskMultiplier};
