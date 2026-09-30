@@ -87,7 +87,7 @@
     };
     tradeLogQueue=tradeLogQueue.then(()=>{
       if(!paperRunning) return;
-      const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+      const apiBase=window.MEMELAB_API_BASE;
       const controller=new AbortController();
       const timeout=setTimeout(()=>controller.abort(),5000);
       return fetch(apiBase+"/trading/log",{
@@ -292,7 +292,7 @@
     if(!inputMint||!outputMint||!Number.isFinite(Number(amountRaw))||Number(amountRaw)<=0) return null;
     let timeoutId=null;
     try{
-      const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+      const apiBase=window.MEMELAB_API_BASE;
       const url=apiBase+"/jupiter/order?"+new URLSearchParams({
         inputMint,outputMint,
         amount:String(Math.floor(Number(amountRaw))),
@@ -438,7 +438,7 @@
     if(!unique.length) return false;
     tradingPriceRefreshInFlight=true;
     try{
-      const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+      const apiBase=window.MEMELAB_API_BASE;
       const response=await fetch(apiBase+"/trading/prices?mints="+encodeURIComponent(unique.join(",")),{cache:"no-store",headers:{Accept:"application/json"}});
       if(!response.ok){
         tradingPriceFeedStatus="ERROR";
@@ -834,7 +834,7 @@
     const capital=Number(raw);
     if(!Number.isFinite(capital)||capital<=0){ alert("Ungültiges Startkapital."); return; }
     if(!confirm("ACHTUNG: Journal, Positionen, Kapital und die Supabase-Testdaten werden vollständig gelöscht. Nur Token-/Markt-/Discovery-Daten bleiben erhalten. Fortfahren?")) return;
-    const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+    const apiBase=window.MEMELAB_API_BASE;
     try{
       tradingResetInFlight=true;
       paperRunning=false;
@@ -923,7 +923,7 @@
   async function postTradingEvents(events){
     if(!events.length || tradingResetInFlight) return false;
     saveLocalPaperSnapshot();
-    const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+    const apiBase=window.MEMELAB_API_BASE;
     const pending=loadPendingTradingEvents();
     const queueable=events.filter(event=>["POSITION_OPEN","POSITION_CLOSE","PORTFOLIO_TAKE_ALL"].includes(String(event?.event_type||"")));
     const batch=[...pending,...events];
@@ -1031,7 +1031,7 @@
 
   async function restoreTradingState(){
     try{
-      const apiBase=window.MEMELAB_API_URL||"http://127.0.0.1:8765/api";
+      const apiBase=window.MEMELAB_API_BASE;
       const response=await fetch(apiBase+"/trading/state",{headers:{"Accept":"application/json"},cache:"no-store"});
       if(!response.ok) return false;
       const data=await response.json();

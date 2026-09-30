@@ -1,5 +1,5 @@
 (() => {
-  const apiBase = window.MEMELAB_API_URL || "http://127.0.0.1:8765/api";
+  const apiBase = window.MEMELAB_API_BASE;
   const panel = document.querySelector("#debug-panel");
   const status = document.querySelector("#debug-api-status");
   const switches = [...document.querySelectorAll("[data-log-toggle]")];

@@ -1,7 +1,7 @@
 /* MemeLab Jupiter mainnet feed presentation.
    Jupiter API access stays server-side; the browser consumes MemeLab's proxy. */
 (() => {
-  const apiBase = window.MEMELAB_API_URL || "http://127.0.0.1:8765/api";
+  const apiBase = window.MEMELAB_API_BASE;
   let tokens = [];
   let ingestCount = 0;
   let discoveryRunning = false;

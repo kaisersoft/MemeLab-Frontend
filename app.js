@@ -1,7 +1,7 @@
 /* BUILD REMINDER: Every frontend change must produce a new build-info.js.
    Product version changes are intentional; build number and build timestamp are automatic.
    Do not ship UI changes without a fresh build marker. */
-const API_BASE = window.MEMELAB_API_URL || "http://127.0.0.1:8765/api";
+const API_BASE = window.MEMELAB_API_BASE;
 const $ = (s) => document.querySelector(s);
 let snapshot = null;
 let selectedMint = null;
