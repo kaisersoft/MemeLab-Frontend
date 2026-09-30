@@ -295,7 +295,10 @@ function renderMarketContext(market) {
   const updatedEl=$("#meme-universe-updated");
   if(countEl) countEl.textContent=formatCompactCount(effectiveCount);
   const monitoredEl=$("#meme-lab-monitored");
-  const monitored=Number(window.MEMELAB_JUPITER_DATA?.diagnostics?.watchlist_count);
+  const jupiterData=window.MEMELAB_JUPITER_DATA||{};
+  const monitored=Number(jupiterData.diagnostics?.meme_lab_universe
+    ?? jupiterData.diagnostics?.watchlist_count
+    ?? jupiterData.count);
   if(monitoredEl) monitoredEl.textContent=Number.isFinite(monitored)?monitored.toLocaleString("de-DE"):"—";
   const ratioFill=$("#market-ratio-fill");
   const ratioPercent=$("#market-ratio-percent");
@@ -318,6 +321,11 @@ function renderMarketContext(market) {
     updatedEl.title=universe.stale && universe.error ? universe.error : "Monthly Solscan market-size snapshot";
   }
 }
+
+// The SQLite universe loads independently from the main API snapshot. Render
+// its monitored count as soon as that response arrives in either runtime.
+window.addEventListener("memelab:jupiter-data",()=>renderMarketContext(snapshot?.market_size));
+
 function formatCompactCount(value){
   const n=Number(value);
   if(!Number.isFinite(n)) return "—";
