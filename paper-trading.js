@@ -5,14 +5,14 @@
   let riskPct = 2;
   let riskPerTokenPct = 4;
   let capitalLimitPct = 2;
-  let portfolioLimitPct = 50;
+  let portfolioLimitPct = 100;
   let minPositionCapital = 250;
   let profitTimeoutMinutes = 1440;
   let portfolioTakeAllPct = 5;
   let portfolioCycleBaselineEquity = startingCapital;
   let stopLossCooldownMinutes = 1440;
-  let stopLossR = 1;
-  let takeProfitR = 2;
+  let stopLossR = 2;
+  let takeProfitR = 1;
   const stopLossGuards = new Map();
   const CAPITAL_LIMIT_OPTIONS = [1,2,2.5,5,10];
   const STOP_LOSS_COOLDOWN_OPTIONS = [1440,2880,4320];
