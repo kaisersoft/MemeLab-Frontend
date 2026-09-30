@@ -66,6 +66,17 @@
     return "$"+n.toExponential(3);
   };
   const now=()=>Date.now();
+  function createUuid(){
+    const cryptoApi=window.crypto;
+    if(typeof cryptoApi?.randomUUID==="function") return cryptoApi.randomUUID();
+    const bytes=new Uint8Array(16);
+    if(typeof cryptoApi?.getRandomValues==="function") cryptoApi.getRandomValues(bytes);
+    else for(let i=0;i<bytes.length;i++) bytes[i]=Math.floor(Math.random()*256);
+    bytes[6]=(bytes[6]&0x0f)|0x40;
+    bytes[8]=(bytes[8]&0x3f)|0x80;
+    const hex=Array.from(bytes,value=>value.toString(16).padStart(2,"0")).join("");
+    return hex.slice(0,8)+"-"+hex.slice(8,12)+"-"+hex.slice(12,16)+"-"+hex.slice(16,20)+"-"+hex.slice(20);
+  }
 
   function tradeLog(event, x, details={}){
     if(!paperRunning) return;
@@ -159,7 +170,7 @@
     const detail=document.createElement("div");
     detail.textContent=String(err?.message||"Unbekannter Cloud-Persistenzfehler");
     detail.style.cssText="margin-top:9px;font-size:12px;line-height:1.35;color:#fca5a5;word-break:break-word;";
-    box.append(title,body,detail);
+    box.replaceChildren(title,body,detail);
     if(!box.parentElement) document.body.appendChild(box);
   }
 
@@ -483,7 +494,7 @@
       return count>0;
     }catch(err){
       tradingPriceFeedStatus=err?.name==="AbortError"?"TIMEOUT":"ERROR";
-      showTradingPriceAlert(err);
+      if(err?.name!=="AbortError") showTradingPriceAlert(err);
       if(err?.name!=="AbortError") console.debug("Trading price refresh:",err);
       return false;
     }finally{
@@ -496,7 +507,7 @@
     const generation=paperResetGeneration;
     const t=x.t, e=x.e||{};
     const signal=e.signal||null;
-    const parameterSnapshotId=crypto.randomUUID();
+    const parameterSnapshotId=createUuid();
     const parameterSnapshot={
       schema_version:1,
       captured_at_ms:now(),
@@ -599,7 +610,7 @@
       parameterSnapshotId,parameterSnapshot
     };
     const persisted=await postTradingEvents([{
-      event_id:crypto.randomUUID(),
+      event_id:createUuid(),
       observed_at:Date.now()/1000,
       event_type:"POSITION_OPEN",
       mint:t.mint,
@@ -695,7 +706,7 @@
       v2PriorityFeeKnown:Boolean(p.v2EntryCost?.priorityUsd!=null || v2Exit?.cost?.priorityUsd!=null)
     };
     const persisted=await postTradingEvents([{
-      event_id:crypto.randomUUID(),
+      event_id:createUuid(),
       observed_at:Date.now()/1000,
       event_type:"POSITION_CLOSE",
       mint:p.mint,
@@ -749,7 +760,7 @@
     const cyclePnl=portfolioCyclePnl();
     const cyclePnlPct=portfolioCyclePnlPct();
     postTradingEvents([{
-      event_id:crypto.randomUUID(),
+      event_id:createUuid(),
       observed_at:Date.now()/1000,
       event_type:"PORTFOLIO_TAKE_ALL",
       position_id:null,
@@ -959,7 +970,7 @@
   function captureTradingState(){
     const ts=Date.now()/1000;
     const events=[{
-      event_id:crypto.randomUUID(),
+      event_id:createUuid(),
       observed_at:ts,
       event_type:"TRADING_STATE",
       position_id:null,
@@ -988,7 +999,7 @@
     for(const x of lastSignals){
       const t=x.t||{}, e=x.e||{}, s=e.s||{};
       events.push({
-        event_id:crypto.randomUUID(),
+        event_id:createUuid(),
         observed_at:ts,
         event_type:"MARKET_STATE",
         mint:t.mint,
@@ -1005,7 +1016,7 @@
     for(const p of positions){
       const current=currentPrice(p);
       events.push({
-        event_id:crypto.randomUUID(),
+        event_id:createUuid(),
         observed_at:ts,
         event_type:"POSITION_STATE",
         mint:p.mint,
@@ -1030,9 +1041,12 @@
 
 
   async function restoreTradingState(){
+    let timeoutId=null;
     try{
       const apiBase=window.MEMELAB_API_BASE;
-      const response=await fetch(apiBase+"/trading/state",{headers:{"Accept":"application/json"},cache:"no-store"});
+      const controller=new AbortController();
+      timeoutId=setTimeout(()=>controller.abort(),10000);
+      const response=await fetch(apiBase+"/trading/state",{headers:{"Accept":"application/json"},cache:"no-store",signal:controller.signal});
       if(!response.ok) return false;
       const data=await response.json();
       const state=data?.state||{};
@@ -1096,6 +1110,8 @@
       return true;
     }catch(_err){
       return false;
+    }finally{
+      if(timeoutId!==null) clearTimeout(timeoutId);
     }
   }
 
