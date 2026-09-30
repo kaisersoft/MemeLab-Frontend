@@ -62,9 +62,8 @@ The API endpoint can be overridden before loading the page:
 
 The frontend loads `runtime-config.js` before the application scripts. Its
 `CONFIGURED_MODE` defaults to `local`; keep that value for local development.
-For the VPS frontend deployment, set it to `cloud`. The cloud API base is the
-same-origin path `/api`; the VPS web server must separately forward that path
-to the backend at `127.0.0.1:8765`.
+When the backend runs in Cloud mode, it serves this frontend and supplies the
+`cloud` mode at runtime. The cloud API base is the same-origin path `/api`.
 
 Local:
 
@@ -74,15 +73,14 @@ Local:
 
 Cloud:
 
-- Frontend: VPS port 80
-- Backend: `127.0.0.1:8765` (not publicly exposed)
+- Frontend and backend: same MemeLab API process on `0.0.0.0:80`
 - Frontend API base: `/api`
 
-Set `MEMELAB_RUNTIME_MODE=cloud` in the backend environment as well. The
-backend intentionally remains bound to `127.0.0.1:8765` in both modes. Add the
-frontend origin (for example, `http://138.3.254.224`) to the existing
-`MEMELAB_ALLOWED_ORIGINS` environment value on the VPS. This keeps the current
-Origin check intact; it is not API authentication.
+Set `MEMELAB_RUNTIME_MODE=cloud` in the backend environment. The backend
+expects the frontend checkout in a sibling `MemeLab-Frontend` directory by
+default; set `MEMELAB_FRONTEND_DIR` to another path if needed. Set the site
+origin (for example, `http://138.3.254.224`) in the existing
+`MEMELAB_ALLOWED_ORIGINS` environment value to satisfy the current Origin check.
 
 An explicit `window.MEMELAB_API_URL` set before `runtime-config.js` loads
 overrides the selected runtime profile.
