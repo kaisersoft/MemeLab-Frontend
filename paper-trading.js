@@ -225,15 +225,15 @@
     const takeLabel=Number(takeProfitR).toFixed(Number(takeProfitR)%1?2:1)+"R";
     const set=(id,value)=>{const el=$("#"+id);if(el)el.textContent=value;};
     set("execution-capital",usd(startingCapital));
-    set("execution-risk-position",Number(riskPct).toFixed(1).replace(/\\.0$/,"")+"% of equity");
-    set("execution-risk-token",Number(riskPerTokenPct).toFixed(1).replace(/\\.0$/,"")+"% of equity");
+    set("execution-risk-position",Number(riskPct).toFixed(1).replace(/\.0$/,"")+"% of equity");
+    set("execution-risk-token",Number(riskPerTokenPct).toFixed(1).replace(/\.0$/,"")+"% of equity");
     set("execution-positions-token","Multiple allowed");
-    set("execution-position-size","Risk-based · max "+Number(capitalLimitPct).toFixed(1).replace(/\\.0$/,"")+"% capital · min "+usd(minPositionCapital));
+    set("execution-position-size","Risk-based · max "+Number(capitalLimitPct).toFixed(1).replace(/\.0$/,"")+"% capital · min "+usd(minPositionCapital));
     set("execution-stop-loss",stopLabel);
     set("execution-take-profit",takeLabel);
     const timeout=formatRuntimeMinutes(profitTimeoutMinutes);
     set("execution-profit-timeout",timeout==="OFF"?"OFF":timeout+" · profitable only");
-    set("execution-portfolio-take-all","+"+Number(portfolioTakeAllPct).toFixed(2).replace(/\\.00$/,"")+"% NET cycle P&L");
+    set("execution-portfolio-take-all","+"+Number(portfolioTakeAllPct).toFixed(2).replace(/\.00$/,"")+"% NET cycle P&L");
     set("execution-cost-model",String(costModelVersion).toUpperCase()+" · QUOTE-BASED · FEES FROM JUPITER");
   }
 
