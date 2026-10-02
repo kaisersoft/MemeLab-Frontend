@@ -424,7 +424,7 @@ function renderSnapshot(data) {
   }
   const social=document.querySelector(".social");
   if(social){
-    const sub=social.querySelector(".panel-head .muted");if(sub)sub.textContent="Not connected · separate development block";
+    
     const table=social.querySelector(".signal-table");
     if(table)table.innerHTML=[["Status","NOT CONNECTED"],["Data source","Separate API"],["Integration","Later phase"],["On-chain data","Available"],["Social intelligence","Not evaluated"]].map(x=>"<div><span>"+x[0]+"</span><b>"+x[1]+"</b></div>").join("");
   }
