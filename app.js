@@ -30,6 +30,13 @@ function renderAppReadiness(){
   if(label)label.textContent=readyNow?"READY":"LOADING...";
   const pending=appReadinessRequired.filter(name=>!appReadiness[name]);
   indicator.setAttribute("aria-label",readyNow?"Initial market data loaded":"Waiting for: "+pending.join(", "));
+  const blockedViews=new Set(["watchlist","position","engine","paper"]);
+  document.querySelectorAll(".nav-btn[data-view]").forEach(button=>{
+    const blocked=blockedViews.has(button.dataset.view)&&!readyNow;
+    button.disabled=blocked;
+    button.setAttribute("aria-disabled",blocked?"true":"false");
+    button.title=blocked?"Warten auf READY":"";
+  });
 }
 window.MEMELAB_APP_READINESS={mark(name){if(Object.prototype.hasOwnProperty.call(appReadiness,name)){appReadiness[name]=true;renderAppReadiness();}}};
 
