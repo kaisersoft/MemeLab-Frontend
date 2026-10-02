@@ -19,16 +19,17 @@ const appReadiness=Object.fromEntries([
   "discoveryStatus","discoveryData","discoveryWatchlist",
   "paperTradingState","paperTradingPrices","paperTradingRender"
 ].map(name=>[name,false]));
+const appReadinessRequired=["frontendSnapshot","discoveryData","discoveryWatchlist"];
 
 function renderAppReadiness(){
   const indicator=$("#app-readiness");
   if(!indicator)return;
-  const readyNow=Object.values(appReadiness).every(Boolean);
+  const readyNow=appReadinessRequired.every(name=>appReadiness[name]===true);
   indicator.className="live-pill app-readiness "+(readyNow?"status-green":"status-orange");
   const label=indicator.querySelector("span");
   if(label)label.textContent=readyNow?"READY":"LOADING...";
-  const pending=Object.entries(appReadiness).filter(([,ready])=>!ready).map(([name])=>name);
-  indicator.setAttribute("aria-label",readyNow?"All initial application data loaded":"Waiting for: "+pending.join(", "));
+  const pending=appReadinessRequired.filter(name=>!appReadiness[name]);
+  indicator.setAttribute("aria-label",readyNow?"Initial market data loaded":"Waiting for: "+pending.join(", "));
 }
 window.MEMELAB_APP_READINESS={mark(name){if(Object.prototype.hasOwnProperty.call(appReadiness,name)){appReadiness[name]=true;renderAppReadiness();}}};
 
