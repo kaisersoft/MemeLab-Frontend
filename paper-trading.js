@@ -211,6 +211,32 @@
     return true;
   }
   const getRiskParameters = () => ({stopLossR:Number(stopLossR),takeProfitR:Number(takeProfitR)});
+  function formatRuntimeMinutes(minutes){
+    const n=Number(minutes);
+    if(!Number.isFinite(n)||n<0)return "—";
+    if(n===0)return "OFF";
+    if(n%1440===0)return (n/1440)+" d";
+    if(n%60===0)return (n/60)+" h";
+    return n+" min";
+  }
+
+  function renderExecutionRules(){
+    const stopLabel=Number(stopLossR).toFixed(Number(stopLossR)%1?2:1)+"R";
+    const takeLabel=Number(takeProfitR).toFixed(Number(takeProfitR)%1?2:1)+"R";
+    const set=(id,value)=>{const el=$("#"+id);if(el)el.textContent=value;};
+    set("execution-capital",usd(startingCapital));
+    set("execution-risk-position",Number(riskPct).toFixed(1).replace(/\\.0$/,"")+"% of equity");
+    set("execution-risk-token",Number(riskPerTokenPct).toFixed(1).replace(/\\.0$/,"")+"% of equity");
+    set("execution-positions-token","Multiple allowed");
+    set("execution-position-size","Risk-based · max "+Number(capitalLimitPct).toFixed(1).replace(/\\.0$/,"")+"% capital · min "+usd(minPositionCapital));
+    set("execution-stop-loss",stopLabel);
+    set("execution-take-profit",takeLabel);
+    const timeout=formatRuntimeMinutes(profitTimeoutMinutes);
+    set("execution-profit-timeout",timeout==="OFF"?"OFF":timeout+" · profitable only");
+    set("execution-portfolio-take-all","+"+Number(portfolioTakeAllPct).toFixed(2).replace(/\\.00$/,"")+"% NET cycle P&L");
+    set("execution-cost-model",String(costModelVersion).toUpperCase()+" · QUOTE-BASED · FEES FROM JUPITER");
+  }
+
   function renderRiskParameterLabels(){
     const stopLabel=Number(stopLossR).toFixed(Number(stopLossR)%1?2:1)+"R";
     const takeLabel=Number(takeProfitR).toFixed(Number(takeProfitR)%1?2:1)+"R";
@@ -1262,6 +1288,7 @@
   async function renderAll(){
     await executePaperCycle();
     renderRiskParameterLabels();
+    renderExecutionRules();
     renderSignals();
     renderPositions();
     renderJournal();
