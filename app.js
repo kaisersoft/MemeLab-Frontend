@@ -28,7 +28,7 @@ function renderAppReadiness(){
   const label=indicator.querySelector("span");
   if(label)label.textContent=readyNow?"READY":"LOADING...";
   const pending=Object.entries(appReadiness).filter(([,ready])=>!ready).map(([name])=>name);
-  indicator.title=readyNow?"All initial application data loaded":"Waiting for: "+pending.join(", ");
+  indicator.setAttribute("aria-label",readyNow?"All initial application data loaded":"Waiting for: "+pending.join(", "));
 }
 window.MEMELAB_APP_READINESS={mark(name){if(Object.prototype.hasOwnProperty.call(appReadiness,name)){appReadiness[name]=true;renderAppReadiness();}}};
 
@@ -296,14 +296,14 @@ function setMarketWindow(nextWindow){
 
 function updateConnectionStatus(runtime) {
   const live=document.querySelector(".topbar-status .live-pill:not(#app-readiness)"); if(!live)return;
-  const health=runtime?.health||{}, apiOk=apiReachable, engineOk=health.engine===true, websocketOk=health.websocket===true, eventsReceived=Number(health.events_received??runtime?.events_received??0);
-  let state="red", label="API OFFLINE", title="MemeLab API is not reachable.";
-  if(apiOk&&engineOk&&websocketOk&&eventsReceived>0&&!runtime?.last_error){state="green";label="LIVE";title="API connected · engine running · Solana websocket connected · chain events received";}
-  else if(apiOk&&engineOk&&runtime?.census_running&&!runtime?.last_error){state="orange";label="ON-CHAIN SCANNING";title="API connected · engine running · token universe census in progress";}
-  else if(apiOk&&engineOk&&websocketOk&&!runtime?.last_error){state="orange";label="ON-CHAIN WAITING";title="API connected · engine running · Solana websocket connected · waiting for first chain event";}
-  else if(apiOk&&engineOk){state="orange";label="ENGINE CONNECTED";title=runtime?.last_error?"API connected · MemeLab engine is not currently healthy: "+runtime.last_error:"API connected · MemeLab engine running · live Solana event stream is not currently active";}
-  else if(apiOk){state="orange";label="API CONNECTED";title=runtime?.last_error?"MemeLab API connected · live engine reports: "+runtime.last_error:"MemeLab API connected · Jupiter discovery can continue independently of the live Solana engine";}
-  live.classList.remove("status-green","status-orange","status-red"); live.classList.add("status-"+state); live.innerHTML="<i></i> "+label; live.setAttribute("aria-label",title);
+  const health=runtime?.health||{}, apiOk=apiReachable, engineOk=health.engine===true;
+  let state="red", label="API OFFLINE";
+  if(apiOk&&engineOk&&!runtime?.last_error){state="green";label="LIVE";}
+  else if(apiOk){state="orange";label="API CONNECTED";}
+  live.classList.remove("status-green","status-orange","status-red");
+  live.classList.add("status-"+state);
+  live.innerHTML="<i></i> "+label;
+  live.setAttribute("aria-label",label);
 }
 
 function renderMarketContext(market) {
@@ -588,12 +588,12 @@ async function refresh(){
     apiReachable=false;
     console.error("MemeLab snapshot failed:",error);
     const live=$(".live-pill");
-    if(live){live.classList.remove("status-green","status-orange");live.classList.add("status-red");live.innerHTML="<i></i> API OFFLINE";live.title=error.message||"MemeLab API is not reachable.";}
+    if(live){live.classList.remove("status-green","status-orange");live.classList.add("status-red");live.innerHTML="<i></i> API OFFLINE";live.setAttribute("aria-label","API OFFLINE");}
     const db=$("#db-status"), dbText=$("#db-status-text");
     if(db&&dbText){db.className="db-status db-fallback";dbText.textContent="TRADING DB · STATUS UNKNOWN";db.title="API offline. No automatic trading database failover occurs.";}
   }
 }
-async function startEngine(){try{apiReachable=true;await api("/start",{method:"POST"});await refresh();}catch(error){apiReachable=false;console.error("MemeLab API start failed:",error);const live=$(".live-pill");if(live)live.innerHTML="<i></i> API OFFLINE";}}
+async function startEngine(){try{apiReachable=true;await api("/start",{method:"POST"});await refresh();}catch(error){apiReachable=false;console.error("MemeLab API start failed:",error);const live=$(".live-pill");if(live){live.innerHTML="<i></i> API OFFLINE";live.setAttribute("aria-label","API OFFLINE");}}}
 document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",()=>{document.querySelectorAll(".nav-btn").forEach(x=>x.classList.remove("active"));btn.classList.add("active");}));
 document.querySelectorAll(".chart-window-btn").forEach(btn=>btn.addEventListener("click",()=>setMarketWindow(btn.dataset.window)));
 const chartMetricSelect=$("#chart-metric");
