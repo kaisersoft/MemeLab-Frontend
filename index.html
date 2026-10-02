@@ -147,7 +147,15 @@
             <div><span>Last HK raw deleted</span><b id="dbg-db-hk-deleted">—</b></div>
             <div><span>HK backlog before</span><b id="dbg-db-hk-backlog">—</b></div>
           </div>
-          <div class="diagnostics-head cloud-db-head"><strong>Cloud DB · Supabase</strong><span>secondary store · 500 MB safety limit</span></div>
+          <div class="diagnostics-head database-backend-head"><strong>Paper Trading · Database Backend</strong><span>runtime selection · never writes .env</span></div>
+          <div class="database-backend-control" id="database-backend-control">
+            <div><span id="database-runtime-mode">Runtime · checking…</span><b id="database-active-store">ACTIVE DATABASE · checking…</b><small id="database-switch-status">Checking selected store and Paper Trading state…</small></div>
+            <div class="database-backend-options" role="group" aria-label="Paper Trading database backend">
+              <button type="button" data-database-store="supabase" aria-pressed="false" disabled>Supabase</button>
+              <button type="button" data-database-store="postgres" aria-pressed="false" disabled>PostgreSQL</button>
+            </div>
+          </div>
+          <div class="diagnostics-head cloud-db-head"><strong>Cloud DB · Supabase</strong><span>market-data sync and storage telemetry · 500 MB limit</span></div>
           <div class="cloud-db-status" id="cloud-db-status"><i></i><b id="cloud-db-health">checking…</b><span id="cloud-db-detail">Cloud database health loading…</span></div>
           <div class="diagnostics-grid cloud-db-grid">
             <div><span>Cloud DB size</span><b id="dbg-cloud-size">—</b></div>
@@ -409,12 +417,12 @@
       </section>
     </section>
   </main>
-  <script src="./build-info.js?v=20260930-runtime-293"></script>
-  <script src="./runtime-config.js?v=20260930-runtime-293"></script>
-  <script src="./app.js?v=20260930-runtime-293"></script>
-  <script src="./jupiter-live.js?v=20260930-runtime-293"></script>
+  <script src="./build-info.js?v=20261002-database-backend-296"></script>
+  <script src="./runtime-config.js?v=20261002-database-backend-296"></script>
+  <script src="./app.js?v=20261002-database-backend-296"></script>
+  <script src="./jupiter-live.js?v=20261002-database-backend-296"></script>
   <script src="./watchlist.js?v=20260926-0505"></script>
-    <script src="./paper-trading.js?v=20260930-runtime-293"></script>
-  <script src="./debug-logging.js?v=20260930-runtime-293"></script>
+    <script src="./paper-trading.js?v=20261002-database-backend-296"></script>
+  <script src="./debug-logging.js?v=20261002-database-backend-296"></script>
 </body>
 </html>

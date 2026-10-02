@@ -12,6 +12,8 @@ let marketWindow = "24h";
 let chartMetric = "price";
 let apiReachable = false;
 let databaseStatusInFlight = false;
+let databaseSwitchInFlight = false;
+let databaseSwitchMessage = "";
 
 function shortMint(m) { if (!m) return "—"; return m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5); }
 function pct(v) { return Math.round(Math.max(0,Math.min(1,Number(v)||0))*100); }
@@ -394,6 +396,57 @@ function renderSnapshot(data) {
 }
 
 async function api(path,options={}){const response=await fetch(API_BASE+path,{cache:"no-store",...options,headers:{"Accept":"application/json",...(options.headers||{})}});if(!response.ok)throw new Error(response.status+" "+response.statusText);return response.json();}
+function renderDatabaseBackend(data){
+  const mode=data.runtime_mode||window.MEMELAB_RUNTIME_MODE||"local";
+  const active=data.active_store||"supabase";
+  const statusUnknown=data.status_unavailable===true;
+  const running=window.MEMELAB_PAPER?.isRunning?.()===true || data.engine_running===true;
+  const locked=statusUnknown||mode!=="cloud"||running||data.switch_locked===true||databaseSwitchInFlight;
+  const stores=data.stores||{};
+  const available=data.available_stores||{};
+  const runtimeEl=$("#database-runtime-mode"), activeEl=$("#database-active-store"), statusEl=$("#database-switch-status");
+  if(runtimeEl)runtimeEl.textContent="Runtime · "+(mode==="cloud"?"CLOUD / VPS":"LOCAL");
+  if(activeEl){
+    const connected=data.active_store_connected===true;
+    activeEl.textContent=statusUnknown?"ACTIVE DATABASE · STATUS UNKNOWN":"ACTIVE DATABASE · "+active.toUpperCase()+(connected?" · CONNECTED":" · UNAVAILABLE");
+    activeEl.dataset.connected=connected?"true":"false";
+  }
+  const switchStatus=statusUnknown?"Backend-Datenbankstatus nicht erreichbar · kein automatisches Failover"
+    :mode!=="cloud"
+    ? "Local runtime: Supabase only · PostgreSQL disabled"
+    : running?"Paper Trading läuft · Datenbankwechsel gesperrt"
+    : data.engine_running===null?"Engine-Status unbekannt · Wechsel bleibt gesperrt"
+    : "Paper Trading gestoppt · Wechsel möglich";
+  if(statusEl)statusEl.textContent=databaseSwitchMessage?switchStatus+" · "+databaseSwitchMessage:switchStatus;
+  document.querySelectorAll("[data-database-store]").forEach(button=>{
+    const store=button.dataset.databaseStore;
+    const selected=store===active;
+    const configured=available[store]===true;
+    const healthy=stores[store]?.connected===true;
+    button.setAttribute("aria-pressed",String(selected));
+    button.disabled=locked||selected||!configured||(!healthy&&store!==active);
+    button.title=!configured?"Store nicht konfiguriert":!healthy?"Store-Verbindung oder Schema nicht verfügbar":running?"Nur bei gestopptem Paper Trading wechselbar":"Aktiven Paper-Trading-Store auswählen";
+  });
+}
+async function selectDatabaseStore(store){
+  if(databaseSwitchInFlight)return;
+  databaseSwitchInFlight=true;
+  databaseSwitchMessage="";
+  try{
+    const response=await fetch(API_BASE+"/database/select",{
+      method:"POST",cache:"no-store",headers:{"Content-Type":"application/json","Accept":"application/json"},
+      body:JSON.stringify({store})
+    });
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok||result.status!=="ok")throw new Error(result.error||("HTTP "+response.status));
+  }catch(error){
+    databaseSwitchMessage="Wechsel fehlgeschlagen · "+(error.message||"API-Fehler");
+  }finally{
+    databaseSwitchInFlight=false;
+    await refreshDatabaseStatus();
+  }
+}
+document.querySelectorAll("[data-database-store]").forEach(button=>button.addEventListener("click",()=>selectDatabaseStore(button.dataset.databaseStore)));
 async function refreshDatabaseStatus(){
   if(databaseStatusInFlight)return;
   databaseStatusInFlight=true;
@@ -409,6 +462,7 @@ async function refreshDatabaseStatus(){
     });
     if(!response.ok)throw new Error(response.status+" "+response.statusText);
     const data=await response.json();
+    renderDatabaseBackend(data);
     const sqlite=data.sqlite||{};
     const cloudData=data.cloud||{};
     const size=Number(sqlite.db_size_mb);
@@ -420,9 +474,9 @@ async function refreshDatabaseStatus(){
         textEl.textContent="DB · SQLite ACTIVE · "+sizeLabel;
         el.title="Local SQLite is authoritative. Supabase is the cloud secondary store.";
       }else{
-        el.className="db-status db-supabase";
-        textEl.textContent="DB · SUPABASE ACTIVE · "+sizeLabel;
-        el.title="Supabase is the active database.";
+        el.className="db-status "+(data.active_store==="postgres"?"db-postgres":"db-supabase");
+        textEl.textContent="TRADING DB · "+String(data.active_store||"supabase").toUpperCase()+(data.active_store_connected?" ACTIVE":" ACTIVE · OFFLINE");
+        el.title="Selected paper-trading persistence store: "+String(data.active_store||"supabase");
       }
     }
 
@@ -442,9 +496,10 @@ async function refreshDatabaseStatus(){
       cloud.className="cloud-db-status "+(connected?"healthy":"offline");
       if(cloudHealth)cloudHealth.textContent=connected?"HEALTHY":"OFFLINE";
       if(cloudDetail)cloudDetail.textContent=connected
-        ?"Supabase connected · secondary store · SQLite remains authoritative"
+        ?"Supabase connected · market-data sync · Paper Trading store selected separately"
         :(cloudData.error||cloudData.reason||"Supabase cloud database unavailable");
     }
+    renderDatabaseBackend(data);
     const set=(id,v)=>{const x=$(id);if(x)x.textContent=v;};
     set("#dbg-cloud-size",Number.isFinite(effectiveCloudMb)?effectiveCloudMb.toFixed(1)+" MB":"—");
     set("#dbg-cloud-share",Number.isFinite(cloudShare)?cloudShare.toFixed(1)+"%":(Number.isFinite(effectiveCloudMb)?((effectiveCloudMb/500)*100).toFixed(1)+"%":"—"));
@@ -453,10 +508,11 @@ async function refreshDatabaseStatus(){
     set("#dbg-cloud-aggregates",connected?((Number(cloudData.market_aggregates_bytes)||0)/1048576).toFixed(2)+" MB":"—");
     set("#dbg-cloud-guard",cloudData.storage_guard||derivedGuard);
   }catch(error){
+    renderDatabaseBackend({runtime_mode:window.MEMELAB_RUNTIME_MODE||"local",status_unavailable:true,active_store:"supabase",engine_running:null,switch_locked:true,available_stores:{},stores:{}});
     if(el && textEl){
       el.className="db-status db-fallback";
-      textEl.textContent="DB · SQLite FALLBACK";
-      el.title="Database status unavailable. SQLite remains the authoritative store.";
+      textEl.textContent="TRADING DB · STATUS UNKNOWN";
+      el.title="Database status unavailable; the backend does not fail over automatically.";
     }
     if(cloud){
       cloud.className="cloud-db-status offline";
@@ -481,7 +537,7 @@ async function refresh(){
     const live=$(".live-pill");
     if(live){live.classList.remove("status-green","status-orange");live.classList.add("status-red");live.innerHTML="<i></i> API OFFLINE";live.title=error.message||"MemeLab API is not reachable.";}
     const db=$("#db-status"), dbText=$("#db-status-text");
-    if(db&&dbText){db.className="db-status db-fallback";dbText.textContent="DB · SQLite FALLBACK";db.title="API offline. Local SQLite is the fallback store.";}
+    if(db&&dbText){db.className="db-status db-fallback";dbText.textContent="TRADING DB · STATUS UNKNOWN";db.title="API offline. No automatic trading database failover occurs.";}
   }
 }
 async function startEngine(){try{apiReachable=true;await api("/start",{method:"POST"});await refresh();}catch(error){apiReachable=false;console.error("MemeLab API start failed:",error);const live=$(".live-pill");if(live)live.innerHTML="<i></i> API OFFLINE";}}

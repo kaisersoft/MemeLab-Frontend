@@ -844,7 +844,7 @@
     if(raw===null) return;
     const capital=Number(raw);
     if(!Number.isFinite(capital)||capital<=0){ alert("Ungültiges Startkapital."); return; }
-    if(!confirm("ACHTUNG: Journal, Positionen, Kapital und die Supabase-Testdaten werden vollständig gelöscht. Nur Token-/Markt-/Discovery-Daten bleiben erhalten. Fortfahren?")) return;
+    if(!confirm("ACHTUNG: Journal, Positionen, Kapital und die Paper-Trading-Daten des aktiven Database Backends werden vollständig gelöscht. Token-/Markt-/Discovery-Daten bleiben erhalten. Fortfahren?")) return;
     const apiBase=window.MEMELAB_API_BASE;
     try{
       tradingResetInFlight=true;
@@ -967,7 +967,7 @@
     }
   }
 
-  function captureTradingState(){
+  function captureTradingState(forceStoppedState=false){
     const ts=Date.now()/1000;
     const events=[{
       event_id:createUuid(),
@@ -989,13 +989,15 @@
         stopLossGuards:[...stopLossGuards.entries()],
 
         sessionStartedAt:Number(sessionStartedAt)||null,
-        sessionElapsedMs:Number(sessionElapsedMs)||0
+        sessionElapsedMs:Number(sessionElapsedMs)||0,
+        paperRunning:Boolean(paperRunning)
       }
     }];
     // A stopped engine must not recreate paper-trading rows immediately after
     // a RESET. Local storage remains the stopped-state persistence mechanism;
-    // Supabase is kept clean until paper trading is started again.
-    if(!paperRunning || tradingResetInFlight) return;
+    // the selected database only receives the explicit stop-state event.
+    if((!paperRunning&&!forceStoppedState) || tradingResetInFlight) return false;
+    if(!paperRunning) return postTradingEvents(events);
     for(const x of lastSignals){
       const t=x.t||{}, e=x.e||{}, s=e.s||{};
       events.push({
@@ -1299,6 +1301,7 @@
         paperRunning=true;
       }
       updatePaperControl();
+      captureTradingState(true);
       renderAll();
     });
     document.querySelectorAll(".nav-btn[data-view]").forEach(btn=>btn.addEventListener("click",()=>{

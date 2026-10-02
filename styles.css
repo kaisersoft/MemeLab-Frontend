@@ -192,6 +192,8 @@ h2{font-size:20px;margin:0 0 5px}
 .db-status.db-sqlite i{background:#83c7e8;box-shadow:0 0 9px rgba(131,199,232,.45)}
 .db-status.db-supabase{border-color:#246b4f;background:#09261d;color:#71d9b0}
 .db-status.db-supabase i{background:#6dd8af;box-shadow:0 0 9px rgba(109,216,175,.5)}
+.db-status.db-postgres{border-color:#4b638d;background:#111a2b;color:#b7c9ee}
+.db-status.db-postgres i{background:#9bb9f4;box-shadow:0 0 9px rgba(155,185,244,.45)}
 .db-status.db-fallback{border-color:#8a6425;background:#2a2110;color:#e6b24e}
 .db-status.db-fallback i{background:#e6b24e;box-shadow:0 0 9px rgba(230,178,78,.5)}
 @media(max-width:900px){.topbar-status{justify-content:flex-start;margin-top:14px}}
@@ -208,3 +210,15 @@ h2{font-size:20px;margin:0 0 5px}
 .cloud-db-status.offline i{background:#d9a84e;box-shadow:0 0 8px rgba(217,168,78,.4)}
 .cloud-db-status.offline b{color:#e6b24e}
 .cloud-db-grid{margin-top:8px}
+.database-backend-head{margin-top:12px;border-top:1px solid #1b303c;padding-top:12px}
+.database-backend-control{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:10px;padding:13px 14px;border:1px solid #243b49;border-radius:10px;background:#08131a}
+.database-backend-control>div:first-child{display:grid;gap:5px;min-width:0}
+.database-backend-control>div:first-child span{color:#8aa1ae;font:11px ui-monospace,SFMono-Regular,Menlo,monospace}
+.database-backend-control>div:first-child b{color:#d8e5ec;font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.03em}
+.database-backend-control>div:first-child b[data-connected=false]{color:#e6b24e}
+.database-backend-control>div:first-child small{color:#718692;font-size:11px}
+.database-backend-options{display:flex;gap:7px;flex:0 0 auto}
+.database-backend-options button{padding:8px 11px;border:1px solid #344b58;border-radius:8px;background:#101f29;color:#a9bac5;font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace;cursor:pointer}
+.database-backend-options button[aria-pressed=true]{border-color:#31845f;background:#09261d;color:#71d9b0}
+.database-backend-options button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:680px){.database-backend-control{align-items:flex-start;flex-direction:column}.database-backend-options{width:100%}.database-backend-options button{flex:1}}
