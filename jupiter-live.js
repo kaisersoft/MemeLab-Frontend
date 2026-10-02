@@ -531,6 +531,7 @@
       const r=await fetch(apiBase+"/jupiter/watchlist-state",{cache:"no-store",headers:{Accept:"application/json"}});
       if(!r.ok) throw new Error(r.status+" "+r.statusText);
       const data=await r.json();
+      if(data?.status==="ok"&&Array.isArray(data?.watchlist))window.MEMELAB_APP_READINESS?.mark("discoveryWatchlist");
       applyCurrentMarketStates(data?.watchlist||[]);
     }catch(e){
       console.debug("Watchlist market state refresh:",e);
@@ -542,6 +543,9 @@
       const r=await fetch(apiBase+"/jupiter/universe",{cache:"no-store",headers:{Accept:"application/json"}});
       if(!r.ok) throw new Error(r.status+" "+r.statusText);
       const data=await r.json();
+      if(data?.status==="ok"&&Array.isArray(data?.tokens)&&data?.diagnostics?.db&&typeof data.diagnostics.db.db_size_bytes==="number"){
+        window.MEMELAB_APP_READINESS?.mark("discoveryData");
+      }
       const states=new Map((data?.diagnostics?.watchlist||[]).map(row=>[row?.mint,row?.current_market_state||null]));
       tokens=(Array.isArray(data.tokens)?data.tokens:[]).map(token=>({
         ...token,
@@ -603,7 +607,7 @@
     if(discoveryPollTimer) clearInterval(discoveryPollTimer);
     discoveryPollTimer=null;
   }
-  async function refreshDiscoveryState(){try{const r=await fetch(apiBase+"/discovery/status",{cache:"no-store",headers:{Accept:"application/json"}});if(!r.ok)throw new Error(r.status+" "+r.statusText);const data=await r.json();discoveryRunning=!!data.running;renderDiscoveryState();if(discoveryRunning){await load();startDiscoveryPolling();}else{stopDiscoveryPolling();await load();}}catch(e){console.debug("Discovery status:",e);}}
+  async function refreshDiscoveryState(){try{const r=await fetch(apiBase+"/discovery/status",{cache:"no-store",headers:{Accept:"application/json"}});if(!r.ok)throw new Error(r.status+" "+r.statusText);const data=await r.json();if(data?.status==="ok"&&typeof data.running==="boolean")window.MEMELAB_APP_READINESS?.mark("discoveryStatus");discoveryRunning=!!data.running;renderDiscoveryState();if(discoveryRunning){await load();startDiscoveryPolling();}else{stopDiscoveryPolling();await load();}}catch(e){console.debug("Discovery status:",e);}}
   async function toggleDiscovery(){const action=discoveryRunning?"stop":"start";try{const r=await fetch(apiBase+"/discovery/"+action,{method:"POST",cache:"no-store",headers:{Accept:"application/json"}});if(!r.ok)throw new Error(r.status+" "+r.statusText);discoveryRunning=action==="start";renderDiscoveryState();if(discoveryRunning){await load();startDiscoveryPolling();}else{stopDiscoveryPolling();await load();}}catch(e){console.error("Discovery toggle:",e);}}
   function renderDiscoveryIntervalOptions(select){
     select.innerHTML="";

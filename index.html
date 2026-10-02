@@ -6,7 +6,7 @@
   <title>MemeLab — On-chain Market Intelligence</title>
   <meta name="description" content="MemeLab frontend prototype — on-chain market intelligence, lifecycle and risk engine.">
   <link rel="icon" href="./assets/memelab-logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=20260926-debug">
+  <link rel="stylesheet" href="./styles.css?v=20261002-readiness-data-complete">
   <link rel="stylesheet" href="./position-intelligence.css">
 </head>
 <body>
@@ -25,7 +25,7 @@
               <div class="build-meta" id="build-meta">Frontend build information loading…</div>
             </div>
           </div>
-          <div class="topbar-status"><div class="live-pill"><i></i> ON-CHAIN LIVE</div></div>
+          <div class="topbar-status"><div class="live-pill app-readiness status-orange" id="app-readiness" role="status" aria-live="polite"><i></i><span>LOADING...</span></div><div class="live-pill"><i></i> ON-CHAIN LIVE</div></div>
         </div>
       </div>
       <nav class="main-nav" aria-label="Primary">
@@ -131,40 +131,6 @@
             <div><span>Watchlist scan</span><b id="dbg-watch-scan">—</b></div>
           </div>
           <div class="diagnostics-top3"><span>Current Top 3 EMERGING</span><b id="dbg-top3">—</b></div>
-          <div class="diagnostics-head storage-debug-head"><strong>Storage / DB Health</strong><span>local + cloud database telemetry</span></div>
-          <div class="diagnostics-grid">
-            <div><span>DB size</span><b id="dbg-db-size">—</b></div>
-            <div><span>Raw 30s</span><b id="dbg-db-raw">—</b></div>
-            <div><span>5m aggregates</span><b id="dbg-db-5m">—</b></div>
-            <div><span>1h aggregates</span><b id="dbg-db-1h">—</b></div>
-            <div><span>1d aggregates</span><b id="dbg-db-1d">—</b></div>
-            <div><span>High-res tokens</span><b id="dbg-db-highres">—</b></div>
-            <div><span>High-res share</span><b id="dbg-db-share">—</b></div>
-            <div><span>Housekeeping</span><b id="dbg-db-housekeeping">—</b></div>
-            <div><span>Raw &gt; 15m</span><b id="dbg-db-oldraw">—</b></div>
-            <div><span>Raw &gt; 2h</span><b id="dbg-db-oldraw24">—</b></div>
-            <div><span>Low-priority &gt; 15m</span><b id="dbg-db-oldraw-low">—</b></div>
-            <div><span>Last HK raw deleted</span><b id="dbg-db-hk-deleted">—</b></div>
-            <div><span>HK backlog before</span><b id="dbg-db-hk-backlog">—</b></div>
-          </div>
-          <div class="diagnostics-head database-backend-head"><strong>Paper Trading · Database Backend</strong><span>runtime selection · never writes .env</span></div>
-          <div class="database-backend-control" id="database-backend-control">
-            <div><span id="database-runtime-mode">Runtime · checking…</span><b id="database-active-store">ACTIVE DATABASE · checking…</b><small id="database-switch-status">Checking selected store and Paper Trading state…</small></div>
-            <div class="database-backend-options" role="group" aria-label="Paper Trading database backend">
-              <button type="button" data-database-store="supabase" aria-pressed="false" disabled>Supabase</button>
-              <button type="button" data-database-store="postgres" aria-pressed="false" disabled>PostgreSQL</button>
-            </div>
-          </div>
-          <div class="diagnostics-head cloud-db-head"><strong>Cloud DB · Supabase</strong><span>market-data sync and storage telemetry · 500 MB limit</span></div>
-          <div class="cloud-db-status" id="cloud-db-status"><i></i><b id="cloud-db-health">checking…</b><span id="cloud-db-detail">Cloud database health loading…</span></div>
-          <div class="diagnostics-grid cloud-db-grid">
-            <div><span>Cloud DB size</span><b id="dbg-cloud-size">—</b></div>
-            <div><span>Usage of 500 MB</span><b id="dbg-cloud-share">—</b></div>
-            <div><span>Cloud headroom</span><b id="dbg-cloud-headroom">—</b></div>
-            <div><span>Cloud snapshots</span><b id="dbg-cloud-snapshots">—</b></div>
-            <div><span>Cloud aggregates</span><b id="dbg-cloud-aggregates">—</b></div>
-            <div><span>Storage guard</span><b id="dbg-cloud-guard">—</b></div>
-          </div>
         </div>
       </section>
 
@@ -285,6 +251,54 @@
       </section>
 
       <section class="debug-shell" id="debug-panel" hidden>
+        <section class="panel diagnostics-panel" id="storage-db-health">
+          <div class="diagnostics-head storage-debug-head"><strong>Storage / DB Health</strong><span>local + cloud database telemetry</span></div>
+          <div class="diagnostics-grid">
+            <div><span>DB size</span><b id="dbg-db-size">—</b></div>
+            <div><span>Raw 30s</span><b id="dbg-db-raw">—</b></div>
+            <div><span>5m aggregates</span><b id="dbg-db-5m">—</b></div>
+            <div><span>1h aggregates</span><b id="dbg-db-1h">—</b></div>
+            <div><span>1d aggregates</span><b id="dbg-db-1d">—</b></div>
+            <div><span>High-res tokens</span><b id="dbg-db-highres">—</b></div>
+            <div><span>High-res share</span><b id="dbg-db-share">—</b></div>
+            <div><span>Housekeeping</span><b id="dbg-db-housekeeping">—</b></div>
+            <div><span>Raw &gt; 15m</span><b id="dbg-db-oldraw">—</b></div>
+            <div><span>Raw &gt; 2h</span><b id="dbg-db-oldraw24">—</b></div>
+            <div><span>Low-priority &gt; 15m</span><b id="dbg-db-oldraw-low">—</b></div>
+            <div><span>Last HK raw deleted</span><b id="dbg-db-hk-deleted">—</b></div>
+            <div><span>HK backlog before</span><b id="dbg-db-hk-backlog">—</b></div>
+          </div>
+          <div class="diagnostics-head database-backend-head"><strong>Paper Trading · Database Backend</strong><span>manuelle Backend-Auswahl · schreibt nicht in .env</span></div>
+          <div class="database-backend-control" id="database-backend-control">
+            <div><span id="database-runtime-mode">Runtime · checking…</span><b id="database-active-store">ACTIVE DATABASE · checking…</b><small id="database-switch-status">Checking selected store and Paper Trading state…</small></div>
+            <div class="database-backend-options" role="group" aria-label="Paper Trading database backend">
+              <button type="button" data-database-store="supabase" aria-pressed="false" disabled>Supabase</button>
+              <button type="button" data-database-store="postgres" aria-pressed="false" disabled>PostgreSQL</button>
+            </div>
+          </div>
+          <div class="diagnostics-head cloud-db-head"><strong>Cloud DB · Supabase</strong><span>market-data sync and storage telemetry · 500 MB limit</span></div>
+          <div class="cloud-db-status" id="cloud-db-status"><i></i><b id="cloud-db-health">checking…</b><span id="cloud-db-detail">Cloud database health loading…</span></div>
+          <div class="diagnostics-grid cloud-db-grid">
+            <div><span>Cloud DB size</span><b id="dbg-cloud-size">—</b></div>
+            <div><span>Usage of 500 MB</span><b id="dbg-cloud-share">—</b></div>
+            <div><span>Cloud headroom</span><b id="dbg-cloud-headroom">—</b></div>
+            <div><span>Cloud snapshots</span><b id="dbg-cloud-snapshots">—</b></div>
+            <div><span>Cloud aggregates</span><b id="dbg-cloud-aggregates">—</b></div>
+            <div><span>Storage guard</span><b id="dbg-cloud-guard">—</b></div>
+          </div>
+          <div id="postgres-db-storage" hidden>
+            <div class="diagnostics-head cloud-db-head"><strong>PostgreSQL · Storage</strong><span>database/table sizes · PostgreSQL quota not reported</span></div>
+            <div class="cloud-db-status" id="postgres-db-status"><i></i><b id="postgres-db-health">checking…</b><span id="postgres-db-detail">PostgreSQL storage loading…</span></div>
+            <div class="diagnostics-grid cloud-db-grid">
+              <div><span>Database size</span><b id="dbg-pg-size">—</b></div>
+              <div><span>500 MB quota</span><b id="dbg-pg-quota">N/A · no quota reported</b></div>
+              <div><span>Disk headroom</span><b id="dbg-pg-headroom">Not reported</b></div>
+              <div><span>Market snapshots table</span><b id="dbg-pg-snapshots">—</b></div>
+              <div><span>Market aggregates table</span><b id="dbg-pg-aggregates">—</b></div>
+              <div><span>Storage guard</span><b id="dbg-pg-guard">N/A · no quota reported</b></div>
+            </div>
+          </div>
+        </section>
         <section class="panel debug-controls">
           <div class="panel-head"><div><h2>Debug</h2><span>Runtime logging controls</span></div></div>
           <p class="debug-notice">Logging controls only. No trading or market logic is affected.</p>
@@ -417,12 +431,12 @@
       </section>
     </section>
   </main>
-  <script src="./build-info.js?v=20261002-database-backend-296"></script>
+  <script src="./build-info.js?v=20261002-readiness-data-complete"></script>
   <script src="./runtime-config.js?v=20261002-database-backend-296"></script>
-  <script src="./app.js?v=20261002-database-backend-296"></script>
-  <script src="./jupiter-live.js?v=20261002-database-backend-296"></script>
+  <script src="./app.js?v=20261002-readiness-data-complete"></script>
+  <script src="./jupiter-live.js?v=20261002-readiness-data-complete"></script>
   <script src="./watchlist.js?v=20260926-0505"></script>
-    <script src="./paper-trading.js?v=20261002-database-backend-296"></script>
+    <script src="./paper-trading.js?v=20261002-readiness-data-complete"></script>
   <script src="./debug-logging.js?v=20261002-database-backend-296"></script>
 </body>
 </html>

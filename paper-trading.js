@@ -1,5 +1,5 @@
 (() => {
-  const DEFAULT_startingCapital = 10000;
+  const DEFAULT_startingCapital = 100000;
   let startingCapital = DEFAULT_startingCapital;
   let threshold = 3;
   let riskPct = 2;
@@ -458,6 +458,9 @@
       }
       const data=await response.json();
       const prices=data?.prices||{};
+      if(data?.status==="ok"&&prices&&typeof prices==="object"&&!Array.isArray(prices)){
+        window.MEMELAB_APP_READINESS?.mark("paperTradingPrices");
+      }
       const observedAt=Date.now()/1000;
       for(const [mint,item] of Object.entries(prices)){
         const usdPrice=Number(item?.usdPrice);
@@ -494,7 +497,6 @@
       return count>0;
     }catch(err){
       tradingPriceFeedStatus=err?.name==="AbortError"?"TIMEOUT":"ERROR";
-      if(err?.name!=="AbortError") showTradingPriceAlert(err);
       if(err?.name!=="AbortError") console.debug("Trading price refresh:",err);
       return false;
     }finally{
@@ -1054,6 +1056,8 @@
       const state=data?.state||{};
       const restoredPositions=Array.isArray(data?.positions)?data.positions:[];
       const restoredJournal=Array.isArray(data?.journal)?data.journal:[];
+      const completeInitialState=data?.status!=="error"&&state&&typeof state==="object"&&
+        Array.isArray(data?.positions)&&Array.isArray(data?.journal);
       if(Object.keys(state).length){
         if(Number.isFinite(Number(state.startingCapital)) && Number(state.startingCapital)>0) startingCapital=Number(state.startingCapital);
         if(Number.isFinite(Number(state.threshold))) threshold=Number(state.threshold);
@@ -1109,6 +1113,7 @@
         durationMs:Number(p.durationMs)||0
       }));
       saveLocalPaperSnapshot();
+      if(completeInitialState)window.MEMELAB_APP_READINESS?.mark("paperTradingState");
       return true;
     }catch(_err){
       return false;
@@ -1327,6 +1332,7 @@
     if(takeProfitREl)takeProfitREl.value=String(normalizeTakeProfitR(takeProfitR));
     renderRiskParameterLabels();
     await renderAll();
+    window.MEMELAB_APP_READINESS?.mark("paperTradingRender");
     updatePaperControl();
     renderSession();
     setInterval(renderSession,1000);

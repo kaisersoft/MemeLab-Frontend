@@ -14,6 +14,42 @@ let apiReachable = false;
 let databaseStatusInFlight = false;
 let databaseSwitchInFlight = false;
 let databaseSwitchMessage = "";
+const appReadiness=Object.fromEntries([
+  "frontendSnapshot","sqliteDiscoveryStats","supabaseDbStats","postgresDbStats",
+  "discoveryStatus","discoveryData","discoveryWatchlist",
+  "paperTradingState","paperTradingPrices","paperTradingRender"
+].map(name=>[name,false]));
+
+function syncAppReadinessSize(){
+  const indicator=$("#app-readiness");
+  const live=document.querySelector(".topbar-status .live-pill:not(#app-readiness)");
+  if(!indicator||!live)return;
+  const rect=live.getBoundingClientRect();
+  if(rect.width>0&&rect.height>0){
+    indicator.style.boxSizing="border-box";
+    indicator.style.width=rect.width+"px";
+    indicator.style.height=rect.height+"px";
+  }
+}
+
+function renderAppReadiness(){
+  const indicator=$("#app-readiness");
+  if(!indicator)return;
+  const readyNow=Object.values(appReadiness).every(Boolean);
+  indicator.className="live-pill app-readiness "+(readyNow?"status-green":"status-orange");
+  const label=indicator.querySelector("span");
+  if(label)label.textContent=readyNow?"READY":"LOADING...";
+  const pending=Object.entries(appReadiness).filter(([,ready])=>!ready).map(([name])=>name);
+  indicator.title=readyNow?"All initial application data loaded":"Waiting for: "+pending.join(", ");
+  syncAppReadinessSize();
+}
+window.MEMELAB_APP_READINESS={mark(name){if(Object.prototype.hasOwnProperty.call(appReadiness,name)){appReadiness[name]=true;renderAppReadiness();}}};
+window.addEventListener("resize",syncAppReadinessSize);
+if(window.ResizeObserver){
+  const live=document.querySelector(".topbar-status .live-pill:not(#app-readiness)");
+  if(live)new ResizeObserver(syncAppReadinessSize).observe(live);
+}
+syncAppReadinessSize();
 
 function shortMint(m) { if (!m) return "—"; return m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5); }
 function pct(v) { return Math.round(Math.max(0,Math.min(1,Number(v)||0))*100); }
@@ -396,13 +432,47 @@ function renderSnapshot(data) {
 }
 
 async function api(path,options={}){const response=await fetch(API_BASE+path,{cache:"no-store",...options,headers:{"Accept":"application/json",...(options.headers||{})}});if(!response.ok)throw new Error(response.status+" "+response.statusText);return response.json();}
+function renderPostgresStorage(data){
+  const panel=$("#postgres-db-storage");
+  if(!panel)return;
+  const active=String(data.active_store||"supabase")==="postgres";
+  panel.hidden=!active;
+  if(!active)return;
+
+  const postgres=data.stores?.postgres||{};
+  const configured=postgres.configured===true;
+  const failed=Boolean(postgres.error);
+  const reachable=configured&&!failed;
+  const missing=Array.isArray(postgres.missing_tables)?postgres.missing_tables:[];
+  const health=$("#postgres-db-health"), status=$("#postgres-db-status"), detail=$("#postgres-db-detail");
+  if(status)status.className="cloud-db-status "+(reachable?"healthy":"offline");
+  if(health)health.textContent=!configured?"NOT CONFIGURED":failed?"UNAVAILABLE":postgres.schema_ready===false?"CONNECTED · SCHEMA INCOMPLETE":"CONNECTED";
+  if(detail)detail.textContent=!configured
+    ?(postgres.reason||"PostgreSQL is not configured")
+    :failed
+    ?"PostgreSQL health check failed · "+String(postgres.error)
+    :missing.length
+    ?"PostgreSQL reachable · required tables missing: "+missing.join(", ")
+    :"PostgreSQL reachable · storage metrics from the active database";
+
+  const sizeLabel=value=>{
+    if(value===null)return "Not present";
+    const bytes=Number(value);
+    return Number.isFinite(bytes)?(bytes/1048576).toFixed(2)+" MB":"—";
+  };
+  const set=(id,value)=>{const element=$(id);if(element)element.textContent=value;};
+  set("#dbg-pg-size",sizeLabel(postgres.database_bytes));
+  set("#dbg-pg-snapshots",sizeLabel(postgres.market_snapshots_bytes));
+  set("#dbg-pg-aggregates",sizeLabel(postgres.market_aggregates_bytes));
+  set("#dbg-pg-quota","N/A · no PostgreSQL quota reported");
+  set("#dbg-pg-headroom","Not reported by PostgreSQL");
+  set("#dbg-pg-guard","N/A · no PostgreSQL quota reported");
+}
 function renderDatabaseBackend(data){
   const mode=data.runtime_mode||window.MEMELAB_RUNTIME_MODE||"local";
   const active=data.active_store||"supabase";
   const statusUnknown=data.status_unavailable===true;
-  const running=window.MEMELAB_PAPER?.isRunning?.()===true || data.engine_running===true;
-  const locked=statusUnknown||mode!=="cloud"||running||data.switch_locked===true||databaseSwitchInFlight;
-  const stores=data.stores||{};
+  const locked=databaseSwitchInFlight;
   const available=data.available_stores||{};
   const runtimeEl=$("#database-runtime-mode"), activeEl=$("#database-active-store"), statusEl=$("#database-switch-status");
   if(runtimeEl)runtimeEl.textContent="Runtime · "+(mode==="cloud"?"CLOUD / VPS":"LOCAL");
@@ -411,21 +481,18 @@ function renderDatabaseBackend(data){
     activeEl.textContent=statusUnknown?"ACTIVE DATABASE · STATUS UNKNOWN":"ACTIVE DATABASE · "+active.toUpperCase()+(connected?" · CONNECTED":" · UNAVAILABLE");
     activeEl.dataset.connected=connected?"true":"false";
   }
-  const switchStatus=statusUnknown?"Backend-Datenbankstatus nicht erreichbar · kein automatisches Failover"
-    :mode!=="cloud"
-    ? "Local runtime: Supabase only · PostgreSQL disabled"
-    : running?"Paper Trading läuft · Datenbankwechsel gesperrt"
-    : data.engine_running===null?"Engine-Status unbekannt · Wechsel bleibt gesperrt"
-    : "Paper Trading gestoppt · Wechsel möglich";
+  const switchStatus=statusUnknown
+    ? "Backendstatus unbekannt · Konfiguration wird beim Wechsel geprüft"
+    : "Backendwechsel manuell möglich · kein automatisches Failover";
   if(statusEl)statusEl.textContent=databaseSwitchMessage?switchStatus+" · "+databaseSwitchMessage:switchStatus;
+  renderPostgresStorage(data);
   document.querySelectorAll("[data-database-store]").forEach(button=>{
     const store=button.dataset.databaseStore;
     const selected=store===active;
     const configured=available[store]===true;
-    const healthy=stores[store]?.connected===true;
     button.setAttribute("aria-pressed",String(selected));
-    button.disabled=locked||selected||!configured||(!healthy&&store!==active);
-    button.title=!configured?"Store nicht konfiguriert":!healthy?"Store-Verbindung oder Schema nicht verfügbar":running?"Nur bei gestopptem Paper Trading wechselbar":"Aktiven Paper-Trading-Store auswählen";
+    button.disabled=locked||selected||(!configured&&!statusUnknown);
+    button.title=selected?"Aktiver Store":!configured&&!statusUnknown?"Store nicht konfiguriert":"Als aktives Paper-Trading-Backend auswählen";
   });
 }
 async function selectDatabaseStore(store){
@@ -452,77 +519,81 @@ async function refreshDatabaseStatus(){
   databaseStatusInFlight=true;
   const el=$("#db-status"), textEl=$("#db-status-text");
   const cloud=$("#cloud-db-status"), cloudHealth=$("#cloud-db-health"), cloudDetail=$("#cloud-db-detail");
-  const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),5000);
   try{
-    const response=await fetch(API_BASE+"/supabase/status",{
-      cache:"no-store",
-      signal:controller.signal,
-      headers:{Accept:"application/json"}
-    });
-    if(!response.ok)throw new Error(response.status+" "+response.statusText);
-    const data=await response.json();
-    renderDatabaseBackend(data);
-    const sqlite=data.sqlite||{};
-    const cloudData=data.cloud||{};
-    const size=Number(sqlite.db_size_mb);
-    const sizeLabel=Number.isFinite(size)?size.toFixed(1)+" MB":"—";
-
-    if(el && textEl){
-      if(data.active_store==="sqlite"){
-        el.className="db-status db-sqlite";
-        textEl.textContent="DB · SQLite ACTIVE · "+sizeLabel;
-        el.title="Local SQLite is authoritative. Supabase is the cloud secondary store.";
-      }else{
-        el.className="db-status "+(data.active_store==="postgres"?"db-postgres":"db-supabase");
-        textEl.textContent="TRADING DB · "+String(data.active_store||"supabase").toUpperCase()+(data.active_store_connected?" ACTIVE":" ACTIVE · OFFLINE");
-        el.title="Selected paper-trading persistence store: "+String(data.active_store||"supabase");
+    try{
+      const response=await fetch(API_BASE+"/database/status",{cache:"no-store",headers:{Accept:"application/json"}});
+      if(!response.ok)throw new Error(response.status+" "+response.statusText);
+      const data=await response.json();
+      const sqlite=data.sqlite||{};
+      const sqliteStatsReady=data.status==="ok"&&!data.sqlite_error&&
+        ["db_size_bytes","raw_snapshots","aggregates_5m","aggregates_1h","aggregates_1d","high_res_tokens","high_res_share_percent","raw_older_than_15m","raw_older_than_15m_low_priority","raw_older_than_24h"]
+          .every(key=>typeof sqlite[key]==="number")&&
+        ["lifecycle_counts","last_housekeeping_at","housekeeping"].every(key=>Object.prototype.hasOwnProperty.call(sqlite,key));
+      if(sqliteStatsReady)window.MEMELAB_APP_READINESS.mark("sqliteDiscoveryStats");
+      const postgres=data.stores?.postgres||{};
+      if(data.status==="ok"&&data.active_store==="postgres"&&postgres.connected===true&&postgres.schema_ready===true&&
+        typeof postgres.database_bytes==="number"&&
+        ["market_snapshots_bytes","market_aggregates_bytes"].every(key=>Object.prototype.hasOwnProperty.call(postgres,key)))window.MEMELAB_APP_READINESS.mark("postgresDbStats");
+      renderDatabaseBackend(data);
+      if(el && textEl){
+        const active=String(data.active_store||"supabase");
+        const connected=data.active_store_connected===true;
+        el.className="db-status "+(active==="postgres"?"db-postgres":"db-supabase");
+        textEl.textContent="TRADING DB · "+active.toUpperCase()+(connected?" ACTIVE":" ACTIVE · OFFLINE");
+        el.title="Selected paper-trading persistence store: "+active;
+      }
+    }catch(error){
+      renderDatabaseBackend({runtime_mode:window.MEMELAB_RUNTIME_MODE||"local",status_unavailable:true,active_store:"supabase",engine_running:null,switch_locked:true,available_stores:{},stores:{}});
+      if(el && textEl){
+        el.className="db-status db-fallback";
+        textEl.textContent="TRADING DB · STATUS UNKNOWN";
+        el.title="Database status unavailable; the backend does not fail over automatically.";
       }
     }
 
-    const cloudBytes=Number(cloudData.database_bytes);
-    const cloudMb=Number(cloudData.database_mb);
-    const cloudShare=Number(cloudData.database_percent_of_500mb);
-    const connected=cloudData.available===true && cloudData.configured===true;
-    const effectiveCloudMb=Number.isFinite(cloudMb)
-      ? cloudMb
-      : (Number.isFinite(cloudBytes)?cloudBytes/1048576:NaN);
-    const headroomMb=Number.isFinite(effectiveCloudMb)?Math.max(0,500-effectiveCloudMb):NaN;
-    const derivedGuard=Number.isFinite(cloudBytes)
-      ? (cloudBytes>=450*1048576?"HARD STOP · >=450 MB":cloudBytes>=400*1048576?"WARNING · >=400 MB":"OK · <400 MB")
-      : "BLOCKED · storage check unavailable";
-
-    if(cloud){
-      cloud.className="cloud-db-status "+(connected?"healthy":"offline");
-      if(cloudHealth)cloudHealth.textContent=connected?"HEALTHY":"OFFLINE";
-      if(cloudDetail)cloudDetail.textContent=connected
-        ?"Supabase connected · market-data sync · Paper Trading store selected separately"
-        :(cloudData.error||cloudData.reason||"Supabase cloud database unavailable");
-    }
-    renderDatabaseBackend(data);
-    const set=(id,v)=>{const x=$(id);if(x)x.textContent=v;};
-    set("#dbg-cloud-size",Number.isFinite(effectiveCloudMb)?effectiveCloudMb.toFixed(1)+" MB":"—");
-    set("#dbg-cloud-share",Number.isFinite(cloudShare)?cloudShare.toFixed(1)+"%":(Number.isFinite(effectiveCloudMb)?((effectiveCloudMb/500)*100).toFixed(1)+"%":"—"));
-    set("#dbg-cloud-headroom",connected&&Number.isFinite(headroomMb)?headroomMb.toFixed(1)+" MB":"—");
-    set("#dbg-cloud-snapshots",connected?((Number(cloudData.market_snapshots_bytes)||0)/1048576).toFixed(2)+" MB":"—");
-    set("#dbg-cloud-aggregates",connected?((Number(cloudData.market_aggregates_bytes)||0)/1048576).toFixed(2)+" MB":"—");
-    set("#dbg-cloud-guard",cloudData.storage_guard||derivedGuard);
-  }catch(error){
-    renderDatabaseBackend({runtime_mode:window.MEMELAB_RUNTIME_MODE||"local",status_unavailable:true,active_store:"supabase",engine_running:null,switch_locked:true,available_stores:{},stores:{}});
-    if(el && textEl){
-      el.className="db-status db-fallback";
-      textEl.textContent="TRADING DB · STATUS UNKNOWN";
-      el.title="Database status unavailable; the backend does not fail over automatically.";
-    }
-    if(cloud){
-      cloud.className="cloud-db-status offline";
-      if(cloudHealth)cloudHealth.textContent=error.name==="AbortError"?"TIMEOUT":"UNAVAILABLE";
-      if(cloudDetail)cloudDetail.textContent=error.name==="AbortError"
-        ?"Cloud database health check timed out"
-        :"Database health endpoint unavailable";
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),5000);
+    try{
+      const response=await fetch(API_BASE+"/supabase/status",{cache:"no-store",signal:controller.signal,headers:{Accept:"application/json"}});
+      if(!response.ok)throw new Error(response.status+" "+response.statusText);
+      const data=await response.json();
+      const cloudData=data.cloud||{};
+      if(data.status==="ok"&&cloudData.configured===true&&cloudData.available===true&&
+        typeof cloudData.database_bytes==="number"&&typeof cloudData.database_percent_of_500mb==="number"&&
+        ["market_snapshots_bytes","market_aggregates_bytes"].every(key=>typeof cloudData[key]==="number"))window.MEMELAB_APP_READINESS.mark("supabaseDbStats");
+      const cloudBytes=Number(cloudData.database_bytes);
+      const cloudMb=Number(cloudData.database_mb);
+      const cloudShare=Number(cloudData.database_percent_of_500mb);
+      const connected=cloudData.available===true && cloudData.configured===true;
+      const effectiveCloudMb=Number.isFinite(cloudMb)?cloudMb:(Number.isFinite(cloudBytes)?cloudBytes/1048576:NaN);
+      const headroomMb=Number.isFinite(effectiveCloudMb)?Math.max(0,500-effectiveCloudMb):NaN;
+      const derivedGuard=Number.isFinite(cloudBytes)
+        ? (cloudBytes>=450*1048576?"HARD STOP · >=450 MB":cloudBytes>=400*1048576?"WARNING · >=400 MB":"OK · <400 MB")
+        : "BLOCKED · storage check unavailable";
+      if(cloud){
+        cloud.className="cloud-db-status "+(connected?"healthy":"offline");
+        if(cloudHealth)cloudHealth.textContent=connected?"HEALTHY":"OFFLINE";
+        if(cloudDetail)cloudDetail.textContent=connected
+          ?"Supabase connected · market-data sync · Paper Trading store selected separately"
+          :(cloudData.error||cloudData.reason||"Supabase cloud database unavailable");
+      }
+      const set=(id,v)=>{const x=$(id);if(x)x.textContent=v;};
+      set("#dbg-cloud-size",Number.isFinite(effectiveCloudMb)?effectiveCloudMb.toFixed(1)+" MB":"—");
+      set("#dbg-cloud-share",Number.isFinite(cloudShare)?cloudShare.toFixed(1)+"%":(Number.isFinite(effectiveCloudMb)?((effectiveCloudMb/500)*100).toFixed(1)+"%":"—"));
+      set("#dbg-cloud-headroom",connected&&Number.isFinite(headroomMb)?headroomMb.toFixed(1)+" MB":"—");
+      set("#dbg-cloud-snapshots",connected?((Number(cloudData.market_snapshots_bytes)||0)/1048576).toFixed(2)+" MB":"—");
+      set("#dbg-cloud-aggregates",connected?((Number(cloudData.market_aggregates_bytes)||0)/1048576).toFixed(2)+" MB":"—");
+      set("#dbg-cloud-guard",cloudData.storage_guard||derivedGuard);
+    }catch(error){
+      if(cloud){
+        cloud.className="cloud-db-status offline";
+        if(cloudHealth)cloudHealth.textContent=error.name==="AbortError"?"TIMEOUT":"UNAVAILABLE";
+        if(cloudDetail)cloudDetail.textContent=error.name==="AbortError"?"Cloud database health check timed out":"Database health endpoint unavailable";
+      }
+    }finally{
+      clearTimeout(timeout);
     }
   }finally{
-    clearTimeout(timeout);
     databaseStatusInFlight=false;
   }
 }
@@ -530,6 +601,7 @@ async function refresh(){
   try{
     apiReachable=true;
     renderSnapshot(await api("/snapshot"));
+    window.MEMELAB_APP_READINESS.mark("frontendSnapshot");
     refreshDatabaseStatus();
   }catch(error){
     apiReachable=false;

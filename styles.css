@@ -186,6 +186,7 @@ h2{font-size:20px;margin:0 0 5px}
 
 
 .topbar-status{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.app-readiness{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
 .db-status{display:inline-flex;align-items:center;gap:7px;border:1px solid #304552;background:#0b1821;color:#8fa8b8;border-radius:999px;padding:10px 13px;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;white-space:nowrap}
 .db-status i{width:8px;height:8px;border-radius:50%;background:#8293a2;box-shadow:0 0 8px rgba(130,147,162,.35)}
 .db-status.db-sqlite{border-color:#31536a;background:#0b1b25;color:#a9c9dc}
