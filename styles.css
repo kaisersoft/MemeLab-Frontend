@@ -19,7 +19,7 @@ h1 b{color:#657583;font-weight:400}
 .live-pill i{display:block;flex:0 0 10px;width:10px;height:10px;min-width:10px;aspect-ratio:1 / 1;background:#6dd8af;border-radius:50%;margin-right:8px;box-shadow:0 0 12px rgba(109,216,175,.5)}
 .main-nav{display:flex;gap:10px;margin-top:28px;flex-wrap:wrap}
 .nav-btn{border:1px solid #273b49;background:#0e1a23;border-radius:12px;padding:12px 18px;color:#9aacba;cursor:pointer;transition:.18s}
-.nav-btn:hover,.nav-btn.active{background:#182b38;color:#e5edf3;border-color:#496273}
+.nav-btn:hover,.nav-btn.active{background:#182b38;color:#e5edf3;border-color:#496273}.nav-btn:disabled{opacity:.42;color:#627582;background:#0a141b;border-color:#1b2a34;cursor:not-allowed}
 .dashboard{padding:28px;display:grid;grid-template-columns:1.65fr 1fr;gap:22px}
 .panel{background:linear-gradient(145deg,#0d1922,#0a141c);border:1px solid #263a48;border-radius:20px;padding:22px;min-width:0}
 .panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px}
