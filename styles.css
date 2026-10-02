@@ -16,7 +16,7 @@ h1 span{color:#8b9aa7;font-weight:500}
 h1 b{color:#657583;font-weight:400}
 .brand-block p{margin:12px 0 0;color:#8193a2;font-size:18px}
 .live-pill{border:1px solid #246b4f;background:#09261d;color:#71d9b0;border-radius:999px;padding:10px 16px;font-size:14px;white-space:nowrap}
-.live-pill i{display:inline-block;width:10px;height:10px;background:#6dd8af;border-radius:50%;margin-right:8px;box-shadow:0 0 12px rgba(109,216,175,.5)}
+.live-pill i{display:block;flex:0 0 10px;width:10px;height:10px;min-width:10px;aspect-ratio:1 / 1;background:#6dd8af;border-radius:50%;margin-right:8px;box-shadow:0 0 12px rgba(109,216,175,.5)}
 .main-nav{display:flex;gap:10px;margin-top:28px;flex-wrap:wrap}
 .nav-btn{border:1px solid #273b49;background:#0e1a23;border-radius:12px;padding:12px 18px;color:#9aacba;cursor:pointer;transition:.18s}
 .nav-btn:hover,.nav-btn.active{background:#182b38;color:#e5edf3;border-color:#496273}
