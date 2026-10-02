@@ -20,18 +20,6 @@ const appReadiness=Object.fromEntries([
   "paperTradingState","paperTradingPrices","paperTradingRender"
 ].map(name=>[name,false]));
 
-function syncAppReadinessSize(){
-  const indicator=$("#app-readiness");
-  const live=document.querySelector(".topbar-status .live-pill:not(#app-readiness)");
-  if(!indicator||!live)return;
-  const rect=live.getBoundingClientRect();
-  if(rect.width>0&&rect.height>0){
-    indicator.style.boxSizing="border-box";
-    indicator.style.width=rect.width+"px";
-    indicator.style.height=rect.height+"px";
-  }
-}
-
 function renderAppReadiness(){
   const indicator=$("#app-readiness");
   if(!indicator)return;
@@ -41,15 +29,8 @@ function renderAppReadiness(){
   if(label)label.textContent=readyNow?"READY":"LOADING...";
   const pending=Object.entries(appReadiness).filter(([,ready])=>!ready).map(([name])=>name);
   indicator.title=readyNow?"All initial application data loaded":"Waiting for: "+pending.join(", ");
-  syncAppReadinessSize();
 }
 window.MEMELAB_APP_READINESS={mark(name){if(Object.prototype.hasOwnProperty.call(appReadiness,name)){appReadiness[name]=true;renderAppReadiness();}}};
-window.addEventListener("resize",syncAppReadinessSize);
-if(window.ResizeObserver){
-  const live=document.querySelector(".topbar-status .live-pill:not(#app-readiness)");
-  if(live)new ResizeObserver(syncAppReadinessSize).observe(live);
-}
-syncAppReadinessSize();
 
 function shortMint(m) { if (!m) return "—"; return m.length <= 14 ? m : m.slice(0,7)+"…"+m.slice(-5); }
 function pct(v) { return Math.round(Math.max(0,Math.min(1,Number(v)||0))*100); }
@@ -322,7 +303,7 @@ function updateConnectionStatus(runtime) {
   else if(apiOk&&engineOk&&websocketOk&&!runtime?.last_error){state="orange";label="ON-CHAIN WAITING";title="API connected · engine running · Solana websocket connected · waiting for first chain event";}
   else if(apiOk&&engineOk){state="orange";label="ENGINE CONNECTED";title=runtime?.last_error?"API connected · MemeLab engine is not currently healthy: "+runtime.last_error:"API connected · MemeLab engine running · live Solana event stream is not currently active";}
   else if(apiOk){state="orange";label="API CONNECTED";title=runtime?.last_error?"MemeLab API connected · live engine reports: "+runtime.last_error:"MemeLab API connected · Jupiter discovery can continue independently of the live Solana engine";}
-  live.classList.remove("status-green","status-orange","status-red"); live.classList.add("status-"+state); live.innerHTML="<i></i> "+label; live.title=title;
+  live.classList.remove("status-green","status-orange","status-red"); live.classList.add("status-"+state); live.innerHTML="<i></i> "+label; live.setAttribute("aria-label",title);
 }
 
 function renderMarketContext(market) {
