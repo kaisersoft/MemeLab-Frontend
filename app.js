@@ -314,7 +314,7 @@ function setMarketWindow(nextWindow){
 }
 
 function updateConnectionStatus(runtime) {
-  const live=$(".live-pill"); if(!live)return;
+  const live=document.querySelector(".topbar-status .live-pill:not(#app-readiness)"); if(!live)return;
   const health=runtime?.health||{}, apiOk=apiReachable, engineOk=health.engine===true, websocketOk=health.websocket===true, eventsReceived=Number(health.events_received??runtime?.events_received??0);
   let state="red", label="API OFFLINE", title="MemeLab API is not reachable.";
   if(apiOk&&engineOk&&websocketOk&&eventsReceived>0&&!runtime?.last_error){state="green";label="ON-CHAIN LIVE";title="API connected · engine running · Solana websocket connected · chain events received";}
