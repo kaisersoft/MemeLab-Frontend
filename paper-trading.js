@@ -1237,18 +1237,6 @@
       equity+=net;
       points.push({label:trade.id,equity});
     }
-    if(positions.length){
-      const hasLivePrices=positions.every(p=>{
-        const direct=Number(liveTradingPrices.get(p.mint));
-        if(Number.isFinite(direct)&&direct>0)return true;
-        const live=Number(liveToken(p.mint)?.price_usd);
-        return Number.isFinite(live)&&live>0;
-      });
-      if(hasLivePrices){
-        const current=currentEquity();
-        if(Number.isFinite(current)) points.push({label:"CURRENT",equity:current});
-      }
-    }
     const W=1000,H=300,L=68,R=24,T=20,B=42;
     const plotW=W-L-R,plotH=H-T-B;
     const values=points.map(p=>Number(p.equity));
@@ -1284,7 +1272,12 @@
     $("#pnl-equity").textContent=usd(startingCapital+realized+open);
     $("#pnl-cash").textContent=usd(availableCash());
     $("#pnl-invested").textContent=usd(investedCapital());
-    $("#pnl-realized").textContent=usd(realized);
+    const realizedEl=$("#pnl-realized");
+    if(realizedEl){
+      realizedEl.textContent=usd(realized);
+      realizedEl.classList.toggle("paper-positive",realized>0);
+      realizedEl.classList.toggle("paper-negative",realized<0);
+    }
     const openEl=$("#pnl-open");
     if(openEl){
       openEl.textContent=usd(open);
