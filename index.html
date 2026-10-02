@@ -183,7 +183,7 @@
         <div class="panel paper-header">
           <div class="panel-head">
             <div><h2>Paper Trading</h2><span>Virtual execution · LONG only · no broker / wallet connection</span></div>
-            <div class="paper-capital"><span>Virtual Capital</span><b id="paper-capital">$10,000.00</b><small>Starting Capital</small></div><div class="paper-capital"><span>Available Cash</span><b id="paper-cash">$10,000.00</b><small id="paper-cash-detail">Unallocated</small></div><div class="paper-capital"><span>Capital in Positions</span><b id="paper-invested">$0.00</b><small id="paper-invested-detail">0 open positions</small></div><div class="paper-pnl-stack"><div class="paper-capital"><span>Portfolio P&amp;L</span><b id="paper-portfolio-pnl">+0.00%</b><small>After estimated costs</small></div></div>
+            <div class="paper-capital"><span>Virtual Capital</span><b id="paper-capital">$100,000.00</b><small>Starting Capital</small></div><div class="paper-capital"><span>Available Cash</span><b id="paper-cash">$10,000.00</b><small id="paper-cash-detail">Unallocated</small></div><div class="paper-capital"><span>Capital in Positions</span><b id="paper-invested">$0.00</b><small id="paper-invested-detail">0 open positions</small></div><div class="paper-pnl-stack"><div class="paper-capital"><span>Portfolio P&amp;L</span><b id="paper-portfolio-pnl">+0.00%</b><small>After estimated costs</small></div></div>
           </div>
           <div class="paper-controls">
             <div class="paper-control paper-run-control"><span>Paper Engine</span><div style="display:flex;gap:8px;align-items:center"><button id="paper-start-stop" class="paper-start-stop" type="button">START PAPER</button><button id="paper-reset" class="paper-start-stop" type="button">RESET TEST</button></div></div><div class="paper-control paper-session-control"><span>Session</span><b id="paper-session">00:00:00</b></div>
@@ -226,15 +226,15 @@
           <section class="panel pnl-method">
             <div class="panel-head"><div><h2>Execution Rules</h2><span>Current paper baseline</span></div></div>
             <div class="pnl-rules">
-              <div><span>Capital</span><b>$10,000</b></div>
+              <div><span>Capital</span><b id="execution-capital">$100,000</b></div>
               <div><span>Direction</span><b>LONG only</b></div>
               <div><span>Entry</span><b>BUY signal ≥ threshold</b></div>
-              <div><span>Max. Risk / Position</span><b>2% of equity</b></div>
-              <div><span>Max. Risk / Token</span><b>4% of equity</b></div>
-              <div><span>Positions / Token</span><b>Multiple allowed</b></div>
-              <div><span>Position size</span><b>Risk-based · capped by cash</b></div>
-              <div><span>Stop Loss</span><b id="execution-stop-loss">2.0R</b></div>
-              <div><span>Take Profit</span><b id="execution-take-profit">1.0R</b></div><div><span>Profit Timeout</span><b>Close only while profitable</b></div><div><span>Portfolio Take All</span><b>At configured NET cycle P&amp;L target</b></div><div><span>Cost Model</span><b>JUPITER V2 · QUOTE-BASED · FEES FROM JUPITER</b></div>
+              <div><span>Max. Risk / Position</span><b id="execution-risk-position">—</b></div>
+              <div><span>Max. Risk / Token</span><b id="execution-risk-token">—</b></div>
+              <div><span>Positions / Token</span><b id="execution-positions-token">—</b></div>
+              <div><span>Position size</span><b id="execution-position-size">—</b></div>
+              <div><span>Stop Loss</span><b id="execution-stop-loss">—</b></div>
+              <div><span>Take Profit</span><b id="execution-take-profit">—</b></div><div><span>Profit Timeout</span><b id="execution-profit-timeout">—</b></div><div><span>Portfolio Take All</span><b id="execution-portfolio-take-all">—</b></div><div><span>Cost Model</span><b id="execution-cost-model">—</b></div>
             </div>
           </section>
         </div>
