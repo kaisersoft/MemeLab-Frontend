@@ -1232,11 +1232,22 @@
     const points=[{label:"START",equity:startingCapital}];
     let equity=startingCapital;
     for(const trade of journal){
-      equity+=Number(trade.netPnl??trade.pnl??0);
+      const net=Number(trade.netPnl??trade.pnl);
+      if(!Number.isFinite(net)) break;
+      equity+=net;
       points.push({label:trade.id,equity});
     }
     if(positions.length){
-      points.push({label:"CURRENT",equity:currentEquity()});
+      const hasLivePrices=positions.every(p=>{
+        const direct=Number(liveTradingPrices.get(p.mint));
+        if(Number.isFinite(direct)&&direct>0)return true;
+        const live=Number(liveToken(p.mint)?.price_usd);
+        return Number.isFinite(live)&&live>0;
+      });
+      if(hasLivePrices){
+        const current=currentEquity();
+        if(Number.isFinite(current)) points.push({label:"CURRENT",equity:current});
+      }
     }
     const W=1000,H=300,L=68,R=24,T=20,B=42;
     const plotW=W-L-R,plotH=H-T-B;
@@ -1274,7 +1285,12 @@
     $("#pnl-cash").textContent=usd(availableCash());
     $("#pnl-invested").textContent=usd(investedCapital());
     $("#pnl-realized").textContent=usd(realized);
-    $("#pnl-open").textContent=usd(open);
+    const openEl=$("#pnl-open");
+    if(openEl){
+      openEl.textContent=usd(open);
+      openEl.classList.toggle("paper-positive",open>0);
+      openEl.classList.toggle("paper-negative",open<0);
+    }
     const costEl=$("#pnl-costs"); if(costEl) costEl.textContent=usd(costs);
     $("#pnl-trades").textContent=String(journal.length);
     $("#pnl-winrate").textContent=journal.length?((journal.filter(x=>Number(x.netPnl??x.pnl)>0).length/journal.length)*100).toFixed(1)+"%":"—";
