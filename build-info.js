@@ -1,6 +1,6 @@
 window.MEMELAB_BUILD = {
   version: "V0.01",
-  build: "298",
-  commit: "cf34356a99ed",
-  builtAt: "2026-10-02T17:00:55.867Z"
+  build: "299",
+  commit: "3743dddf",
+  builtAt: "2026-10-02T17:06:19Z"
 };
